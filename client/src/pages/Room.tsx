@@ -76,6 +76,18 @@ export default function RoomPage() {
       setLoadingMsg("");
       addTranscript("system", "Connected! Waiting for AI teacher...");
       voice.setMicEnabled(true);
+
+      // Ensure a teacher agent is running (handles server restart / page reload)
+      fetch("/api/teacher/ensure", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roomId,
+          userName: sessionData?.userName ?? "Student",
+          voicePreference: sessionData?.voicePreference,
+          languageCode: sessionData?.languageCode,
+        }),
+      }).catch((err) => console.error("[RoomPage] Ensure teacher error", err));
     }
   }, [hasLiveKit, room.connectionState]);
 

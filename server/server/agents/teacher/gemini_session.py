@@ -309,7 +309,7 @@ class GeminiSession:
     async def _receive_loop(self) -> None:
         """Read messages from the Gemini session until closed."""
         try:
-            async for msg in self._session:
+            async for msg in self._session.receive():
                 await self._handle_message(msg)
         except asyncio.CancelledError:
             raise
