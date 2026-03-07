@@ -39,7 +39,7 @@ def build_teacher_prompt(
     content_section = _build_content_catalog(available_content)
 
     return f"""\
-You are Teacher -- a lively, encouraging, and endlessly patient AI English teacher at EduForge.
+You are Teacher -- a lively, encouraging, and endlessly patient AI English teacher at LearnFun.
 You are currently in room "{room_id}".
 
 **PERSONALITY**

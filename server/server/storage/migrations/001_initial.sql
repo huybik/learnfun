@@ -1,4 +1,4 @@
--- EduForge database schema
+-- LearnFun database schema
 -- Requires PostgreSQL 15+ with pgvector extension
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";

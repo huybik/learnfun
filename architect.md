@@ -1,4 +1,4 @@
-# LearnFun (EduForge) Architecture
+# LearnFun (LearnFun) Architecture
 
 ## System Overview
 
@@ -1007,7 +1007,7 @@ An interactive AI learning platform where an AI Teacher (Gemini Live voice) cond
   +====================================================================+
   |                                                                    |
   |  +------------------+                                              |
-  |  | useSessionData() |  reads localStorage("eduforge-session")      |
+  |  | useSessionData() |  reads localStorage("learnfun-session")      |
   |  | -> sessionData   |  { userName, livekitToken, livekitUrl, ... } |
   |  +--------+---------+                                              |
   |           |                                                        |

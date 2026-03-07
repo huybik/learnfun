@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: eduforge
+      POSTGRES_DB: learnfun
     volumes:
       - pgdata:/var/lib/postgresql/data
 
@@ -33,7 +33,7 @@ services:
       - ./data:/data
     env_file: .env
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/eduforge
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/learnfun
       REDIS_URL: redis://redis:6379
       LIVEKIT_URL: ws://livekit:7880
       DATA_DIR: /data

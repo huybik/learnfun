@@ -35,7 +35,7 @@ export default function HomePage() {
       const session = await res.json();
       // Store session data for room page to pick up
       localStorage.setItem(
-        "eduforge-session",
+        "learnfun-session",
         JSON.stringify({
           userName: name.trim(),
           voicePreference: voice,
@@ -58,7 +58,7 @@ export default function HomePage() {
     <div className="flex min-h-screen items-center justify-center">
       <div className="w-full max-w-sm space-y-6 rounded-lg border border-white/10 bg-neutral-900 p-8">
         <div className="space-y-2 text-center">
-          <h1 className="text-2xl font-bold tracking-tight">EduForge</h1>
+          <h1 className="text-2xl font-bold tracking-tight">LearnFun</h1>
           <p className="text-sm text-neutral-400">
             Real-time AI collaborative learning
           </p>

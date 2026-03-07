@@ -13,7 +13,7 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING
 
-from pycrdt_websocket import ASGIServer, WebsocketServer
+from pycrdt.websocket import ASGIServer, WebsocketServer
 
 from server.logging import get_logger
 

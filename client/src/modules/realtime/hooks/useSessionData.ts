@@ -12,7 +12,7 @@ export interface SessionData {
 
 function getSessionData(): SessionData | null {
   try {
-    const raw = localStorage.getItem("eduforge-session");
+    const raw = localStorage.getItem("learnfun-session");
     if (!raw) return null;
     return JSON.parse(raw) as SessionData;
   } catch {

@@ -7,7 +7,7 @@ export const LESSONS_DIR = "data/lessons";
 export const BUNDLES_DIR = "data/bundles";
 
 // LiveKit room sync channel
-export const ROOM_SYNC_CHANNEL = "eduforge-sync";
+export const ROOM_SYNC_CHANNEL = "learnfun-sync";
 
 // Default voices (carried over from existing app)
 export const DEFAULT_VOICES = [

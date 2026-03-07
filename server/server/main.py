@@ -49,7 +49,7 @@ async def lifespan(app: FastAPI):
     app.state.ta_agent = ta_agent
     app.state.tool_registry = tool_registry
 
-    log.info("EduForge server started")
+    log.info("LearnFun server started")
     yield
 
     # --- shutdown ---
@@ -57,10 +57,10 @@ async def lifespan(app: FastAPI):
     await stop_yjs(yjs_task)
     await redis_bridge.close()
     await close_db()
-    log.info("EduForge server stopped")
+    log.info("LearnFun server stopped")
 
 
-app = FastAPI(title="EduForge", lifespan=lifespan)
+app = FastAPI(title="LearnFun", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
