@@ -5,7 +5,7 @@ requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.34.0",
-    "google-genai>=1.43.0",
+    "google-genai>=1.66.0",
     "livekit-agents>=1.0.0",
     "livekit-api>=1.0.0",
     "asyncpg>=0.30.0",
