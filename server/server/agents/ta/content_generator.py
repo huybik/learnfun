@@ -79,7 +79,7 @@ class ContentGenerator:
 
             try:
                 log_ta_run(
-                    session_id=params.intent,
+                    session_id=params.room_id or params.intent,
                     prompt=prompt,
                     response={
                         "text": text,
@@ -112,6 +112,7 @@ class ContentGenerator:
         self,
         intent: str,
         templates: list[TemplateManifest],
+        room_id: str = "",
     ) -> Optional[str]:
         """Pick the best template for a plain-text intent. Heuristic first, AI fallback."""
         if not templates:
@@ -162,7 +163,7 @@ class ContentGenerator:
 
             try:
                 log_ta_run(
-                    session_id=f"resolve-{intent[:20]}",
+                    session_id=room_id or f"resolve-{intent[:20]}",
                     prompt=prompt,
                     response={
                         "text": response.text,

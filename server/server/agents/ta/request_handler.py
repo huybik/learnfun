@@ -161,7 +161,7 @@ async def handle_ta_request(
         if req.template_id:
             template = _lookup_template(req.template_id)
         else:
-            template = await _query_template(generator, intent)
+            template = await _query_template(generator, intent, room_id=room_id)
         if template is None:
             return TAResponse(
                 request_id=request_id,
@@ -199,6 +199,7 @@ async def handle_ta_request(
             GenerateParams(
                 template=template,
                 intent=intent,
+                room_id=room_id,
                 context=context,
                 personalization_prompt=personalization.prompt_additions,
                 difficulty_hint=difficulty_hint,
@@ -281,6 +282,7 @@ def _lookup_template(template_id: str) -> TemplateManifest | None:
 async def _query_template(
     generator: ContentGenerator,
     intent: str,
+    room_id: str = "",
 ) -> TemplateManifest | None:
     """Resolve a template for the given intent."""
     all_templates = list_templates()
@@ -288,7 +290,7 @@ async def _query_template(
     if not all_templates:
         return None
 
-    chosen_id = await generator.resolve_template(intent, all_templates)
+    chosen_id = await generator.resolve_template(intent, all_templates, room_id=room_id)
     if chosen_id:
         match = next((t for t in all_templates if t.id == chosen_id), None)
         if match:

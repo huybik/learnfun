@@ -40,6 +40,7 @@ class TAResponse(BaseModel):
 class GenerateParams(BaseModel):
     template: TemplateManifest
     intent: str
+    room_id: str = ""
     context: dict[str, Any] = {}
     personalization_prompt: Optional[str] = None
     difficulty_hint: Optional[str] = None
