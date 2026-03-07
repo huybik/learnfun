@@ -309,19 +309,32 @@ class GeminiSession:
     async def _receive_loop(self) -> None:
         """Read messages from the Gemini session until closed."""
         try:
-            async for msg in self._session.receive():
-                await self._handle_message(msg)
+            while self._session is not None:
+                saw_message = False
+
+                # google-genai receive() yields one complete model turn,
+                # then returns. Keep calling it to stay live across turns.
+                async for msg in self._session.receive():
+                    saw_message = True
+                    await self._handle_message(msg)
+
+                if self._session is None or not self._connected:
+                    break
+
+                if not saw_message:
+                    log.info("Receive stream ended")
+                    break
         except asyncio.CancelledError:
             raise
         except Exception as exc:
             log.error("Receive loop error", error=str(exc))
             if self.on_error:
                 self.on_error(exc)
-        finally:
+
+        if self._connected:
             self._connected = False
-            if not self._reconnecting:
-                if self.on_closed:
-                    self.on_closed()
+            if not self._reconnecting and self.on_closed:
+                self.on_closed()
 
     async def _handle_message(self, msg: Any) -> None:
         """Process a single server message."""

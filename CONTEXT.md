@@ -72,7 +72,7 @@ Interactive learning platform: AI teacher + teaching assistant guide students th
 
 - **Event envelope**: All Redis events use `publish_event()` from `events/helpers.py` (type, timestamp, sourceId, payload)
 - **Logging**: Server uses `get_logger()` from `server/logging.py` (not `logging.getLogger()`)
-- **Gemini Live receive**: Use `async for msg in session.receive()` (not `async for msg in session`) — changed in google-genai ≥1.66.0
+- **Gemini Live receive**: Use `async for msg in session.receive()` (not `async for msg in session`) and call `receive()` repeatedly in a loop because each call yields one complete turn in google-genai ≥1.66.0
 - **TA singleton**: Single instance on `app.state.ta_agent` (set in main.py lifespan)
 - **Tool names**: `ToolName` Literal is the single source of truth; `TOOL_NAMES` derived via `get_args()`
 - **Rate limiting**: `RateLimitResult(allowed, retry_after_ms)` — simple dataclass

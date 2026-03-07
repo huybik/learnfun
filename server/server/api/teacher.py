@@ -27,7 +27,11 @@ async def post_teacher_message(body: TeacherMessageBody):
         log.warning("No teacher active for room", room_id=body.roomId)
         raise HTTPException(status_code=404, detail="No teacher active for this room")
 
-    await agent.send_text(body.text)
+    sent = await agent.send_text(body.text)
+    if not sent:
+        log.warning("Teacher unavailable for message", room_id=body.roomId)
+        raise HTTPException(status_code=503, detail="Teacher is temporarily unavailable")
+
     log.debug("Teacher message forwarded", room_id=body.roomId)
     return {"ok": True}
 

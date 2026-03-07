@@ -206,10 +206,21 @@ class TeacherAgent:
 
         log.info("Teacher agent stopped")
 
-    async def send_text(self, text: str) -> None:
-        """Send a text message to the Gemini session (e.g. event notifications)."""
-        if self._gemini and self._gemini.connected:
-            await self._gemini.send_text(text)
+    async def send_text(self, text: str) -> bool:
+        """Send a text message to Gemini.
+
+        Returns True when forwarded, False when the session is unavailable.
+        """
+        if not self._running:
+            log.warning("Teacher not running; text not sent", room_id=self._room_id)
+            return False
+
+        if not self._gemini or not self._gemini.connected:
+            log.warning("Gemini unavailable; text not sent", room_id=self._room_id)
+            return False
+
+        await self._gemini.send_text(text)
+        return True
 
     # ------------------------------------------------------------------
     # LiveKit room

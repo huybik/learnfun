@@ -71,7 +71,7 @@ async def start_yjs() -> asyncio.Task:
 
 async def stop_yjs(task: asyncio.Task) -> None:
     """Stop the Yjs WebSocket server and cancel its task."""
-    yjs_server.stop()
+    await yjs_server.stop()
     task.cancel()
     try:
         await task
