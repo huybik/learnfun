@@ -132,22 +132,15 @@ export default function RoomPage() {
     setGameKind(undefined);
   }, []);
 
-  // --- Text chat: POST to /api/ta or just add to transcript ---
+  // --- Text chat: send to AI teacher ---
   const handleSendText = useCallback(
     (text: string) => {
       addTranscript("user", text);
-      // Send text to server — the Teacher agent will hear it
-      fetch("/api/ta", {
+      fetch("/api/teacher/message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          requestId: `chat-${Date.now()}`,
-          intent: text,
-          context: {},
-          roomId,
-          userProfiles: [],
-        }),
-      }).catch((err) => console.error("[RoomPage] TA API error", err));
+        body: JSON.stringify({ roomId, text }),
+      }).catch((err) => console.error("[RoomPage] Teacher message error", err));
     },
     [roomId, addTranscript],
   );

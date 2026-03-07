@@ -6,6 +6,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
+from server.agents.teacher.manager import stop_teacher
 from server.config import settings
 from server.events.helpers import publish_event
 from server.events.subjects import SUBJECTS, room_subject
@@ -120,6 +121,7 @@ async def create_session(
     return {
         "sessionId": session_id,
         "roomId": room_id,
+        "userId": user_id,
         "token": token,
         "livekitToken": livekit_token,
         "livekitUrl": settings.LIVEKIT_URL,
@@ -176,6 +178,8 @@ async def end_session(session_id: str) -> None:
 
     log.info("Ending session", session_id=session_id, room_id=session.room_id)
     session.ended_at = datetime.now(timezone.utc).timestamp()
+
+    await stop_teacher(session.room_id)
 
     try:
         await publish_event(

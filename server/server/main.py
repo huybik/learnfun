@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from server.agents.ta.agent import TAAgent
+from server.agents.teacher.manager import stop_all as stop_all_teachers
 from server.events.redis_bridge import redis_bridge
 from server.logging import get_logger
 from server.storage.db import init_db, close_db
@@ -53,6 +54,7 @@ async def lifespan(app: FastAPI):
     yield
 
     # --- shutdown ---
+    await stop_all_teachers()
     await ta_agent.stop()
     await stop_yjs(yjs_task)
     await redis_bridge.close()

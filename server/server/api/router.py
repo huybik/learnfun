@@ -9,6 +9,7 @@ from server.api.join import router as join_router
 from server.api.logs import router as logs_router
 from server.api.session import router as session_router
 from server.api.ta import router as ta_router
+from server.api.teacher import router as teacher_router
 from server.api.token import router as token_router
 
 api_router = APIRouter(prefix="/api")
@@ -20,3 +21,4 @@ api_router.include_router(bundles_router)
 api_router.include_router(logs_router)
 api_router.include_router(events_router)
 api_router.include_router(ta_router)
+api_router.include_router(teacher_router)
