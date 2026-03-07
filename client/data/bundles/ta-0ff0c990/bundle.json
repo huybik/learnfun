@@ -1,9 +1,0 @@
-{
-  "templateId": "wordmatch",
-  "sessionId": "ta-0ff0c990",
-  "filledSlots": {
-    "game_data": "{\"sub_type\":\"WordToWord\",\"pairs\":[[\"Cat\",\"Gato\"],[\"Dog\",\"Perro\"],[\"Sun\",\"Sol\"],[\"Apple\",\"Manzana\"],[\"Milk\",\"Leche\"],[\"Book\",\"Libro\"]]}"
-  },
-  "bundlePath": "",
-  "createdAt": "2026-03-07T12:08:23.513351+00:00"
-}

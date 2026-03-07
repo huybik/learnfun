@@ -1,9 +1,0 @@
-{
-  "templateId": "spaceshooter",
-  "sessionId": "ta-req-1772383987433",
-  "filledSlots": {
-    "game_data": "{\"lesson_title\":\"Unit 1: Solar System Explorers\",\"difficulty_curve\":\"progressive\",\"total_waves\":30,\"educational_mechanic\":\"solve_to_shoot\",\"power_ups\":[\"Shield Bubble\",\"Rapid Fire\",\"Star Magnet\"],\"boss_encounters\":[{\"wave\":10,\"name\":\"The Comet King\"},{\"wave\":20,\"name\":\"The Asteroid Guardian\"},{\"wave\":30,\"name\":\"The Solar Sentinel\"}],\"environments\":[\"Mercury Surface\",\"Venusian Clouds\",\"Earth Orbit\"],\"scoring\":{\"correct_answer\":50,\"enemy_destroyed\":10}}"
-  },
-  "bundlePath": "",
-  "createdAt": "2026-03-01T16:53:14.088Z"
-}
