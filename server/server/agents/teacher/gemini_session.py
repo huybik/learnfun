@@ -61,6 +61,7 @@ class GeminiSession:
             http_options=types.HttpOptions(api_version="v1alpha"),
         )
         self._session: Any = None  # genai AsyncSession
+        self._session_ctx: Any = None  # async context manager
         self._connected = False
         self._receive_task: Optional[asyncio.Task[None]] = None
         self._reconnecting = False
@@ -148,10 +149,11 @@ class GeminiSession:
         config = self._build_config()
 
         try:
-            self._session = await self._client.aio.live.connect(
+            self._session_ctx = self._client.aio.live.connect(
                 model=self._model,
                 config=config,
             )
+            self._session = await self._session_ctx.__aenter__()
             self._connected = True
             is_resuming = self._session_handle is not None
             log.info("Session established", resumed=is_resuming)
@@ -179,11 +181,12 @@ class GeminiSession:
                 pass
             self._receive_task = None
 
-        if self._session is not None:
+        if self._session_ctx is not None:
             try:
-                await self._session.close()
+                await self._session_ctx.__aexit__(None, None, None)
             except Exception:
                 pass
+            self._session_ctx = None
             self._session = None
 
         self._connected = False
@@ -205,11 +208,12 @@ class GeminiSession:
         log.info("Reconnecting with session handle")
 
         # Close current session without triggering on_closed
-        if self._session is not None:
+        if self._session_ctx is not None:
             try:
-                await self._session.close()
+                await self._session_ctx.__aexit__(None, None, None)
             except Exception:
                 pass
+            self._session_ctx = None
             self._session = None
         self._connected = False
 
