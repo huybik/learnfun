@@ -130,6 +130,8 @@ class TeacherAgent:
                 tools=tool_defs,
                 voice=voice_cfg["voice"],
                 language=voice_cfg["language"],
+                affective_dialog=settings.GEMINI_AFFECTIVE_DIALOG,
+                proactive_audio=settings.GEMINI_PROACTIVE_AUDIO,
             )
 
             self._wire_gemini_callbacks()
@@ -223,6 +225,13 @@ class TeacherAgent:
                 await self._gemini.send_audio(frame.data.tobytes())
         except Exception as exc:
             log.error("Audio forward error", participant=participant_id, error=str(exc))
+        finally:
+            # Signal end of audio stream so Gemini flushes any buffered audio
+            if self._gemini and self._gemini.connected:
+                try:
+                    await self._gemini.send_audio_stream_end()
+                except Exception:
+                    pass
 
     # ------------------------------------------------------------------
     # Gemini callbacks
@@ -287,6 +296,14 @@ class TeacherAgent:
                 )
                 response = await self._tool_registry.execute(name, args, caller)
 
+                # Send tool response back to Gemini so it can use the result
+                if self._gemini and self._gemini.connected:
+                    await self._gemini.send_tool_response(
+                        call_id=fc.id,
+                        name=name,
+                        response={"success": response.success, "data": response.data, "error": response.error},
+                    )
+
                 # Publish result to Redis for SSE delivery
                 channel = room_subject(SUBJECTS["UI_CONTROL"], self._room_id)
                 await redis_bridge.publish(channel, {
@@ -319,6 +336,20 @@ class TeacherAgent:
 
         try:
             response = await self._ta_agent.handle_request(request)
+
+            # Send result back to Gemini with WHEN_IDLE scheduling
+            # so it learns the outcome without interrupting current speech
+            if self._gemini and self._gemini.connected:
+                await self._gemini.send_tool_response(
+                    call_id=call_id,
+                    name="request_ta_action",
+                    response={
+                        "success": response.success,
+                        "request_id": response.request_id,
+                        "error": response.error,
+                    },
+                    scheduling="WHEN_IDLE",
+                )
 
             # Publish TA result to Redis for SSE delivery to browser
             channel = room_subject(SUBJECTS["CONTENT_PUSH"], self._room_id)
