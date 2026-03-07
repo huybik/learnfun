@@ -1,0 +1,9 @@
+{
+  "templateId": "spaceshooter",
+  "sessionId": "ta-req-1772383657900",
+  "filledSlots": {
+    "game_data": "{\"lesson_title\":\"Animal Kingdom Space Adventure\",\"total_waves\":30,\"planets\":[\"Savanna Star\",\"Oceanus Prime\",\"Glacier Alpha\",\"Amazonia Moon\"],\"vocabulary_groups\":{\"mammals\":[\"Lion\",\"Elephant\",\"Monkey\",\"Giraffe\"],\"marine_life\":[\"Whale\",\"Shark\",\"Dolphin\",\"Octopus\"],\"birds\":[\"Eagle\",\"Penguin\",\"Parrot\",\"Owl\"],\"reptiles\":[\"Snake\",\"Turtle\",\"Crocodile\",\"Lizard\"]},\"power_ups\":[\"Vocabulary Shield\",\"Speed Reader Boost\",\"Double Point Star\"],\"boss_fights\":[{\"wave\":10,\"name\":\"The Great Alpha Lion\",\"description\":\"Identify savanna animals to defeat.\"},{\"wave\":20,\"name\":\"The Deep Sea Kraken\",\"description\":\"Identify marine life to defeat.\"},{\"wave\":30,\"name\":\"The Ancient Mammoth\",\"description\":\"Ultimate animal vocabulary review.\"}],\"educational_objective\":\"Enhance animal recognition and spelling skills through an interactive space shooter format.\"}"
+  },
+  "bundlePath": "",
+  "createdAt": "2026-03-01T16:48:09.932Z"
+}

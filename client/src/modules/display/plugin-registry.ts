@@ -10,21 +10,21 @@ import { lazy, type ComponentType } from "react";
 
 // Lazy-load game components from data/
 const WordMatchGame = lazy(() =>
-  import("@data/games/wordmatch/src").then((m) => ({ default: m.WordMatchGame }))
+  import("../../../data/games/wordmatch/src").then((m) => ({ default: m.WordMatchGame }))
 );
 const FlashcardGame = lazy(() =>
-  import("@data/games/flashcard/src").then((m) => ({ default: m.FlashcardGame }))
+  import("../../../data/games/flashcard/src").then((m) => ({ default: m.FlashcardGame }))
 );
 const SentenceBuilderGame = lazy(() =>
-  import("@data/games/sentencebuilder/src").then((m) => ({ default: m.SentenceBuilderGame }))
+  import("../../../data/games/sentencebuilder/src").then((m) => ({ default: m.SentenceBuilderGame }))
 );
 const SpaceShooterGame = lazy(() =>
-  import("@data/games/spaceshooter/src").then((m) => ({ default: m.SpaceShooterGame }))
+  import("../../../data/games/spaceshooter/src").then((m) => ({ default: m.SpaceShooterGame }))
 );
 
 // Lazy-load lesson components from data/
 const SolarSystemLesson = lazy(() =>
-  import("@data/lessons/solar-system/src").then((m) => ({ default: m.SolarSystemLesson }))
+  import("../../../data/lessons/solar-system/src").then((m) => ({ default: m.SolarSystemLesson }))
 );
 
 /** All registered game components, keyed by gameKind. */
