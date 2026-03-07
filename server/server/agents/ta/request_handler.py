@@ -157,8 +157,11 @@ async def handle_ta_request(
     log.info("Handling TA request", request_id=request_id, intent=intent, room_id=room_id)
 
     try:
-        # 1. Query for a matching template
-        template = await _query_template(generator, intent)
+        # 1. Resolve template (skip AI resolution if template_id is provided)
+        if req.template_id:
+            template = _lookup_template(req.template_id)
+        else:
+            template = await _query_template(generator, intent)
         if template is None:
             return TAResponse(
                 request_id=request_id,
@@ -229,7 +232,7 @@ async def handle_ta_request(
                 event_type="ta.content_ready",
                 payload={
                     "contentId": request_id,
-                    "bundlePath": bundle.bundlePath,
+                    "bundle": bundle.model_dump(),
                     "metadata": {"intent": intent, "templateId": template.id},
                 },
                 source_id="ta-agent",
@@ -262,6 +265,17 @@ async def handle_ta_request(
             error=str(exc),
             elapsed=_elapsed_ms(start),
         )
+
+
+def _lookup_template(template_id: str) -> TemplateManifest | None:
+    """Look up a template by exact ID (no AI resolution)."""
+    all_templates = list_templates()
+    match = next((t for t in all_templates if t.id == template_id), None)
+    if match:
+        log.debug("lookup_template: direct match", template_id=template_id)
+    else:
+        log.warning("lookup_template: not found", template_id=template_id)
+    return match
 
 
 async def _query_template(

@@ -44,8 +44,11 @@ TOOL_NAMES: list[str] = list(get_args(ToolName))
 
 class RequestTaActionParams(BaseModel):
     intent: str = Field(min_length=1)
+    template_id: Optional[str] = Field(default=None, alias="templateId")
     context: dict[str, Any] = Field(default_factory=dict)
     urgency: Literal["low", "normal", "high"] = "normal"
+
+    model_config = {"populate_by_name": True}
 
 
 class QueryContentParams(BaseModel):

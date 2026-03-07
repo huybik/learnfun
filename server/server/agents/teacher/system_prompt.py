@@ -86,8 +86,8 @@ You are currently in room "{room_id}".
 {content_section}
 
 Use tools to control the experience. Do not hallucinate tools not listed above.
-When you want to start a game or lesson, use **request_ta_action** with the intent describing what you want (e.g. "start a vocabulary matching game about animals" or "load the solar system lesson").
-The Teaching Assistant will find the right template, fill it with appropriate content, and push it to the room."""
+When you want to start a game or lesson, use **request_ta_action** with both the **templateId** from the catalog below and an **intent** describing the topic (e.g. templateId="flashcard", intent="vocabulary flashcards about animals").
+The Teaching Assistant will fill the template with appropriate content and push it to the room."""
 
 
 def _build_content_catalog(content: Optional[list[TemplateManifest]]) -> str:
@@ -99,19 +99,17 @@ def _build_content_catalog(content: Optional[list[TemplateManifest]]) -> str:
     lessons = [c for c in content if c.type == "lesson"]
 
     lines: list[str] = ["**AVAILABLE CONTENT**"]
-    lines.append("You can request the TA to load any of these:")
+    lines.append("Use the templateId when calling request_ta_action:")
     lines.append("")
 
     if games:
         lines.append("Games:")
         for g in games:
-            kind = getattr(g, "gameKind", None) or g.id
-            lines.append(f"  - **{g.name}** ({kind}): {g.description}")
+            lines.append(f"  - templateId=\"{g.id}\" — **{g.name}**: {g.description}")
 
     if lessons:
         lines.append("Lessons:")
         for le in lessons:
-            kind = getattr(le, "lessonKind", None) or le.id
-            lines.append(f"  - **{le.name}** ({kind}): {le.description}")
+            lines.append(f"  - templateId=\"{le.id}\" — **{le.name}**: {le.description}")
 
     return "\n".join(lines)

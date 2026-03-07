@@ -14,6 +14,7 @@ from google import genai
 from google.genai import types
 
 from server.logging import get_logger
+from server.run_logger import log_teacher_run
 
 log = get_logger("gemini_session")
 
@@ -46,10 +47,12 @@ class GeminiSession:
         language: Optional[str] = None,
         affective_dialog: bool = True,
         proactive_audio: bool = True,
+        session_id: str = "",
     ) -> None:
         self._api_key = api_key
         self._model = model
         self._system_instruction = system_instruction
+        self._session_id = session_id
         self._tools = tools
         self._voice = voice
         self._language = language

@@ -12,6 +12,7 @@ from google.genai import types
 
 from server.content.models import TemplateManifest
 from server.logging import get_logger
+from server.run_logger import log_ta_run
 
 from .models import GenerateParams
 
@@ -74,7 +75,25 @@ class ContentGenerator:
             if not text:
                 raise ValueError("Gemini returned an empty response")
 
-            return json.loads(text)
+            parsed = json.loads(text)
+
+            try:
+                log_ta_run(
+                    session_id=params.intent,
+                    prompt=prompt,
+                    response={
+                        "text": text,
+                        "parsed": parsed,
+                        "usage_metadata": str(getattr(response, "usage_metadata", None)),
+                        "model": self._model,
+                        "template_id": template.id,
+                        "elapsed_ms": elapsed,
+                    },
+                )
+            except Exception:
+                log.warning("Failed to write run log", template_id=template.id)
+
+            return parsed
         except Exception as exc:
             elapsed = int((time.monotonic() - start) * 1000)
             log.error(
@@ -140,6 +159,21 @@ class ContentGenerator:
             )
 
             parsed = json.loads(response.text or "{}")
+
+            try:
+                log_ta_run(
+                    session_id=f"resolve-{intent[:20]}",
+                    prompt=prompt,
+                    response={
+                        "text": response.text,
+                        "parsed": parsed,
+                        "usage_metadata": str(getattr(response, "usage_metadata", None)),
+                        "model": self._model,
+                    },
+                )
+            except Exception:
+                log.warning("Failed to write resolve run log")
+
             chosen = parsed.get("id")
 
             if chosen:

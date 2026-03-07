@@ -15,6 +15,7 @@ from server.content.templates import list_templates
 from server.events.helpers import publish_event
 from server.events.subjects import SUBJECTS, room_subject
 from server.logging import get_logger
+from server.run_logger import log_teacher_run
 from server.tools.registry import ToolRegistry
 from server.tools.schemas import (
     TOOL_DEFINITIONS,
@@ -162,6 +163,16 @@ class TeacherAgent:
                 tools=tool_defs,
                 available_content=available_content,
             )
+
+            # Log system prompt
+            try:
+                log_teacher_run(
+                    session_id=self._room_id,
+                    prompt=system_instruction,
+                    response={"event": "session_start", "model": self._model, "tools": [t["name"] for t in tool_defs]},
+                )
+            except Exception:
+                log.warning("Failed to write teacher run log")
 
             # 2. Create Gemini session
             self._gemini = GeminiSession(
@@ -389,6 +400,7 @@ class TeacherAgent:
         request = TARequest(
             request_id=f"ta-{uuid.uuid4().hex[:8]}",
             intent=args.get("intent", ""),
+            template_id=args.get("template_id") or args.get("templateId"),
             context=context,
             room_id=self._room_id,
             user_profiles=[self._user_profile] if self._user_profile else [],
@@ -412,18 +424,18 @@ class TeacherAgent:
                 )
 
             # Publish TA result to Redis for SSE delivery to browser
-            channel = room_subject(SUBJECTS["CONTENT_PUSH"], self._room_id)
-            await publish_event(
-                channel=channel,
-                event_type="ta_response",
-                payload={
-                    "request_id": response.request_id,
-                    "success": response.success,
-                    "bundle": response.bundle.model_dump() if response.bundle else None,
-                    "error": response.error,
-                },
-                source_id="ai-teacher",
-            )
+            if response.success and response.bundle:
+                channel = room_subject(SUBJECTS["CONTENT_PUSH"], self._room_id)
+                await publish_event(
+                    channel=channel,
+                    event_type="ta.content_ready",
+                    payload={
+                        "contentId": response.request_id,
+                        "bundle": response.bundle.model_dump(),
+                        "metadata": {"intent": request.intent, "templateId": response.bundle.templateId},
+                    },
+                    source_id="ai-teacher",
+                )
 
             log.info(
                 "TA action completed",

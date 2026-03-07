@@ -14,7 +14,13 @@ export interface ContentReadyPayload {
   type: "ta.content_ready";
   payload: {
     contentId: string;
-    bundlePath: string;
+    bundle: {
+      templateId: string;
+      sessionId: string;
+      filledSlots: Record<string, string>;
+      bundlePath: string;
+      createdAt: string;
+    };
     metadata?: Record<string, unknown>;
   };
 }

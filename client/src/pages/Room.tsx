@@ -91,35 +91,33 @@ export default function RoomPage() {
     }
   }, [hasLiveKit, room.connectionState]);
 
-  // --- SSE event handlers ---
-  const handleContentReady = useCallback(
-    async (event: ContentReadyPayload) => {
-      const { contentId, bundlePath } = event.payload;
-      console.log("[RoomPage] SSE content_ready", { contentId, bundlePath });
-
-      try {
-        const res = await fetch(`/api/bundles/${contentId}`);
-        if (!res.ok) throw new Error(`Bundle fetch failed (${res.status})`);
-        const bundle = (await res.json()) as FilledBundle;
-
-        setActiveBundle(bundle);
-
-        const tplId = bundle.templateId.toLowerCase();
-        if (hasGameComponent(tplId)) {
-          setContentType("game");
-          setGameKind(tplId);
-          setIsGameActive(true);
-        } else {
-          setContentType("lesson");
-          setLessonKind(tplId);
-        }
-        setCurrentPage(0);
-        addTranscript("system", "Content loaded!");
-      } catch (err) {
-        console.error("[RoomPage] Failed to load bundle from SSE event", err);
+  // --- Content activation ---
+  const activateBundle = useCallback(
+    (bundle: FilledBundle) => {
+      setActiveBundle(bundle);
+      const tplId = bundle.templateId.toLowerCase();
+      if (hasGameComponent(tplId)) {
+        setContentType("game");
+        setGameKind(tplId);
+        setIsGameActive(true);
+      } else {
+        setContentType("lesson");
+        setLessonKind(tplId);
       }
+      setCurrentPage(0);
+      addTranscript("system", "Content loaded!");
     },
     [addTranscript],
+  );
+
+  // --- SSE event handlers ---
+  const handleContentReady = useCallback(
+    (event: ContentReadyPayload) => {
+      const { contentId, bundle } = event.payload;
+      console.log("[RoomPage] SSE content_ready", { contentId });
+      activateBundle(bundle as FilledBundle);
+    },
+    [activateBundle],
   );
 
   const handleTranscript = useCallback(

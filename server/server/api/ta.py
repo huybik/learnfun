@@ -14,6 +14,7 @@ router = APIRouter()
 class TARequestBody(BaseModel):
     requestId: str
     intent: str
+    templateId: str | None = None
     context: dict = {}
     roomId: str
     userProfiles: list[dict] = []
@@ -26,6 +27,7 @@ async def post_ta(body: TARequestBody, request: Request):
     ta_request = TARequest(
         request_id=body.requestId,
         intent=body.intent,
+        template_id=body.templateId,
         context=body.context,
         room_id=body.roomId,
         user_profiles=body.userProfiles,
