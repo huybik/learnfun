@@ -1,12 +1,12 @@
 """Progress queries — get_progress, add_points, update_streak, record_game_result, get_leaderboard."""
 
 import json
-import logging
 
+from server.logging import get_logger
 from server.storage.db import get_pool
 from server.storage.models import LearningProgress
 
-log = logging.getLogger("db.progress")
+log = get_logger("db.progress")
 
 
 def _row_to_progress(row) -> LearningProgress:

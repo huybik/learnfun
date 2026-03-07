@@ -5,8 +5,7 @@ import type { GameState, GameResults } from "../hooks/useGameState";
 import { BundleRenderer } from "./BundleRenderer";
 import { SharedCursors } from "./SharedCursors";
 import { Annotations } from "./Annotations";
-import { FocusHighlight } from "./FocusHighlight";
-import { EmoteOverlay } from "./EmoteOverlay";
+import { ScreenEffects } from "./ScreenEffects";
 
 interface BoardProps {
   /** The filled bundle to render. */
@@ -47,8 +46,7 @@ interface BoardProps {
  *   1. Content layer (BundleRenderer)
  *   2. Cursor layer (SharedCursors)
  *   3. Annotation layer (Annotations)
- *   4. Focus/highlight layer (FocusHighlight)
- *   5. Emote layer (EmoteOverlay)
+ *   4. Screen effects layer (ScreenEffects: focus highlight + emotes)
  */
 export const Board: React.FC<BoardProps> = ({
   bundle,
@@ -116,11 +114,8 @@ export const Board: React.FC<BoardProps> = ({
         nameMap={participantNames}
       />
 
-      {/* Layer 4: Focus Highlight */}
-      <FocusHighlight point={focusPoint} />
-
-      {/* Layer 5: Emotes */}
-      <EmoteOverlay trigger={emoteTrigger} confetti={confetti} />
+      {/* Layer 4: Screen Effects (focus highlight + emotes) */}
+      <ScreenEffects focusPoint={focusPoint} emoteTrigger={emoteTrigger} confetti={confetti} />
     </div>
   );
 };

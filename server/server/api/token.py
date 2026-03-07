@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from server.logging import get_logger
 
-from .auth import generate_livekit_token
+from .tokens import generate_livekit_token
 
 log = get_logger("api:token")
 router = APIRouter()

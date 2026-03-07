@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from enum import Enum
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, get_args
 
 from pydantic import BaseModel, Field
 
@@ -25,17 +24,6 @@ class CallerIdentity(BaseModel):
 # Tool names
 # ---------------------------------------------------------------------------
 
-TOOL_NAMES: list[str] = [
-    "request_ta_action",
-    "query_content",
-    "execute_filled_bundle",
-    "light_control",
-    "signal_feedback",
-    "update_profile",
-    "load_content",
-    "get_room_state",
-]
-
 ToolName = Literal[
     "request_ta_action",
     "query_content",
@@ -46,6 +34,8 @@ ToolName = Literal[
     "load_content",
     "get_room_state",
 ]
+
+TOOL_NAMES: list[str] = list(get_args(ToolName))
 
 
 # ---------------------------------------------------------------------------

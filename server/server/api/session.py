@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from server.logging import get_logger
 
-from .session_manager import create_session
+from .room_manager import create_session
 
 log = get_logger("api:session")
 router = APIRouter()

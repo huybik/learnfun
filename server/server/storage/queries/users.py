@@ -1,11 +1,11 @@
 """User queries — get_user, create_user, get_user_by_name, update_user."""
 
-import logging
-
+from server.logging import get_logger
 from server.storage.db import get_pool
 from server.storage.models import UserPreferences, UserProfile
+from server.storage.queries._helpers import build_update_sql
 
-log = logging.getLogger("db.users")
+log = get_logger("db.users")
 
 
 def _row_to_profile(row) -> UserProfile:
@@ -115,35 +115,19 @@ async def update_user(
             user_id,
         )
 
-    updates: list[str] = []
-    values: list = []
-    idx = 1
-
     prefs = preferences or {}
+    fields: dict[str, object] = {}
     if "voice" in prefs:
-        updates.append(f"voice_preference = ${idx}")
-        values.append(prefs["voice"])
-        idx += 1
+        fields["voice_preference"] = prefs["voice"]
     if "language" in prefs:
-        updates.append(f"language_code = ${idx}")
-        values.append(prefs["language"])
-        idx += 1
+        fields["language_code"] = prefs["language"]
     if "show_avatar" in prefs:
-        updates.append(f"show_avatar = ${idx}")
-        values.append(prefs["show_avatar"])
-        idx += 1
+        fields["show_avatar"] = prefs["show_avatar"]
     if observations is not None:
-        updates.append(f"observations = ${idx}")
-        values.append(observations)
-        idx += 1
+        fields["observations"] = observations
 
-    if updates:
-        updates.append("updated_at = NOW()")
-        values.append(user_id)
-        set_clause = ", ".join(updates)
-        await pool.execute(
-            f"UPDATE user_profiles SET {set_clause} WHERE user_id = ${idx}",
-            *values,
-        )
+    sql, values = build_update_sql("user_profiles", fields, "user_id", user_id)
+    if sql:
+        await pool.execute(sql, *values)
 
     log.debug("User updated id=%s", user_id)

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from server.content.models import GamePodTemplate, LessonTemplate, TemplateManifest
+from server.content.models import TemplateManifest
 
 
 def build_teacher_prompt(

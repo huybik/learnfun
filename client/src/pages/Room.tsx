@@ -7,54 +7,14 @@ import { LoadingOverlay } from "@/modules/display/components/ui/LoadingOverlay";
 import { ChatInput } from "@/modules/display/components/ui/ChatInput";
 import { useRoom } from "@/modules/realtime/hooks/useRoom";
 import { useServerEvents, type ContentReadyPayload } from "@/modules/realtime/hooks/useServerEvents";
-import { useTeacherAudio } from "@/modules/teacher/hooks/useTeacherAudio";
-import type { Participant as LkParticipant } from "livekit-client";
-import type { Participant } from "@/types/room";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSessionData } from "@/modules/realtime/hooks/useSessionData";
+import { useRoomTranscript } from "@/modules/realtime/hooks/useRoomTranscript";
+import { useRoomParticipants } from "@/modules/realtime/hooks/useRoomParticipants";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FilledBundle } from "@/types/content";
-import type { GameState, GameResults } from "@/modules/display/hooks/useGameState";
+import type { GameResults } from "@/modules/display/hooks/useGameState";
 import { hasGameComponent } from "@/modules/display/plugin-registry";
-import type { VoiceName, LanguageCode } from "@/config/constants";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-interface SessionData {
-  userName: string;
-  voicePreference: VoiceName;
-  languageCode: LanguageCode;
-  sessionId: string;
-  livekitToken?: string;
-  livekitUrl?: string;
-}
-
-function getSessionData(): SessionData | null {
-  try {
-    const raw = localStorage.getItem("eduforge-session");
-    if (!raw) return null;
-    return JSON.parse(raw) as SessionData;
-  } catch {
-    return null;
-  }
-}
-
-interface TranscriptEntry {
-  source: "user" | "ai" | "system";
-  text: string;
-  timestamp: number;
-}
-
-/** Map LiveKit participants to our app Participant type. */
-function toLkParticipants(lkParticipants: LkParticipant[], hostIdentity?: string): Participant[] {
-  return lkParticipants.map((p) => ({
-    id: p.identity,
-    name: p.name || p.identity,
-    role: p.identity === hostIdentity ? "host" as const : "student" as const,
-    joinedAt: new Date().toISOString(),
-    livekitIdentity: p.identity,
-  }));
-}
 
 // ---------------------------------------------------------------------------
 // Room Page (simplified — no direct Gemini, no useTeacher/useTeacherTools)
@@ -68,7 +28,6 @@ export default function RoomPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMsg, setLoadingMsg] = useState("Connecting...");
   const [error, setError] = useState<string | null>(null);
-  const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isCameraOn, setIsCameraOn] = useState(false);
 
@@ -80,23 +39,12 @@ export default function RoomPage() {
   const [currentPage, setCurrentPage] = useState(0);
   const [isGameActive, setIsGameActive] = useState(false);
 
-  const [sessionData, setSessionData] = useState<SessionData | null>(null);
-  const transcriptEndRef = useRef<HTMLDivElement>(null);
-  const aiTurnSealedRef = useRef(true);
-  const userTurnSealedRef = useRef(true);
+  // Simple mic-mute toggle (UI only — actual mic control via useVoice)
+  const [isMuted, setIsMuted] = useState(false);
 
-  // Simple audio state (mic mute toggle for UI)
-  const audio = useTeacherAudio();
-
-  // Read session data from localStorage on mount
-  useEffect(() => {
-    const data = getSessionData();
-    setSessionData(data);
-    console.log("[RoomPage] Session data from localStorage:", data);
-    if (!data) {
-      console.warn("[RoomPage] No session data found in localStorage");
-    }
-  }, []);
+  // --- Custom hooks ---
+  const sessionData = useSessionData();
+  const { transcript, addTranscript, transcriptEndRef } = useRoomTranscript();
 
   // --- LiveKit room connection ---
   const livekitUrl = sessionData?.livekitUrl || "";
@@ -111,6 +59,12 @@ export default function RoomPage() {
     autoConnect: hasLiveKit,
   });
 
+  const { participants: roomParticipants, localUserId } = useRoomParticipants(
+    room.participants,
+    room.localParticipant,
+    sessionData?.userName ?? "You",
+  );
+
   // Mark loading done once LiveKit connects (or immediately if no LiveKit)
   useEffect(() => {
     if (!hasLiveKit) {
@@ -122,43 +76,6 @@ export default function RoomPage() {
       addTranscript("system", "Connected! Waiting for AI teacher...");
     }
   }, [hasLiveKit, room.connectionState]);
-
-  // --- Transcript helpers ---
-  const addTranscript = useCallback(
-    (source: TranscriptEntry["source"], text: string) => {
-      if (!text.trim()) return;
-
-      // Seal the other source when this source starts speaking
-      if (source === "ai") userTurnSealedRef.current = true;
-      if (source === "user") aiTurnSealedRef.current = true;
-
-      const sealedRef =
-        source === "ai" ? aiTurnSealedRef : source === "user" ? userTurnSealedRef : null;
-      const isSealed = sealedRef?.current ?? true;
-      if (sealedRef && isSealed) sealedRef.current = false;
-
-      setTranscript((prev) => {
-        const last = prev[prev.length - 1];
-        // Merge with the last entry if same source and turn not sealed
-        if (last && last.source === source && source !== "system" && !isSealed) {
-          const updated = [...prev];
-          updated[updated.length - 1] = {
-            ...last,
-            text: last.text + " " + text.trim(),
-            timestamp: Date.now(),
-          };
-          return updated;
-        }
-        return [...prev, { source, text: text.trim(), timestamp: Date.now() }];
-      });
-    },
-    []
-  );
-
-  // Auto-scroll transcript
-  useEffect(() => {
-    transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [transcript]);
 
   // --- SSE event handlers ---
   const handleContentReady = useCallback(
@@ -204,12 +121,7 @@ export default function RoomPage() {
   });
 
   // --- Game & navigation handlers ---
-  const handleGameStateUpdate = useCallback((state: GameState) => {
-    console.log("[RoomPage] Game state update", state);
-  }, []);
-
-  const handleGameEnd = useCallback((results?: GameResults) => {
-    console.log("[RoomPage] Game ended", results);
+  const handleGameEnd = useCallback((_results?: GameResults) => {
     setIsGameActive(false);
   }, []);
 
@@ -259,18 +171,6 @@ export default function RoomPage() {
     );
   }
 
-  // Build participant list: prefer LiveKit data, fall back to local-only
-  const roomParticipants: Participant[] = room.participants.length > 0
-    ? toLkParticipants(room.participants, room.localParticipant?.identity)
-    : [{
-      id: "local-user",
-      name: sessionData?.userName ?? "You",
-      role: "host",
-      joinedAt: new Date().toISOString(),
-      livekitIdentity: "local-user",
-    }];
-  const localUserId = room.localParticipant?.identity ?? "local-user";
-
   return (
     <RoomLayout
       board={
@@ -289,8 +189,7 @@ export default function RoomPage() {
               contentType={contentType}
               gameKind={gameKind}
               currentPage={currentPage}
-              localUserId="local-user"
-              onGameStateUpdate={handleGameStateUpdate}
+              localUserId={localUserId}
               onGameEnd={handleGameEnd}
             />
           </div>
@@ -351,14 +250,14 @@ export default function RoomPage() {
           <div className="space-y-1 border-t border-white/10 pt-3 text-xs text-neutral-500">
             <p>LiveKit: {room.connectionState}</p>
             <p>SSE: {sse.connected ? "connected" : "disconnected"}</p>
-            <p>Mic: {audio.isMuted ? "muted" : "active"}</p>
+            <p>Mic: {isMuted ? "muted" : "active"}</p>
           </div>
         </div>
       }
       controls={
         <ControlBar
-          isMuted={audio.isMuted}
-          onMuteToggle={audio.toggleMute}
+          isMuted={isMuted}
+          onMuteToggle={() => setIsMuted((m) => !m)}
           isCameraOn={isCameraOn}
           onCameraToggle={() => setIsCameraOn(!isCameraOn)}
           isGameActive={isGameActive}

@@ -43,14 +43,16 @@ class RedisBridge:
 
     async def publish(self, channel: str, data: Any) -> None:
         """Publish JSON-encoded *data* to *channel*."""
-        assert self._redis is not None, "RedisBridge not connected"
+        if self._redis is None:
+            raise RuntimeError("RedisBridge not connected — call connect() first")
         payload = json.dumps(data, default=str)
         await self._redis.publish(channel, payload)
         log.debug("published", channel=channel)
 
     async def subscribe(self, channel: str) -> AsyncIterator[Any]:
         """Yield parsed messages from *channel* until cancelled."""
-        assert self._redis is not None, "RedisBridge not connected"
+        if self._redis is None:
+            raise RuntimeError("RedisBridge not connected — call connect() first")
         pubsub = self._redis.pubsub()
         await pubsub.subscribe(channel)
         log.info("subscribed", channel=channel)

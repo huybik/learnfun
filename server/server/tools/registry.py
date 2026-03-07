@@ -120,11 +120,10 @@ class ToolRegistry:
         # 3. Rate limit
         rate_check = self._rate_limiter.check(caller.id, name)
         if not rate_check.allowed:
-            retry_ms = getattr(rate_check, "retry_after_ms", 0)
             return ToolResponse(
                 call_id=call_id,
                 success=False,
-                error=f"Rate limit exceeded for '{name}'. Retry after {retry_ms}ms.",
+                error=f"Rate limit exceeded for '{name}'. Retry after {rate_check.retry_after_ms}ms.",
             )
 
         # 4. Validate input

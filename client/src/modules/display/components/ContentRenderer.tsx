@@ -1,61 +1,70 @@
 import React, { Suspense, useMemo } from "react";
+import type { ComponentType } from "react";
 import type { FilledBundle } from "@/types/content";
 import { GameContext, type GameContextValue, type GameResults, type GameState } from "../hooks/useGameState";
-import { GAME_COMPONENTS } from "../plugin-registry";
 
-interface GamePodRendererProps {
+interface ContentRendererProps {
   bundle: FilledBundle;
-  /** The game kind from the template, e.g. "wordmatch". */
-  gameKind: string;
-  /** Called when game state updates (to sync with AI / Yjs). */
+  /** The content kind key, e.g. "wordmatch" or "solar-system". */
+  contentKind: string;
+  /** Component registry to look up the kind in. */
+  registry: Record<string, ComponentType>;
+  /** The slot key to extract initial data from (e.g. "game_data" or "lesson_data"). */
+  dataSlotKey: string;
+  /** Label for error/loading text, e.g. "Game" or "Lesson". */
+  label: string;
+  /** Called when state updates (to sync with AI / Yjs). */
   onGameStateUpdate: (state: GameState) => void;
-  /** Called when the game ends. */
+  /** Called when the content ends. */
   onGameEnd: (results?: GameResults) => void;
 }
 
 /**
- * Renders a game pod bundle.
- * Selects the appropriate game component from the plugin registry,
+ * Unified renderer for game pods and interactive lessons.
+ * Selects the appropriate component from the given registry,
  * wraps it in GameContext, and handles lifecycle.
  */
-export const GamePodRenderer: React.FC<GamePodRendererProps> = ({
+export const ContentRenderer: React.FC<ContentRendererProps> = ({
   bundle,
-  gameKind,
+  contentKind,
+  registry,
+  dataSlotKey,
+  label,
   onGameStateUpdate,
   onGameEnd,
 }) => {
-  const GameComponent = GAME_COMPONENTS[gameKind];
+  const Component = registry[contentKind];
 
-  // Parse initial game data from the filled bundle slots
+  // Parse initial data from the filled bundle slots
   const initialData = useMemo(() => {
-    const raw = bundle.filledSlots["game_data"];
+    const raw = bundle.filledSlots[dataSlotKey];
     if (!raw) return bundle.filledSlots;
     try {
       return typeof raw === "string" ? JSON.parse(raw) : raw;
     } catch {
       return bundle.filledSlots;
     }
-  }, [bundle.filledSlots]);
+  }, [bundle.filledSlots, dataSlotKey]);
 
   const contextValue: GameContextValue = useMemo(
     () => ({
-      gameType: gameKind,
+      gameType: contentKind,
       initialData,
       updateGameStateForAI: onGameStateUpdate,
       endGame: onGameEnd,
     }),
-    [gameKind, initialData, onGameStateUpdate, onGameEnd],
+    [contentKind, initialData, onGameStateUpdate, onGameEnd],
   );
 
-  if (!GameComponent) {
+  if (!Component) {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center gap-4 text-white">
-        <p className="text-xl font-semibold">Unknown Game Type</p>
+        <p className="text-xl font-semibold">Unknown {label} Type</p>
         <p className="text-neutral-400">
-          Game kind &quot;{gameKind}&quot; is not registered.
+          {label} kind &quot;{contentKind}&quot; is not registered.
         </p>
         <button
-          onClick={() => onGameEnd({ outcome: "quit", reason: "unknown_game" })}
+          onClick={() => onGameEnd({ outcome: "quit", reason: `unknown_${label.toLowerCase()}` })}
           className="rounded bg-red-600 px-4 py-2 text-sm font-medium hover:bg-red-700"
         >
           Exit
@@ -69,11 +78,11 @@ export const GamePodRenderer: React.FC<GamePodRendererProps> = ({
       <Suspense
         fallback={
           <div className="flex h-full w-full items-center justify-center text-neutral-400">
-            Loading game...
+            Loading {label.toLowerCase()}...
           </div>
         }
       >
-        <GameComponent />
+        <Component />
       </Suspense>
     </GameContext.Provider>
   );

@@ -2,8 +2,8 @@ import React from "react";
 import type { FilledBundle } from "@/types/content";
 import type { GameState, GameResults } from "../hooks/useGameState";
 import { LessonRenderer } from "./LessonRenderer";
-import { GamePodRenderer } from "./GamePodRenderer";
-import { InteractiveLessonRenderer } from "./InteractiveLessonRenderer";
+import { ContentRenderer } from "./ContentRenderer";
+import { GAME_COMPONENTS, LESSON_COMPONENTS } from "../plugin-registry";
 
 const noop = () => {};
 
@@ -24,7 +24,7 @@ interface BundleRendererProps {
 
 /**
  * Dynamic renderer: inspects content type and delegates to
- * LessonRenderer, InteractiveLessonRenderer, or GamePodRenderer.
+ * LessonRenderer or ContentRenderer.
  */
 export const BundleRenderer: React.FC<BundleRendererProps> = ({
   bundle,
@@ -46,9 +46,12 @@ export const BundleRenderer: React.FC<BundleRendererProps> = ({
   // Interactive lessons (e.g. solar-system) — rendered like games with GameContext
   if (contentType === "lesson" && lessonKind) {
     return (
-      <InteractiveLessonRenderer
+      <ContentRenderer
         bundle={bundle}
-        lessonKind={lessonKind}
+        contentKind={lessonKind}
+        registry={LESSON_COMPONENTS}
+        dataSlotKey="lesson_data"
+        label="Lesson"
         onGameStateUpdate={onGameStateUpdate ?? noop}
         onGameEnd={onGameEnd ?? noop}
       />
@@ -61,9 +64,12 @@ export const BundleRenderer: React.FC<BundleRendererProps> = ({
 
   if (contentType === "game" && gameKind) {
     return (
-      <GamePodRenderer
+      <ContentRenderer
         bundle={bundle}
-        gameKind={gameKind}
+        contentKind={gameKind}
+        registry={GAME_COMPONENTS}
+        dataSlotKey="game_data"
+        label="Game"
         onGameStateUpdate={onGameStateUpdate ?? noop}
         onGameEnd={onGameEnd ?? noop}
       />

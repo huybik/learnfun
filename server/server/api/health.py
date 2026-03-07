@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from server.events.redis_bridge import redis_bridge
 from server.logging import get_logger
 
-from .session_manager import get_active_session_count
+from .room_manager import get_active_session_count
 
 log = get_logger("api:health")
 router = APIRouter()

@@ -9,12 +9,10 @@
 export { Board } from "./components/Board";
 export { BundleRenderer } from "./components/BundleRenderer";
 export { LessonRenderer } from "./components/LessonRenderer";
-export { GamePodRenderer } from "./components/GamePodRenderer";
-export { InteractiveLessonRenderer } from "./components/InteractiveLessonRenderer";
+export { ContentRenderer } from "./components/ContentRenderer";
 export { SharedCursors } from "./components/SharedCursors";
 export { Annotations } from "./components/Annotations";
-export { FocusHighlight } from "./components/FocusHighlight";
-export { EmoteOverlay } from "./components/EmoteOverlay";
+export { ScreenEffects } from "./components/ScreenEffects";
 
 // ---- UI Components ----
 export { ControlBar } from "./components/ui/ControlBar";
@@ -37,10 +35,9 @@ export {
   useGameContext,
   GameContext,
   type GameContextValue,
-  type GamePhase,
   type GameResults,
   type GameState,
-  type GameStateManager,
+  type GameStateReturn,
 } from "./hooks/useGameState";
 
 // ---- Layout ----

@@ -7,12 +7,12 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from server.config import settings
-from server.events.redis_bridge import redis_bridge
+from server.events.helpers import publish_event
 from server.events.subjects import SUBJECTS, room_subject
 from server.logging import get_logger
-from server.storage.models import Participant, Room
+from server.events.models import Participant, Room
 
-from .auth import generate_livekit_token, generate_session_token
+from .tokens import generate_livekit_token, generate_session_token
 
 log = get_logger("session-manager")
 
@@ -106,12 +106,12 @@ async def create_session(
             ],
             created_at=datetime.now(timezone.utc).isoformat(),
         )
-        await redis_bridge.publish(SUBJECTS["ROOM_CREATED"], {
-            "type": "room.created",
-            "timestamp": datetime.now(timezone.utc).timestamp(),
-            "sourceId": "session-manager",
-            "payload": {"room": room.model_dump()},
-        })
+        await publish_event(
+            channel=SUBJECTS["ROOM_CREATED"],
+            event_type="room.created",
+            payload={"room": room.model_dump()},
+            source_id="session-manager",
+        )
     except Exception as exc:
         log.warning("Failed to publish room.created event", error=str(exc))
 
@@ -150,12 +150,12 @@ async def join_session(session_id: str, user_name: str) -> dict:
     # Publish join event (non-critical)
     try:
         channel = room_subject(SUBJECTS["ROOM_JOINED"], session.room_id)
-        await redis_bridge.publish(channel, {
-            "type": "room.user_joined",
-            "timestamp": datetime.now(timezone.utc).timestamp(),
-            "sourceId": "session-manager",
-            "payload": {"userId": user_id, "name": user_name},
-        })
+        await publish_event(
+            channel=channel,
+            event_type="room.user_joined",
+            payload={"userId": user_id, "name": user_name},
+            source_id="session-manager",
+        )
     except Exception as exc:
         log.warning("Failed to publish room.user_joined event", error=str(exc))
 
@@ -178,12 +178,12 @@ async def end_session(session_id: str) -> None:
     session.ended_at = datetime.now(timezone.utc).timestamp()
 
     try:
-        await redis_bridge.publish(SUBJECTS["ROOM_CLOSED"], {
-            "type": "room.closed",
-            "timestamp": datetime.now(timezone.utc).timestamp(),
-            "sourceId": "session-manager",
-            "payload": {"roomId": session.room_id, "sessionId": session_id},
-        })
+        await publish_event(
+            channel=SUBJECTS["ROOM_CLOSED"],
+            event_type="room.closed",
+            payload={"roomId": session.room_id, "sessionId": session_id},
+            source_id="session-manager",
+        )
     except Exception as exc:
         log.warning("Failed to publish room.closed event", error=str(exc))
 

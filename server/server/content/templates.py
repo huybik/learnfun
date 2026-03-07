@@ -23,13 +23,13 @@ def _data_dir() -> Path:
 
 def _dirs_for_type(
     type_filter: Optional[str],
-) -> list[tuple[Path, str]]:
-    """Return (directory, expected_type) pairs to scan."""
-    dirs: list[tuple[Path, str]] = []
+) -> list[Path]:
+    """Return directories to scan for the given type filter."""
+    dirs: list[Path] = []
     if not type_filter or type_filter == "game":
-        dirs.append((_data_dir() / "games", "game"))
+        dirs.append(_data_dir() / "games")
     if not type_filter or type_filter == "lesson":
-        dirs.append((_data_dir() / "lessons", "lesson"))
+        dirs.append(_data_dir() / "lessons")
     return dirs
 
 
@@ -46,7 +46,7 @@ def list_templates(
     """Scan data/games/ and data/lessons/ for manifest.json files."""
     manifests: list[TemplateManifest] = []
 
-    for dir_path, _ in _dirs_for_type(type_filter):
+    for dir_path in _dirs_for_type(type_filter):
         if not dir_path.is_dir():
             continue
         for subdir in sorted(dir_path.iterdir()):
@@ -73,7 +73,7 @@ def list_templates(
 
 def get_template(template_id: str) -> TemplateManifest:
     """Get a single template manifest by ID. Searches games/ then lessons/."""
-    for dir_path, _ in _dirs_for_type(None):
+    for dir_path in _dirs_for_type(None):
         manifest_path = dir_path / template_id / MANIFEST_FILE
         if not manifest_path.exists():
             continue

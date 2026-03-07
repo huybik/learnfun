@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -49,23 +48,3 @@ class SessionRecord(BaseModel):
     ended_at: str | None = None
     activities: list[Any] = Field(default_factory=list)
     duration_seconds: int | None = None
-
-
-# --- Room ---
-
-
-class Participant(BaseModel):
-    id: str
-    name: str
-    role: Literal["host", "student", "observer"]
-    joined_at: str
-    livekit_identity: str
-
-
-class Room(BaseModel):
-    id: str
-    name: str
-    host_id: str
-    participants: list[Participant] = Field(default_factory=list)
-    created_at: str
-    active_content_id: str | None = None

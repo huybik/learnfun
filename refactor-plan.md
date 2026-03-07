@@ -11,20 +11,20 @@ Full codebase review found: **over-engineering**, **code duplication**, **separa
 **Scope:** Remove unused code, fix missing files, fix inconsistencies. No logic changes.
 
 ### 1.1 Delete dead code
-- [ ] Delete `server/server/agents/ta/safety_filter.py` — never imported or called anywhere (131 lines)
-- [ ] Delete `client/src/modules/teacher/hooks/useTeacherAudio.ts` — only toggles local `isMuted` bool, not wired to LiveKit; actual mic control is in `useVoice.ts`. Remove import from Room.tsx
-- [ ] Remove unused `GamePhase` states ("starting", "error") from `client/src/modules/display/hooks/useGameState.ts`
-- [ ] Remove `_dirs_for_type` unused `expected_type` field in `server/server/content/templates.py`
+- [x] Delete `server/server/agents/ta/safety_filter.py` — never imported or called anywhere (131 lines)
+- [x] Delete `client/src/modules/teacher/hooks/useTeacherAudio.ts` — only toggles local `isMuted` bool, not wired to LiveKit; actual mic control is in `useVoice.ts`. Remove import from Room.tsx
+- [x] Remove unused `GamePhase` states ("starting", "error") from `client/src/modules/display/hooks/useGameState.ts`
+- [x] Remove `_dirs_for_type` unused `expected_type` field in `server/server/content/templates.py`
 
 ### 1.2 Remove unused imports
-- [ ] `datetime` import in `server/server/storage/models.py` — never used
-- [ ] `Enum` import in `server/server/tools/schemas.py` — never used
-- [ ] `GamePodTemplate`, `LessonTemplate` imports in `server/server/agents/teacher/system_prompt.py` — never referenced
-- [ ] Remove unused `_template: TemplateManifest` parameter from `personalizer.adjust_difficulty()` — only uses `progress`
-- [ ] Move lazy import `from .models import GenerateParams` to top-level in `server/server/agents/ta/request_handler.py` (line 77) — no circular import risk
+- [x] `datetime` import in `server/server/storage/models.py` — never used
+- [x] `Enum` import in `server/server/tools/schemas.py` — never used
+- [x] `GamePodTemplate`, `LessonTemplate` imports in `server/server/agents/teacher/system_prompt.py` — never referenced
+- [x] Remove unused `_template: TemplateManifest` parameter from `personalizer.adjust_difficulty()` — only uses `progress`
+- [x] Move lazy import `from .models import GenerateParams` to top-level in `server/server/agents/ta/request_handler.py` (line 77) — no circular import risk
 
 ### 1.3 Fix logging inconsistency
-- [ ] Replace `logging.getLogger()` with `get_logger()` from `server/server/logging.py` in:
+- [x] Replace `logging.getLogger()` with `get_logger()` from `server/server/logging.py` in:
   - `server/server/storage/db.py`
   - `server/server/storage/queries/users.py`
   - `server/server/storage/queries/profiles.py`
@@ -32,15 +32,15 @@ Full codebase review found: **over-engineering**, **code duplication**, **separa
   - `server/server/storage/queries/sessions.py`
 
 ### 1.5 Fix assertions in production code
-- [ ] Replace `assert self._redis is not None` with `if not self._redis: raise RuntimeError(...)` in `server/server/events/redis_bridge.py` (lines 46, 53)
-- [ ] Same pattern in `server/server/storage/db.py` (`get_pool()`)
+- [x] Replace `assert self._redis is not None` with `if not self._redis: raise RuntimeError(...)` in `server/server/events/redis_bridge.py` (lines 46, 53)
+- [x] Same pattern in `server/server/storage/db.py` (`get_pool()`) — already correct, no change needed
 
 ### 1.6 Fix TA agent singleton conflict
-- [ ] Remove `_agent` singleton from `server/server/api/ta.py` — use `request.app.state.ta_agent` from FastAPI lifespan instead. Currently two separate TAAgent instances exist (one in main.py lifespan, one lazy-created in api/ta.py)
+- [x] Remove `_agent` singleton from `server/server/api/ta.py` — use `request.app.state.ta_agent` from FastAPI lifespan instead. Currently two separate TAAgent instances exist (one in main.py lifespan, one lazy-created in api/ta.py)
 
 ### 1.7 Remove incomplete stubs in Room.tsx
-- [ ] `handleGameStateUpdate` is just `console.log` — either implement or remove
-- [ ] `handleGameEnd` only sets a boolean — either implement cleanup/server notification or remove
+- [x] `handleGameStateUpdate` is just `console.log` — removed
+- [x] `handleGameEnd` only sets a boolean — kept (sets isGameActive which drives UI), removed console.log
 
 ---
 
@@ -49,16 +49,16 @@ Full codebase review found: **over-engineering**, **code duplication**, **separa
 **Scope:** `server/server/storage/` — eliminate duplicated query patterns.
 
 ### 2.1 Merge duplicate user/profile getters
-- [ ] `users.get_user(user_id)` and `profiles.get_profile(user_id)` both return `UserProfile | None` with nearly identical SQL (LEFT JOIN vs INNER JOIN). Pick one approach, delete the other. Callers should use a single function.
-- [ ] Consolidate the row-to-model conversion — `users._row_to_profile()` and inline conversion in `profiles.get_profile()` do the same thing
+- [x] `users.get_user(user_id)` and `profiles.get_profile(user_id)` both return `UserProfile | None` with nearly identical SQL (LEFT JOIN vs INNER JOIN). Pick one approach, delete the other. Callers should use a single function.
+- [x] Consolidate the row-to-model conversion — `users._row_to_profile()` and inline conversion in `profiles.get_profile()` do the same thing
 
 ### 2.2 Extract shared SQL helpers
-- [ ] Create `server/server/storage/queries/_helpers.py` with:
+- [x] Create `server/server/storage/queries/_helpers.py` with:
   - `build_update_sql(table, fields_dict, where_clause)` — replaces the duplicated dynamic UPDATE pattern in `users.py` (lines 118-147) and `profiles.py` (lines 50-90)
   - `format_vector(embedding)` — replaces duplicated pgvector string formatting in `profiles.py` (lines 96, 111)
 
 ### 2.3 Move Room/Participant models out of storage
-- [ ] Move `Participant` and `Room` from `server/server/storage/models.py` to `server/server/events/models.py` (or a shared `server/server/models.py`) — they aren't persisted, only used for event publishing in `session_manager.py`
+- [x] Move `Participant` and `Room` from `server/server/storage/models.py` to `server/server/events/models.py` (or a shared `server/server/models.py`) — they aren't persisted, only used for event publishing in `session_manager.py`
 
 ---
 
@@ -67,11 +67,11 @@ Full codebase review found: **over-engineering**, **code duplication**, **separa
 **Scope:** `server/server/tools/` — reduce over-engineering.
 
 ### 3.1 Simplify RateLimiter
-- [ ] Replace `RateLimitAllowed`/`RateLimitDenied` union with a simple `RateLimitResult(allowed: bool, retry_after_ms: int | None)` dataclass
-- [ ] Update `registry.py` to use `.allowed` instead of `getattr()` check
+- [x] Replace `RateLimitAllowed`/`RateLimitDenied` union with a simple `RateLimitResult(allowed: bool, retry_after_ms: int | None)` dataclass
+- [x] Update `registry.py` to use `.allowed` instead of `getattr()` check
 
 ### 3.2 Deduplicate TOOL_NAMES
-- [ ] Remove the `TOOL_NAMES` list — derive it from the `ToolName` Literal type (or vice versa, single source of truth)
+- [x] Remove the `TOOL_NAMES` list — derive it from the `ToolName` Literal type (or vice versa, single source of truth)
 
 ### 3.3 Inline auth + rate_limit into registry (optional)
 - [ ] `auth.py` (49 lines) and `rate_limit.py` (77 lines) are only used by `registry.py`. Consider inlining if we want fewer files. **Low priority** — current separation is acceptable.
@@ -106,14 +106,14 @@ server/server/agents/ta/
 **Scope:** Extract duplicated event envelope construction.
 
 ### 5.1 Create event helper
-- [ ] Add `publish_event(channel, event_type, payload, source_id)` to `server/server/events/helpers.py`
-- [ ] Replace duplicated envelope construction in:
-  - `server/server/agents/ta/request_handler.py` (line 108)
-  - `server/server/api/session_manager.py` (lines 109-114, 153-158, 181-186)
-  - `server/server/agents/teacher/agent.py` (lines 294-301, 327-333)
+- [x] Add `publish_event(channel, event_type, payload, source_id)` to `server/server/events/helpers.py`
+- [x] Replace duplicated envelope construction in:
+  - `server/server/agents/ta/request_handler.py`
+  - `server/server/api/session_manager.py` (3 instances)
+  - `server/server/agents/teacher/agent.py` (2 instances)
 
 ### 5.2 Extract JSON serialization helper
-- [ ] `json.dumps(..., default=str)` appears in 3 files (redis_bridge.py, logs.py, events.py). Add a `serialize_event()` helper alongside `publish_event()`.
+- [x] Added `serialize_event()` to `server/server/events/helpers.py`; used in `api/events.py`. `redis_bridge.py` kept inline (circular import). `api/logs.py` kept as-is (different purpose).
 
 ---
 
@@ -122,8 +122,8 @@ server/server/agents/ta/
 **Scope:** Reduce confusion between similarly-named modules.
 
 ### 6.1 Rename ambiguous files
-- [ ] Rename `server/server/api/auth.py` to `server/server/api/tokens.py` — it does JWT/LiveKit token generation, not auth middleware. Avoids confusion with `tools/auth.py` (role-based tool access)
-- [ ] Rename `server/server/api/session_manager.py` to `server/server/api/room_manager.py` — it manages rooms (in-memory), not learning sessions. Avoids confusion with `storage/queries/sessions.py` (DB persistence)
+- [x] Rename `server/server/api/auth.py` to `server/server/api/tokens.py` — it does JWT/LiveKit token generation, not auth middleware. Avoids confusion with `tools/auth.py` (role-based tool access)
+- [x] Rename `server/server/api/session_manager.py` to `server/server/api/room_manager.py` — it manages rooms (in-memory), not learning sessions. Avoids confusion with `storage/queries/sessions.py` (DB persistence)
 
 ---
 
@@ -132,10 +132,10 @@ server/server/agents/ta/
 **Scope:** `client/src/modules/display/` — reduce component fragmentation.
 
 ### 7.1 Merge duplicate renderers
-- [ ] Merge `GamePodRenderer.tsx` and `InteractiveLessonRenderer.tsx` into a single `ContentRenderer.tsx` — they are ~95% identical (both wrap components in GameContext with same initialData parsing, contextValue creation, error handling, and Suspense wrapping; differ only in which component registry they load from)
+- [x] Merge `GamePodRenderer.tsx` and `InteractiveLessonRenderer.tsx` into a single `ContentRenderer.tsx` — they are ~95% identical (both wrap components in GameContext with same initialData parsing, contextValue creation, error handling, and Suspense wrapping; differ only in which component registry they load from)
 
 ### 7.2 Merge overlay effects
-- [ ] Merge `FocusHighlight.tsx` (52 lines) and `EmoteOverlay.tsx` (97 lines) into a single `ScreenEffects.tsx` — both are pointer-events-none overlay layers with similar visibility/animation lifecycle patterns
+- [x] Merge `FocusHighlight.tsx` (52 lines) and `EmoteOverlay.tsx` (97 lines) into a single `ScreenEffects.tsx` — both are pointer-events-none overlay layers with similar visibility/animation lifecycle patterns
 
 ### 7.3 Result structure
 ```
@@ -157,15 +157,15 @@ client/src/modules/display/components/
 **Scope:** `client/src/pages/Room.tsx` — break up the 373-line god component.
 
 ### 8.1 Extract custom hooks
-- [ ] `useSessionData()` — extract session loading from localStorage (currently inline in Room.tsx)
-- [ ] `useRoomTranscript()` — extract transcript management with turn-sealing logic (currently ~40 lines of refs and callbacks)
-- [ ] `useRoomParticipants()` — extract LiveKit participant mapping to app Participant type
+- [x] `useSessionData()` — extract session loading from localStorage (currently inline in Room.tsx)
+- [x] `useRoomTranscript()` — extract transcript management with turn-sealing logic (currently ~40 lines of refs and callbacks)
+- [x] `useRoomParticipants()` — extract LiveKit participant mapping to app Participant type
 
 Place these in `client/src/modules/realtime/hooks/`.
 
 ### 8.2 Simplify useGameState
-- [ ] Remove unused phases, remove `setTimeout(..., 0)` cleanup hack
-- [ ] Simplify to `{ isRunning, gameType, updateState, setRunning }`
+- [x] Remove unused phases, remove `setTimeout(..., 0)` cleanup hack
+- [x] Simplify to `{ isRunning, gameType, updateState, setRunning }`
 
 ---
 
@@ -174,7 +174,7 @@ Place these in `client/src/modules/realtime/hooks/`.
 **Scope:** `client/src/lib/` — merge overlapping logging.
 
 ### 9.1 Unify logger + log-forwarder
-- [ ] Merge `logger.ts` and `log-forwarder.ts` into a single `logger.ts` that:
+- [x] Merge `logger.ts` and `log-forwarder.ts` into a single `logger.ts` that:
   - Creates structured loggers with module context
   - Optionally batches and forwards to `/api/logs`
   - Removes global console monkey-patching in favor of explicit logger instances

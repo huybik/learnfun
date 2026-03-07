@@ -9,6 +9,7 @@ from typing import AsyncGenerator
 from fastapi import APIRouter
 from starlette.responses import StreamingResponse
 
+from server.events.helpers import serialize_event
 from server.events.redis_bridge import redis_bridge
 from server.events.subjects import SUBJECTS, room_subject
 from server.logging import get_logger
@@ -50,7 +51,7 @@ async def _event_generator(room_id: str) -> AsyncGenerator[str, None]:
         while True:
             try:
                 sse_event, data = await asyncio.wait_for(queue.get(), timeout=15.0)
-                yield f"event: {sse_event}\ndata: {json.dumps(data, default=str)}\n\n"
+                yield f"event: {sse_event}\ndata: {serialize_event(data)}\n\n"
             except asyncio.TimeoutError:
                 # Keep-alive ping
                 yield ": ping\n\n"

@@ -1,12 +1,12 @@
 """Session queries — create_session, get_session, end_session, get_session_history, get_user_sessions."""
 
 import json
-import logging
 
+from server.logging import get_logger
 from server.storage.db import get_pool
 from server.storage.models import SessionRecord
 
-log = logging.getLogger("db.sessions")
+log = get_logger("db.sessions")
 
 
 def _row_to_session(row) -> SessionRecord:

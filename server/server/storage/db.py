@@ -1,12 +1,11 @@
 """Asyncpg connection pool lifecycle."""
 
-import logging
-
 import asyncpg
 
 from server.config import settings
+from server.logging import get_logger
 
-log = logging.getLogger("db")
+log = get_logger("db")
 
 _pool: asyncpg.Pool | None = None
 

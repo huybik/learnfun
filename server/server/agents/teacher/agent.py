@@ -12,7 +12,7 @@ from server.agents.ta.agent import TAAgent
 from server.agents.ta.models import TARequest
 from server.config import settings
 from server.content.templates import list_templates
-from server.events.redis_bridge import redis_bridge
+from server.events.helpers import publish_event
 from server.events.subjects import SUBJECTS, room_subject
 from server.logging import get_logger
 from server.tools.registry import ToolRegistry
@@ -306,14 +306,18 @@ class TeacherAgent:
 
                 # Publish result to Redis for SSE delivery
                 channel = room_subject(SUBJECTS["UI_CONTROL"], self._room_id)
-                await redis_bridge.publish(channel, {
-                    "type": "tool_result",
-                    "tool": name,
-                    "call_id": fc.id,
-                    "success": response.success,
-                    "data": response.data,
-                    "error": response.error,
-                })
+                await publish_event(
+                    channel=channel,
+                    event_type="tool_result",
+                    payload={
+                        "tool": name,
+                        "call_id": fc.id,
+                        "success": response.success,
+                        "data": response.data,
+                        "error": response.error,
+                    },
+                    source_id="ai-teacher",
+                )
             else:
                 log.warning("No tool registry configured", tool=name)
 
@@ -353,13 +357,17 @@ class TeacherAgent:
 
             # Publish TA result to Redis for SSE delivery to browser
             channel = room_subject(SUBJECTS["CONTENT_PUSH"], self._room_id)
-            await redis_bridge.publish(channel, {
-                "type": "ta_response",
-                "request_id": response.request_id,
-                "success": response.success,
-                "bundle": response.bundle.model_dump() if response.bundle else None,
-                "error": response.error,
-            })
+            await publish_event(
+                channel=channel,
+                event_type="ta_response",
+                payload={
+                    "request_id": response.request_id,
+                    "success": response.success,
+                    "bundle": response.bundle.model_dump() if response.bundle else None,
+                    "error": response.error,
+                },
+                source_id="ai-teacher",
+            )
 
             log.info(
                 "TA action completed",

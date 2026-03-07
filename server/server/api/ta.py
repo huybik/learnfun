@@ -1,6 +1,6 @@
 """POST /api/ta — direct TA request (no NATS)."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from server.agents.ta.agent import TAAgent
@@ -9,16 +9,6 @@ from server.logging import get_logger
 
 log = get_logger("api:ta")
 router = APIRouter()
-
-# Singleton agent (reused across requests)
-_agent: TAAgent | None = None
-
-
-def _get_agent() -> TAAgent:
-    global _agent
-    if _agent is None:
-        _agent = TAAgent()
-    return _agent
 
 
 class TARequestBody(BaseModel):
@@ -30,10 +20,8 @@ class TARequestBody(BaseModel):
 
 
 @router.post("/ta")
-async def post_ta(body: TARequestBody):
-    agent = _get_agent()
-    if not agent._running:
-        await agent.start()
+async def post_ta(body: TARequestBody, request: Request):
+    agent: TAAgent = request.app.state.ta_agent
 
     ta_request = TARequest(
         request_id=body.requestId,

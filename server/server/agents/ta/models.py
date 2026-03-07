@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel
 
 from server.content.models import FilledBundle, TemplateManifest
-from server.storage.models import LearningProgress
 
 
 # ---------------------------------------------------------------------------
@@ -44,17 +42,3 @@ class GenerateParams(BaseModel):
     context: dict[str, Any] = {}
     personalization_prompt: Optional[str] = None
     difficulty_hint: Optional[str] = None
-
-
-# ---------------------------------------------------------------------------
-# Dependencies (injected into the request handler)
-# ---------------------------------------------------------------------------
-
-
-@dataclass
-class TADependencies:
-    generator: Any  # ContentGenerator (forward ref to avoid circular import)
-    query_template: Callable[[str], Awaitable[Optional[TemplateManifest]]]
-    store_bundle: Callable[[FilledBundle], Awaitable[str]]
-    publish_to_room: Callable[[str, dict[str, Any]], Awaitable[None]]
-    get_learning_progress: Callable[[str], Awaitable[LearningProgress]]

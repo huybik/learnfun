@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Union
 
 from server.logging import get_logger
 
@@ -23,17 +22,9 @@ class _Bucket:
 
 
 @dataclass
-class RateLimitAllowed:
-    allowed: bool = True
-
-
-@dataclass
-class RateLimitDenied:
-    allowed: bool = False
-    retry_after_ms: float = 0.0
-
-
-RateLimitResult = Union[RateLimitAllowed, RateLimitDenied]
+class RateLimitResult:
+    allowed: bool
+    retry_after_ms: float | None = None
 
 
 class RateLimiter:
@@ -67,10 +58,10 @@ class RateLimiter:
                 count=len(bucket.timestamps),
                 retry_after_ms=retry_after_ms,
             )
-            return RateLimitDenied(retry_after_ms=retry_after_ms)
+            return RateLimitResult(allowed=False, retry_after_ms=retry_after_ms)
 
         bucket.timestamps.append(now)
-        return RateLimitAllowed()
+        return RateLimitResult(allowed=True)
 
     def reset(self) -> None:
         """Clear all buckets (useful for tests)."""
