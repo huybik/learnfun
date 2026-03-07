@@ -291,7 +291,7 @@ class TeacherAgent:
         self._gemini.on_error = self._on_gemini_error
         self._gemini.on_closed = self._on_gemini_closed
 
-    def _on_gemini_audio(self, audio_bytes: bytes) -> None:
+    async def _on_gemini_audio(self, audio_bytes: bytes) -> None:
         """Publish Gemini's audio response to LiveKit room."""
         if not self._audio_source:
             return
@@ -302,8 +302,7 @@ class TeacherAgent:
             num_channels=1,
             samples_per_channel=len(audio_bytes) // 2,
         )
-        # capture_frame is synchronous
-        self._audio_source.capture_frame(frame)
+        await self._audio_source.capture_frame(frame)
 
     def _on_gemini_tool_call(self, function_calls: list[Any]) -> None:
         """Handle tool calls from Gemini -- dispatch asynchronously.
@@ -372,10 +371,14 @@ class TeacherAgent:
             log.warning("No TA agent configured")
             return
 
+        context = args.get("context", {})
+        if not isinstance(context, dict):
+            context = {"description": str(context)}
+
         request = TARequest(
             request_id=f"ta-{uuid.uuid4().hex[:8]}",
             intent=args.get("intent", ""),
-            context=args.get("context", {}),
+            context=context,
             room_id=self._room_id,
             user_profiles=[self._user_profile] if self._user_profile else [],
         )

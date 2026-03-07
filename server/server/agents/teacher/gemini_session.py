@@ -71,7 +71,7 @@ class GeminiSession:
         self._session_resumable = False
 
         # Callbacks (set by TeacherAgent)
-        self.on_audio: Optional[Callable[[bytes], None]] = None
+        self.on_audio: Optional[Callable[[bytes], Any]] = None
         self.on_tool_call: Optional[Callable[[list[Any]], None]] = None
         self.on_turn_complete: Optional[Callable[[], None]] = None
         self.on_interrupted: Optional[Callable[[], None]] = None
@@ -413,4 +413,6 @@ class GeminiSession:
                     if audio_bytes and self.on_audio:
                         if isinstance(audio_bytes, str):
                             audio_bytes = base64.b64decode(audio_bytes)
-                        self.on_audio(audio_bytes)
+                        result = self.on_audio(audio_bytes)
+                        if asyncio.iscoroutine(result):
+                            await result
