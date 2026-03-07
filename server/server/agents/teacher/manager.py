@@ -40,8 +40,14 @@ async def spawn_teacher(
         tool_registry=tool_registry,
     )
 
-    await agent.start()
+    # Register early so callers can find the agent while it's starting.
+    # send_text already no-ops if Gemini isn't connected yet.
     _teachers[room_id] = agent
+    try:
+        await agent.start()
+    except Exception:
+        _teachers.pop(room_id, None)
+        raise
     log.info("Teacher spawned", room_id=room_id)
     return agent
 

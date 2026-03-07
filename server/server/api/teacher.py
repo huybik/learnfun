@@ -17,9 +17,12 @@ class TeacherMessageBody(BaseModel):
 
 @router.post("/teacher/message")
 async def post_teacher_message(body: TeacherMessageBody):
+    log.info("Teacher message received", room_id=body.roomId, text_len=len(body.text))
     agent = get_teacher(body.roomId)
     if not agent:
+        log.warning("No teacher active for room", room_id=body.roomId)
         raise HTTPException(status_code=404, detail="No teacher active for this room")
 
     await agent.send_text(body.text)
+    log.debug("Teacher message forwarded", room_id=body.roomId)
     return {"ok": True}

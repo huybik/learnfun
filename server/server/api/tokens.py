@@ -75,7 +75,7 @@ def generate_livekit_token(room_id: str, user_id: str, role: str) -> str:
         "video": {
             "room": room_id,
             "roomJoin": True,
-            "canPublish": role in ("host", "student"),
+            "canPublish": role in ("host", "student", "teacher"),
             "canSubscribe": True,
         },
     }

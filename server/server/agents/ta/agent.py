@@ -43,4 +43,7 @@ class TAAgent:
 
     async def handle_request(self, req: TARequest) -> TAResponse:
         """Process a single TA request through the full pipeline."""
-        return await handle_ta_request(req, self._generator)
+        log.info("Handling request", request_id=req.request_id, intent=req.intent, room_id=req.room_id)
+        response = await handle_ta_request(req, self._generator)
+        log.info("Request completed", request_id=req.request_id, success=response.success, elapsed=response.elapsed)
+        return response
