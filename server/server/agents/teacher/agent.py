@@ -246,6 +246,7 @@ class TeacherAgent:
         self._gemini.on_tool_call = self._on_gemini_tool_call
         self._gemini.on_turn_complete = self._on_turn_complete
         self._gemini.on_interrupted = self._on_interrupted
+        self._gemini.on_transcription = self._on_gemini_transcription
         self._gemini.on_error = self._on_gemini_error
         self._gemini.on_closed = self._on_gemini_closed
 
@@ -376,6 +377,18 @@ class TeacherAgent:
             )
         except Exception as exc:
             log.error("TA dispatch failed", call_id=call_id, error=str(exc))
+
+    def _on_gemini_transcription(self, source: str, text: str) -> None:
+        """Publish transcription to Redis for SSE delivery."""
+        channel = room_subject(SUBJECTS["TRANSCRIPT"], self._room_id)
+        asyncio.create_task(
+            publish_event(
+                channel=channel,
+                event_type="transcript",
+                payload={"source": source, "text": text},
+                source_id="ai-teacher",
+            )
+        )
 
     def _on_turn_complete(self) -> None:
         log.debug("Turn complete")

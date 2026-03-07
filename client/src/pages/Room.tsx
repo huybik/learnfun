@@ -6,6 +6,7 @@ import { ParticipantList } from "@/modules/display/components/ui/ParticipantList
 import { LoadingOverlay } from "@/modules/display/components/ui/LoadingOverlay";
 import { ChatInput } from "@/modules/display/components/ui/ChatInput";
 import { useRoom } from "@/modules/realtime/hooks/useRoom";
+import { useVoice } from "@/modules/realtime/hooks/useVoice";
 import { useServerEvents, type ContentReadyPayload } from "@/modules/realtime/hooks/useServerEvents";
 import { useSessionData } from "@/modules/realtime/hooks/useSessionData";
 import { useRoomTranscript } from "@/modules/realtime/hooks/useRoomTranscript";
@@ -39,9 +40,6 @@ export default function RoomPage() {
   const [currentPage, setCurrentPage] = useState(0);
   const [isGameActive, setIsGameActive] = useState(false);
 
-  // Simple mic-mute toggle (UI only — actual mic control via useVoice)
-  const [isMuted, setIsMuted] = useState(false);
-
   // --- Custom hooks ---
   const sessionData = useSessionData();
   const { transcript, addTranscript, transcriptEndRef } = useRoomTranscript();
@@ -59,6 +57,8 @@ export default function RoomPage() {
     autoConnect: hasLiveKit,
   });
 
+  const voice = useVoice(room.livekitConnection);
+
   const { participants: roomParticipants, localUserId } = useRoomParticipants(
     room.participants,
     room.localParticipant,
@@ -66,6 +66,7 @@ export default function RoomPage() {
   );
 
   // Mark loading done once LiveKit connects (or immediately if no LiveKit)
+  // Auto-enable mic so the teacher can hear the user
   useEffect(() => {
     if (!hasLiveKit) {
       setLoading(false);
@@ -74,6 +75,7 @@ export default function RoomPage() {
       setLoading(false);
       setLoadingMsg("");
       addTranscript("system", "Connected! Waiting for AI teacher...");
+      voice.setMicEnabled(true);
     }
   }, [hasLiveKit, room.connectionState]);
 
@@ -243,14 +245,14 @@ export default function RoomPage() {
           <div className="space-y-1 border-t border-white/10 pt-3 text-xs text-neutral-500">
             <p>LiveKit: {room.connectionState}</p>
             <p>SSE: {sse.connected ? "connected" : "disconnected"}</p>
-            <p>Mic: {isMuted ? "muted" : "active"}</p>
+            <p>Mic: {voice.isMicEnabled ? "active" : "muted"}</p>
           </div>
         </div>
       }
       controls={
         <ControlBar
-          isMuted={isMuted}
-          onMuteToggle={() => setIsMuted((m) => !m)}
+          isMuted={!voice.isMicEnabled}
+          onMuteToggle={() => voice.toggleMic()}
           isCameraOn={isCameraOn}
           onCameraToggle={() => setIsCameraOn(!isCameraOn)}
           isGameActive={isGameActive}

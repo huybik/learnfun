@@ -14,6 +14,8 @@ SUBJECTS = {
     "ROOM_CLOSED": "room.closed",
     # UI control (Teacher -> Frontend)
     "UI_CONTROL": "room.{room_id}.ui",
+    # Transcriptions (Teacher -> Frontend)
+    "TRANSCRIPT": "room.{room_id}.transcript",
     # Game events
     "GAME_STARTED": "room.{room_id}.game.started",
     "GAME_ENDED": "room.{room_id}.game.ended",
