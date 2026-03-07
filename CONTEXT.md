@@ -13,7 +13,7 @@ Interactive learning platform: AI teacher + teaching assistant guide students th
   - `join.py`, `session.py`, `token.py` — session/join flows
   - `events.py` — SSE streaming to browser via Redis subscription
   - `ta.py` — TA agent endpoint (uses `app.state.ta_agent`)
-  - `bundles.py`, `health.py`, `logs.py`
+  - `bundles.py`, `health.py`
 - `agents/teacher/` — LiveKit-based teacher agent
   - `agent.py` — TeacherAgent (LiveKit Agent, Gemini Live voice)
   - `gemini_session.py` — Gemini Live API session wrapper
@@ -60,7 +60,7 @@ Interactive learning platform: AI teacher + teaching assistant guide students th
   - `sync/` — Yjs provider, awareness, cursor-sync, sync-store
 - `modules/engine/` — game engine (canvas, input, audio, particles, camera)
 - `modules/teacher/` — (hooks removed, audio via useVoice.ts)
-- `lib/logger.ts` — structured logging + batched forwarding to /api/logs
+- `lib/logger.ts` — structured logging (browser console only)
 - `types/` — TypeScript type definitions
 - `config/` — API config, constants
 
