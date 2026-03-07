@@ -17,7 +17,7 @@ from server.content.models import FilledBundle, TemplateManifest
 class TARequest(BaseModel):
     request_id: str
     intent: str
-    template_id: Optional[str] = None
+    template_id: str
     context: dict[str, Any] = {}
     room_id: str
     user_profiles: list[dict[str, Any]] = []

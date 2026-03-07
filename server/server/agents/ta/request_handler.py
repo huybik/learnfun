@@ -157,11 +157,8 @@ async def handle_ta_request(
     log.info("Handling TA request", request_id=request_id, intent=intent, room_id=room_id)
 
     try:
-        # 1. Resolve template (skip AI resolution if template_id is provided)
-        if req.template_id:
-            template = _lookup_template(req.template_id)
-        else:
-            template = await _query_template(generator, intent, room_id=room_id)
+        # 1. Resolve template
+        template = _lookup_template(req.template_id)
         if template is None:
             return TAResponse(
                 request_id=request_id,
@@ -277,27 +274,6 @@ def _lookup_template(template_id: str) -> TemplateManifest | None:
     else:
         log.warning("lookup_template: not found", template_id=template_id)
     return match
-
-
-async def _query_template(
-    generator: ContentGenerator,
-    intent: str,
-    room_id: str = "",
-) -> TemplateManifest | None:
-    """Resolve a template for the given intent."""
-    all_templates = list_templates()
-    log.debug("query_template", intent=intent, available=len(all_templates))
-    if not all_templates:
-        return None
-
-    chosen_id = await generator.resolve_template(intent, all_templates, room_id=room_id)
-    if chosen_id:
-        match = next((t for t in all_templates if t.id == chosen_id), None)
-        if match:
-            return match
-
-    log.warning("query_template: could not resolve", intent=intent)
-    return None
 
 
 async def _get_learning_progress(user_id: str) -> LearningProgress:
