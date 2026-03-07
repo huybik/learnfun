@@ -4,10 +4,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from server.agents.ta.agent import TAAgent
-from server.events import redis_bridge
+from server.events.redis_bridge import redis_bridge
 from server.logging import get_logger
 from server.storage.db import init_db, close_db
-from server.sync import mount_yjs, start_yjs, stop_yjs
+from server.sync.yjs_server import mount_yjs, start_yjs, stop_yjs
 from server.tools.registry import ToolRegistry
 from server.tools.schemas import TOOL_DEFINITIONS, ToolResponse
 
@@ -72,6 +72,6 @@ app.add_middleware(
 
 mount_yjs(app)
 
-from server.api import api_router  # noqa: E402
+from server.api.router import api_router  # noqa: E402
 
 app.include_router(api_router)

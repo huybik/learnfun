@@ -2,14 +2,14 @@
 
 from fastapi import APIRouter
 
-from .bundles import router as bundles_router
-from .events import router as events_router
-from .health import router as health_router
-from .join import router as join_router
-from .logs import router as logs_router
-from .session import router as session_router
-from .ta import router as ta_router
-from .token import router as token_router
+from server.api.bundles import router as bundles_router
+from server.api.events import router as events_router
+from server.api.health import router as health_router
+from server.api.join import router as join_router
+from server.api.logs import router as logs_router
+from server.api.session import router as session_router
+from server.api.ta import router as ta_router
+from server.api.token import router as token_router
 
 api_router = APIRouter(prefix="/api")
 api_router.include_router(session_router)
