@@ -3,6 +3,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     GEMINI_API_KEY: str
+    GEMINI_LIVE_MODEL: str = "gemini-2.5-flash-native-audio-preview-12-2025"
     DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/eduforge"
     REDIS_URL: str = "redis://localhost:6379"
     LIVEKIT_URL: str = "ws://localhost:7880"

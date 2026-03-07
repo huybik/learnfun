@@ -1,10 +1,15 @@
-"""GeminiSession -- async wrapper around google-genai Live streaming API."""
+"""GeminiSession -- async wrapper around google-genai Live streaming API.
+
+Supports session management (compression + resumption), ephemeral tokens,
+and auto-reconnect on GoAway or unexpected disconnects.
+"""
 
 from __future__ import annotations
 
 import asyncio
 import base64
-from typing import Any, Optional
+import datetime
+from typing import Any, Callable, Optional
 
 from google import genai
 from google.genai import types
@@ -13,12 +18,22 @@ from server.logging import get_logger
 
 log = get_logger("gemini_session")
 
+# Max reconnect attempts before giving up
+MAX_RECONNECT_ATTEMPTS = 3
+RECONNECT_DELAY_S = 2.0
+
 
 class GeminiSession:
     """Wraps the ``google.genai`` async Live API into a simple interface.
 
     Connects to Gemini Live, sends audio/text, and yields events:
     audio chunks, tool calls, turn completions, and transcriptions.
+
+    Features:
+    - Context window compression (sliding window) for sessions beyond 15 min
+    - Session resumption with handles for reconnect across drops
+    - GoAway handling with automatic reconnection
+    - Ephemeral tokens (server mints short-lived token per session)
     """
 
     def __init__(
@@ -42,16 +57,20 @@ class GeminiSession:
         self._session: Any = None  # genai AsyncSession
         self._connected = False
         self._receive_task: Optional[asyncio.Task[None]] = None
+        self._reconnecting = False
+
+        # Session resumption state
+        self._session_handle: Optional[str] = None
 
         # Callbacks (set by TeacherAgent)
-        self.on_audio: Optional[Any] = None  # (bytes) -> None
-        self.on_tool_call: Optional[Any] = None  # (list[FunctionCall]) -> None
-        self.on_turn_complete: Optional[Any] = None  # () -> None
-        self.on_interrupted: Optional[Any] = None  # () -> None
-        self.on_setup_complete: Optional[Any] = None  # () -> None
-        self.on_error: Optional[Any] = None  # (Exception) -> None
-        self.on_closed: Optional[Any] = None  # () -> None
-        self.on_transcription: Optional[Any] = None  # (source, text) -> None
+        self.on_audio: Optional[Callable[[bytes], None]] = None
+        self.on_tool_call: Optional[Callable[[list[Any]], None]] = None
+        self.on_turn_complete: Optional[Callable[[], None]] = None
+        self.on_interrupted: Optional[Callable[[], None]] = None
+        self.on_setup_complete: Optional[Callable[[], None]] = None
+        self.on_error: Optional[Callable[[Exception], None]] = None
+        self.on_closed: Optional[Callable[[], None]] = None
+        self.on_transcription: Optional[Callable[[str, str], None]] = None
 
     @property
     def connected(self) -> bool:
@@ -61,24 +80,18 @@ class GeminiSession:
     # Lifecycle
     # ------------------------------------------------------------------
 
-    async def connect(self) -> None:
-        """Open the async streaming connection to Gemini Live API."""
-        if self._session is not None:
-            log.warning("Already connected")
-            return
-
-        log.info("Connecting to Gemini Live API", model=self._model)
-
-        # Build function declarations for Gemini
-        function_declarations = []
-        for t in self._tools:
-            function_declarations.append(
-                types.FunctionDeclaration(
-                    name=t["name"],
-                    description=t["description"],
-                    parameters=t.get("parameters"),
-                )
+    def _build_config(self) -> types.LiveConnectConfig:
+        """Build LiveConnectConfig with session management features."""
+        # Function declarations
+        function_declarations = [
+            types.FunctionDeclaration(
+                name=t["name"],
+                description=t["description"],
+                parameters=t.get("parameters"),
+                behavior=t.get("behavior"),
             )
+            for t in self._tools
+        ]
 
         # Speech config
         speech_config = None
@@ -91,7 +104,12 @@ class GeminiSession:
                 )
             )
 
-        config = types.LiveConnectConfig(
+        # Session resumption (use saved handle if reconnecting)
+        session_resumption = types.SessionResumptionConfig(
+            handle=self._session_handle,
+        )
+
+        return types.LiveConnectConfig(
             system_instruction=types.Content(
                 parts=[types.Part(text=self._system_instruction)]
             ),
@@ -102,15 +120,52 @@ class GeminiSession:
             speech_config=speech_config,
             output_audio_transcription=types.AudioTranscriptionConfig(),
             input_audio_transcription=types.AudioTranscriptionConfig(),
+            context_window_compression=types.ContextWindowCompressionConfig(
+                sliding_window=types.SlidingWindow(),
+            ),
+            session_resumption=session_resumption,
         )
 
+    async def _mint_ephemeral_token(self) -> str:
+        """Mint a short-lived ephemeral token scoped to this session."""
+        now = datetime.datetime.now(datetime.timezone.utc)
+        response = await asyncio.to_thread(
+            self._client.auth_tokens.create,
+            config={
+                "uses": 1,
+                "expire_time": now + datetime.timedelta(minutes=30),
+                "new_session_expire_time": now + datetime.timedelta(minutes=2),
+            },
+        )
+        log.debug("Ephemeral token minted")
+        return response.name
+
+    async def connect(self) -> None:
+        """Open the async streaming connection to Gemini Live API."""
+        if self._session is not None:
+            log.warning("Already connected")
+            return
+
+        log.info("Connecting to Gemini Live API", model=self._model)
+
+        # Mint ephemeral token instead of using raw API key
         try:
-            self._session = await self._client.aio.live.connect(
+            ephemeral_token = await self._mint_ephemeral_token()
+            session_client = genai.Client(api_key=ephemeral_token)
+        except Exception as exc:
+            log.warning("Ephemeral token mint failed, falling back to API key", error=str(exc))
+            session_client = self._client
+
+        config = self._build_config()
+
+        try:
+            self._session = await session_client.aio.live.connect(
                 model=self._model,
                 config=config,
             )
             self._connected = True
-            log.info("Session established")
+            is_resuming = self._session_handle is not None
+            log.info("Session established", resumed=is_resuming)
 
             if self.on_setup_complete:
                 self.on_setup_complete()
@@ -125,6 +180,8 @@ class GeminiSession:
 
     async def disconnect(self) -> None:
         """Close the session."""
+        self._reconnecting = False  # prevent auto-reconnect during intentional disconnect
+
         if self._receive_task and not self._receive_task.done():
             self._receive_task.cancel()
             try:
@@ -146,6 +203,38 @@ class GeminiSession:
         if self.on_closed:
             self.on_closed()
 
+    async def _reconnect(self) -> None:
+        """Reconnect using saved session handle."""
+        if not self._session_handle:
+            log.warning("No session handle for reconnect")
+            return
+
+        log.info("Reconnecting with session handle")
+
+        # Close current session without triggering on_closed
+        if self._session is not None:
+            try:
+                await self._session.close()
+            except Exception:
+                pass
+            self._session = None
+        self._connected = False
+
+        for attempt in range(1, MAX_RECONNECT_ATTEMPTS + 1):
+            try:
+                await asyncio.sleep(RECONNECT_DELAY_S * attempt)
+                await self.connect()
+                log.info("Reconnected successfully", attempt=attempt)
+                return
+            except Exception as exc:
+                log.warning("Reconnect attempt failed", attempt=attempt, error=str(exc))
+
+        log.error("All reconnect attempts exhausted")
+        if self.on_error:
+            self.on_error(RuntimeError("Failed to reconnect after max attempts"))
+        if self.on_closed:
+            self.on_closed()
+
     # ------------------------------------------------------------------
     # Sending
     # ------------------------------------------------------------------
@@ -154,9 +243,8 @@ class GeminiSession:
         """Send raw PCM audio to Gemini as realtime input."""
         if not self._session:
             return
-        b64 = base64.b64encode(pcm_bytes).decode("ascii")
         await self._session.send_realtime_input(
-            media=types.Blob(data=b64, mime_type=mime_type)
+            media=types.Blob(data=pcm_bytes, mime_type=mime_type)
         )
 
     async def send_text(self, text: str) -> None:
@@ -202,11 +290,28 @@ class GeminiSession:
                 self.on_error(exc)
         finally:
             self._connected = False
-            if self.on_closed:
-                self.on_closed()
+            if not self._reconnecting:
+                if self.on_closed:
+                    self.on_closed()
 
     async def _handle_message(self, msg: Any) -> None:
         """Process a single server message."""
+        # Session resumption update — save handle for reconnects
+        if msg.session_resumption_update:
+            update = msg.session_resumption_update
+            if update.new_handle:
+                self._session_handle = update.new_handle
+                log.debug("Session handle updated", resumable=update.resumable)
+            return
+
+        # GoAway — server is about to close, reconnect gracefully
+        if msg.go_away is not None:
+            time_left = getattr(msg.go_away, "time_left", None)
+            log.info("GoAway received, will reconnect", time_left=time_left)
+            self._reconnecting = True
+            asyncio.create_task(self._reconnect())
+            return
+
         # Tool calls
         if msg.tool_call:
             fc_list = msg.tool_call.function_calls or []
@@ -214,7 +319,7 @@ class GeminiSession:
                 self.on_tool_call(fc_list)
             return
 
-        # Tool call cancellation (log only)
+        # Tool call cancellation
         if msg.tool_call_cancellation:
             log.info("Tool call cancellation", ids=msg.tool_call_cancellation.ids)
             return
@@ -236,6 +341,10 @@ class GeminiSession:
             if self.on_interrupted:
                 self.on_interrupted()
             return
+
+        # Generation complete (distinct from turn_complete)
+        if getattr(server_content, "generation_complete", False):
+            log.debug("Generation complete")
 
         # Turn complete
         if server_content.turn_complete:
@@ -262,7 +371,6 @@ class GeminiSession:
                 ):
                     audio_bytes = part.inline_data.data
                     if audio_bytes and self.on_audio:
-                        # Data comes as base64 string from the SDK
                         if isinstance(audio_bytes, str):
                             audio_bytes = base64.b64decode(audio_bytes)
                         self.on_audio(audio_bytes)

@@ -52,7 +52,7 @@ class TeacherAgent:
         user_profile: Optional[dict[str, Any]] = None,
         participants: Optional[list[dict[str, Any]]] = None,
         api_key: Optional[str] = None,
-        model: str = "gemini-2.0-flash-exp",
+        model: Optional[str] = None,
         tool_registry: Optional[ToolRegistry] = None,
         ta_agent: Optional[TAAgent] = None,
     ) -> None:
@@ -62,7 +62,7 @@ class TeacherAgent:
         self._user_profile = user_profile or {}
         self._participants = participants or []
         self._api_key = api_key or settings.GEMINI_API_KEY
-        self._model = model
+        self._model = model or settings.GEMINI_LIVE_MODEL
         self._tool_registry = tool_registry
         self._ta_agent = ta_agent
 
@@ -100,15 +100,19 @@ class TeacherAgent:
             )
 
             # Build tool definitions for Gemini (only teacher-allowed tools)
-            tool_defs = [
-                {
+            tool_defs = []
+            for t in TOOL_DEFINITIONS:
+                if "teacher" not in t.allowed_callers:
+                    continue
+                td: dict = {
                     "name": t.name,
                     "description": t.description,
                     "parameters": t.schema_cls.model_json_schema(),
                 }
-                for t in TOOL_DEFINITIONS
-                if "teacher" in t.allowed_callers
-            ]
+                # Long-running tools are NON_BLOCKING so Gemini keeps talking
+                if t.name == "request_ta_action":
+                    td["behavior"] = "NON_BLOCKING"
+                tool_defs.append(td)
 
             system_instruction = build_teacher_prompt(
                 room_id=self._room_id,
@@ -251,22 +255,16 @@ class TeacherAgent:
         self._audio_source.capture_frame(frame)
 
     def _on_gemini_tool_call(self, function_calls: list[Any]) -> None:
-        """Handle tool calls from Gemini -- dispatch asynchronously."""
+        """Handle tool calls from Gemini -- dispatch asynchronously.
+
+        NON_BLOCKING tools (e.g. request_ta_action) don't need an immediate
+        response — Gemini keeps talking. Blocking tools get their response
+        sent back when execution completes.
+        """
         for fc in function_calls:
             if not fc.id or not fc.name:
                 continue
-
             log.info("Dispatching tool call", name=fc.name, id=fc.id)
-
-            # Send immediate acknowledgement so Gemini doesn't time out
-            asyncio.create_task(
-                self._gemini.send_tool_response(fc.id, fc.name, {
-                    "success": True,
-                    "result": "Processing request...",
-                })
-            )
-
-            # Dispatch actual handler in background
             asyncio.create_task(self._execute_tool_call(fc))
 
     async def _execute_tool_call(self, fc: Any) -> None:
