@@ -3,8 +3,8 @@
  * Toggle microphone and speaker, check audio status.
  */
 
-import { useState, useEffect, useCallback } from "react";
-import { RoomEvent } from "livekit-client";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { RoomEvent, Track } from "livekit-client";
 import type { LivekitConnection } from "../livekit/livekit-client";
 import { createLogger } from "@/lib/logger";
 
@@ -31,11 +31,43 @@ export function useVoice(connection: LivekitConnection | null): UseVoiceResult {
   const [isMicEnabled, setIsMicEnabled] = useState(false);
   const [isSpeakerEnabled, setIsSpeakerEnabled] = useState(true);
 
-  // Sync mic state with LiveKit
+  const audioElementsRef = useRef<Set<HTMLMediaElement>>(new Set());
+
+  // Auto-attach remote audio tracks + sync mic state
   useEffect(() => {
     if (!connection) return;
 
     const room = connection.room;
+
+    // Attach remote audio tracks so we can hear them
+    function onTrackSubscribed(track: Track) {
+      if (track.kind !== Track.Kind.Audio) return;
+      const el = track.attach();
+      audioElementsRef.current.add(el);
+      log.info("Remote audio track attached", { sid: track.sid });
+    }
+
+    function onTrackUnsubscribed(track: Track) {
+      if (track.kind !== Track.Kind.Audio) return;
+      const elements = track.detach();
+      elements.forEach((el) => {
+        audioElementsRef.current.delete(el);
+        el.remove();
+      });
+      log.info("Remote audio track detached", { sid: track.sid });
+    }
+
+    // Attach any already-subscribed remote audio tracks
+    room.remoteParticipants.forEach((p) => {
+      p.audioTrackPublications.forEach((pub) => {
+        if (pub.track && pub.isSubscribed) {
+          onTrackSubscribed(pub.track);
+        }
+      });
+    });
+
+    room.on(RoomEvent.TrackSubscribed, onTrackSubscribed);
+    room.on(RoomEvent.TrackUnsubscribed, onTrackUnsubscribed);
 
     function syncMicState() {
       const localParticipant = room.localParticipant;
@@ -53,10 +85,15 @@ export function useVoice(connection: LivekitConnection | null): UseVoiceResult {
     syncMicState();
 
     return () => {
+      room.off(RoomEvent.TrackSubscribed, onTrackSubscribed);
+      room.off(RoomEvent.TrackUnsubscribed, onTrackUnsubscribed);
       room.off(RoomEvent.TrackMuted, syncMicState);
       room.off(RoomEvent.TrackUnmuted, syncMicState);
       room.off(RoomEvent.LocalTrackPublished, syncMicState);
       room.off(RoomEvent.LocalTrackUnpublished, syncMicState);
+      // Clean up audio elements
+      audioElementsRef.current.forEach((el) => el.remove());
+      audioElementsRef.current.clear();
     };
   }, [connection]);
 
@@ -85,26 +122,16 @@ export function useVoice(connection: LivekitConnection | null): UseVoiceResult {
   );
 
   const toggleSpeaker = useCallback(() => {
-    if (!connection) return;
-    const room = connection.room;
     const newState = !isSpeakerEnabled;
 
-    // Mute/unmute all remote audio tracks
-    room.remoteParticipants.forEach((participant) => {
-      participant.audioTrackPublications.forEach((pub) => {
-        if (pub.track) {
-          if (newState) {
-            pub.track.attach();
-          } else {
-            pub.track.detach();
-          }
-        }
-      });
+    // Mute/unmute all tracked audio elements
+    audioElementsRef.current.forEach((el) => {
+      el.muted = !newState;
     });
 
     setIsSpeakerEnabled(newState);
     log.info("Speaker toggled", { enabled: newState });
-  }, [connection, isSpeakerEnabled]);
+  }, [isSpeakerEnabled]);
 
   return {
     isMicEnabled,
