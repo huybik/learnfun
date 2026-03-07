@@ -83,7 +83,7 @@ class UpdateProfileParams(BaseModel):
 class LoadContentParams(BaseModel):
     content_type: Literal["unit", "template", "bundle"] = Field(alias="contentType")
     content_id: str = Field(min_length=1, alias="contentId")
-    page: Optional[int] = Field(default=None, gt=0)
+    page: Optional[int] = Field(default=None, ge=1)
 
     model_config = {"populate_by_name": True}
 
