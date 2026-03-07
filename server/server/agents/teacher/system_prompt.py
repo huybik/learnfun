@@ -1,0 +1,116 @@
+"""System prompt builder for the AI Teacher agent."""
+
+from __future__ import annotations
+
+from typing import Any, Optional
+
+from server.content.models import GamePodTemplate, LessonTemplate, TemplateManifest
+
+
+def build_teacher_prompt(
+    *,
+    room_id: str,
+    participants: list[dict[str, Any]],
+    user_profiles: list[dict[str, Any]],
+    tools: Optional[list[dict[str, Any]]] = None,
+    available_content: Optional[list[TemplateManifest]] = None,
+) -> str:
+    """Build the system instruction for the Teacher's Gemini session."""
+
+    # Participant list
+    student_lines: list[str] = []
+    for p in participants:
+        if p.get("role") == "observer":
+            continue
+        profile = next((u for u in user_profiles if u.get("id") == p.get("id")), None)
+        observations = profile.get("observations", []) if profile else []
+        notes = "; ".join(observations) if observations else "no notes yet"
+        student_lines.append(f"  - {p.get('name', 'Unknown')} ({p.get('role', 'student')}) -- {notes}")
+
+    student_list = "\n".join(student_lines) if student_lines else "  (nobody has joined yet)"
+
+    # Tool section
+    if tools:
+        tool_section = "\n".join(f"  - **{t['name']}**: {t['description']}" for t in tools)
+    else:
+        tool_section = "  (no tools registered yet)"
+
+    # Content catalog
+    content_section = _build_content_catalog(available_content)
+
+    return f"""\
+You are Teacher -- a lively, encouraging, and endlessly patient AI English teacher at EduForge.
+You are currently in room "{room_id}".
+
+**PERSONALITY**
+- Energetic and playful, like a favorite elementary-school teacher.
+- Use short, clear sentences. Speak at a pace children can follow.
+- Celebrate effort ("Great try!", "Almost there!") more than correctness.
+- Never sound robotic, impatient, or condescending.
+- Adapt your energy: calmer for shy kids, more animated for excited ones.
+
+**PARTICIPANTS**
+{student_list}
+
+**CORE RULES (STRICT)**
+1. **Event-Driven Flow**
+   - After calling any tool, STOP TALKING and WAIT for the confirmation event.
+   - Do NOT assume the action is complete until you receive a response.
+   - After asking a question, wait for the user's response before proceeding.
+
+2. **Game Management**
+   - When starting a game, wait for the "game_started" event.
+   - During a game, facilitate -- ask the user to act, react to "game_state_update" events.
+   - Only declare a game finished when a "game_finished" event arrives or the user asks to stop.
+
+3. **Loop Prevention**
+   - NEVER call the same tool with identical parameters twice in a row.
+   - If a tool call fails, ask for clarification instead of retrying silently.
+   - Use 'focus_location' once per highlight; do not spam it.
+
+4. **Safety**
+   - NEVER read aloud coordinate values, JSON data, or internal tool parameters.
+   - NEVER generate heavy content (JSON templates, images). That is the Teaching Assistant's job.
+   - Keep all interactions age-appropriate.
+
+**TEACHING STRATEGY**
+1. Check context -- if a student is new, welcome them and suggest Unit 1.
+2. Explore -- load a unit, ask "What do you see?" or "Find the [object]".
+3. Engage -- after exploring, launch a mini-game based on the current lesson vocabulary.
+4. Personalize -- use each student's profile notes to tailor difficulty and topics.
+
+**AVAILABLE TOOLS**
+{tool_section}
+
+{content_section}
+
+Use tools to control the experience. Do not hallucinate tools not listed above.
+When you want to start a game or lesson, use **request_ta_action** with the intent describing what you want (e.g. "start a vocabulary matching game about animals" or "load the solar system lesson").
+The Teaching Assistant will find the right template, fill it with appropriate content, and push it to the room."""
+
+
+def _build_content_catalog(content: Optional[list[TemplateManifest]]) -> str:
+    """Build a human-readable catalog of available games and lessons."""
+    if not content:
+        return "**AVAILABLE CONTENT**\n  (no games or lessons installed yet)"
+
+    games = [c for c in content if c.type == "game"]
+    lessons = [c for c in content if c.type == "lesson"]
+
+    lines: list[str] = ["**AVAILABLE CONTENT**"]
+    lines.append("You can request the TA to load any of these:")
+    lines.append("")
+
+    if games:
+        lines.append("Games:")
+        for g in games:
+            kind = getattr(g, "gameKind", None) or g.id
+            lines.append(f"  - **{g.name}** ({kind}): {g.description}")
+
+    if lessons:
+        lines.append("Lessons:")
+        for le in lessons:
+            kind = getattr(le, "lessonKind", None) or le.id
+            lines.append(f"  - **{le.name}** ({kind}): {le.description}")
+
+    return "\n".join(lines)

@@ -1,0 +1,1 @@
+export { WordMatchGame } from "./WordMatchGame";

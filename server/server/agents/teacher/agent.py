@@ -1,0 +1,355 @@
+"""TeacherAgent -- LiveKit Agent that bridges participants to Gemini Live API."""
+
+from __future__ import annotations
+
+import asyncio
+import uuid
+from typing import Any, Optional
+
+from livekit import rtc
+
+from server.agents.ta.agent import TAAgent
+from server.agents.ta.models import TARequest
+from server.config import settings
+from server.content.templates import list_templates
+from server.events.redis_bridge import redis_bridge
+from server.events.subjects import SUBJECTS, room_subject
+from server.logging import get_logger
+from server.tools.registry import ToolRegistry
+from server.tools.schemas import (
+    TOOL_DEFINITIONS,
+    CallerIdentity,
+)
+
+from .gemini_session import GeminiSession
+from .system_prompt import build_teacher_prompt
+from .voice_config import resolve_voice_config
+
+log = get_logger("teacher:agent")
+
+# Gemini Live input expects 16 kHz mono PCM-16
+INPUT_SAMPLE_RATE = 16000
+# Gemini Live output is 24 kHz mono PCM-16
+OUTPUT_SAMPLE_RATE = 24000
+
+
+class TeacherAgent:
+    """Orchestrates the AI Teacher:
+
+    1. Joins a LiveKit room as participant ``ai-teacher``.
+    2. Receives audio from room participants via LiveKit.
+    3. Pipes audio to Gemini Live API via ``GeminiSession``.
+    4. Receives Gemini audio responses and publishes them back to the LiveKit room.
+    5. Handles tool calls from Gemini -- dispatches to ``ToolRegistry``.
+    """
+
+    def __init__(
+        self,
+        *,
+        room_id: str,
+        livekit_url: Optional[str] = None,
+        livekit_token: Optional[str] = None,
+        user_profile: Optional[dict[str, Any]] = None,
+        participants: Optional[list[dict[str, Any]]] = None,
+        api_key: Optional[str] = None,
+        model: str = "gemini-2.0-flash-exp",
+        tool_registry: Optional[ToolRegistry] = None,
+        ta_agent: Optional[TAAgent] = None,
+    ) -> None:
+        self._room_id = room_id
+        self._livekit_url = livekit_url or settings.LIVEKIT_URL
+        self._livekit_token = livekit_token or ""
+        self._user_profile = user_profile or {}
+        self._participants = participants or []
+        self._api_key = api_key or settings.GEMINI_API_KEY
+        self._model = model
+        self._tool_registry = tool_registry
+        self._ta_agent = ta_agent
+
+        self._gemini: Optional[GeminiSession] = None
+        self._room: Optional[rtc.Room] = None
+        self._audio_source: Optional[rtc.AudioSource] = None
+        self._audio_track: Optional[rtc.LocalAudioTrack] = None
+        self._running = False
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    async def start(self) -> None:
+        """Connect to LiveKit room and Gemini, then start bridging audio."""
+        if self._running:
+            log.warning("Already running")
+            return
+
+        self._running = True
+
+        try:
+            # 1. Build system prompt
+            available_content = []
+            try:
+                available_content = list_templates()
+            except Exception as exc:
+                log.warning("Could not load content catalog", error=str(exc))
+
+            # Resolve voice + language from user profile preferences
+            prefs = self._user_profile.get("preferences", {})
+            voice_cfg = resolve_voice_config(
+                prefs.get("voice"),
+                prefs.get("language"),
+            )
+
+            # Build tool definitions for Gemini (only teacher-allowed tools)
+            tool_defs = [
+                {
+                    "name": t.name,
+                    "description": t.description,
+                    "parameters": t.schema_cls.model_json_schema(),
+                }
+                for t in TOOL_DEFINITIONS
+                if "teacher" in t.allowed_callers
+            ]
+
+            system_instruction = build_teacher_prompt(
+                room_id=self._room_id,
+                participants=self._participants,
+                user_profiles=[self._user_profile] if self._user_profile else [],
+                tools=tool_defs,
+                available_content=available_content,
+            )
+
+            # 2. Create Gemini session
+            self._gemini = GeminiSession(
+                api_key=self._api_key,
+                model=self._model,
+                system_instruction=system_instruction,
+                tools=tool_defs,
+                voice=voice_cfg["voice"],
+                language=voice_cfg["language"],
+            )
+
+            self._wire_gemini_callbacks()
+            await self._gemini.connect()
+
+            # 3. Join LiveKit room
+            await self._join_livekit_room()
+
+            log.info("Teacher agent started", room_id=self._room_id)
+
+        except Exception as exc:
+            log.error("Failed to start teacher agent", error=str(exc))
+            self._running = False
+            raise
+
+    async def stop(self) -> None:
+        """Disconnect from everything and clean up."""
+        log.info("Stopping teacher agent", room_id=self._room_id)
+        self._running = False
+
+        if self._gemini:
+            await self._gemini.disconnect()
+            self._gemini = None
+
+        if self._room:
+            await self._room.disconnect()
+            self._room = None
+
+        self._audio_source = None
+        self._audio_track = None
+
+        log.info("Teacher agent stopped")
+
+    async def send_text(self, text: str) -> None:
+        """Send a text message to the Gemini session (e.g. event notifications)."""
+        if self._gemini and self._gemini.connected:
+            await self._gemini.send_text(text)
+
+    # ------------------------------------------------------------------
+    # LiveKit room
+    # ------------------------------------------------------------------
+
+    async def _join_livekit_room(self) -> None:
+        """Join the LiveKit room and set up audio I/O."""
+        self._room = rtc.Room()
+
+        # Create an audio source for publishing Gemini's audio output
+        self._audio_source = rtc.AudioSource(OUTPUT_SAMPLE_RATE, 1)
+        self._audio_track = rtc.LocalAudioTrack.create_audio_track(
+            "teacher-voice", self._audio_source
+        )
+
+        # Wire room events
+        self._room.on("track_subscribed", self._on_track_subscribed)
+
+        # Connect to room
+        await self._room.connect(self._livekit_url, self._livekit_token)
+
+        # Publish the teacher's audio track
+        await self._room.local_participant.publish_track(
+            self._audio_track,
+            rtc.TrackPublishOptions(source=rtc.TrackSource.SOURCE_MICROPHONE),
+        )
+
+        log.info("Joined LiveKit room", room_id=self._room_id)
+
+    def _on_track_subscribed(
+        self,
+        track: rtc.Track,
+        publication: rtc.RemoteTrackPublication,
+        participant: rtc.RemoteParticipant,
+    ) -> None:
+        """Handle a remote audio track subscription -- pipe to Gemini."""
+        if track.kind != rtc.TrackKind.KIND_AUDIO:
+            return
+
+        log.debug("Audio track subscribed", participant=participant.identity)
+        audio_stream = rtc.AudioStream(track, sample_rate=INPUT_SAMPLE_RATE, num_channels=1)
+        asyncio.create_task(self._forward_audio_to_gemini(audio_stream, participant.identity))
+
+    async def _forward_audio_to_gemini(
+        self, audio_stream: rtc.AudioStream, participant_id: str
+    ) -> None:
+        """Read frames from a LiveKit audio stream and send to Gemini."""
+        try:
+            async for event in audio_stream:
+                if not self._running or not self._gemini or not self._gemini.connected:
+                    break
+                frame = event.frame
+                # frame.data is bytes of PCM-16 samples
+                await self._gemini.send_audio(frame.data.tobytes())
+        except Exception as exc:
+            log.error("Audio forward error", participant=participant_id, error=str(exc))
+
+    # ------------------------------------------------------------------
+    # Gemini callbacks
+    # ------------------------------------------------------------------
+
+    def _wire_gemini_callbacks(self) -> None:
+        """Wire up GeminiSession callbacks."""
+        if not self._gemini:
+            return
+
+        self._gemini.on_audio = self._on_gemini_audio
+        self._gemini.on_tool_call = self._on_gemini_tool_call
+        self._gemini.on_turn_complete = self._on_turn_complete
+        self._gemini.on_interrupted = self._on_interrupted
+        self._gemini.on_error = self._on_gemini_error
+        self._gemini.on_closed = self._on_gemini_closed
+
+    def _on_gemini_audio(self, audio_bytes: bytes) -> None:
+        """Publish Gemini's audio response to LiveKit room."""
+        if not self._audio_source:
+            return
+        # Create an AudioFrame from the raw PCM-16 bytes
+        frame = rtc.AudioFrame(
+            data=audio_bytes,
+            sample_rate=OUTPUT_SAMPLE_RATE,
+            num_channels=1,
+            samples_per_channel=len(audio_bytes) // 2,
+        )
+        # capture_frame is synchronous
+        self._audio_source.capture_frame(frame)
+
+    def _on_gemini_tool_call(self, function_calls: list[Any]) -> None:
+        """Handle tool calls from Gemini -- dispatch asynchronously."""
+        for fc in function_calls:
+            if not fc.id or not fc.name:
+                continue
+
+            log.info("Dispatching tool call", name=fc.name, id=fc.id)
+
+            # Send immediate acknowledgement so Gemini doesn't time out
+            asyncio.create_task(
+                self._gemini.send_tool_response(fc.id, fc.name, {
+                    "success": True,
+                    "result": "Processing request...",
+                })
+            )
+
+            # Dispatch actual handler in background
+            asyncio.create_task(self._execute_tool_call(fc))
+
+    async def _execute_tool_call(self, fc: Any) -> None:
+        """Execute a single tool call through the registry or direct TA dispatch."""
+        try:
+            name = fc.name
+            args = dict(fc.args) if fc.args else {}
+
+            # Special case: request_ta_action goes directly to the TA agent
+            if name == "request_ta_action" and self._ta_agent:
+                await self._dispatch_ta_action(fc.id, args)
+                return
+
+            # All other tools go through the registry
+            if self._tool_registry:
+                caller = CallerIdentity(
+                    id="ai-teacher",
+                    role="teacher",
+                    session_id=self._room_id,
+                )
+                response = await self._tool_registry.execute(name, args, caller)
+
+                # Publish result to Redis for SSE delivery
+                channel = room_subject(SUBJECTS["UI_CONTROL"], self._room_id)
+                await redis_bridge.publish(channel, {
+                    "type": "tool_result",
+                    "tool": name,
+                    "call_id": fc.id,
+                    "success": response.success,
+                    "data": response.data,
+                    "error": response.error,
+                })
+            else:
+                log.warning("No tool registry configured", tool=name)
+
+        except Exception as exc:
+            log.error("Tool call execution failed", name=fc.name, error=str(exc))
+
+    async def _dispatch_ta_action(self, call_id: str, args: dict[str, Any]) -> None:
+        """Forward a request_ta_action tool call to the TA agent."""
+        if not self._ta_agent:
+            log.warning("No TA agent configured")
+            return
+
+        request = TARequest(
+            request_id=f"ta-{uuid.uuid4().hex[:8]}",
+            intent=args.get("intent", ""),
+            context=args.get("context", {}),
+            room_id=self._room_id,
+            user_profiles=[self._user_profile] if self._user_profile else [],
+        )
+
+        try:
+            response = await self._ta_agent.handle_request(request)
+
+            # Publish TA result to Redis for SSE delivery to browser
+            channel = room_subject(SUBJECTS["CONTENT_PUSH"], self._room_id)
+            await redis_bridge.publish(channel, {
+                "type": "ta_response",
+                "request_id": response.request_id,
+                "success": response.success,
+                "bundle": response.bundle.model_dump() if response.bundle else None,
+                "error": response.error,
+            })
+
+            log.info(
+                "TA action completed",
+                request_id=response.request_id,
+                success=response.success,
+            )
+        except Exception as exc:
+            log.error("TA dispatch failed", call_id=call_id, error=str(exc))
+
+    def _on_turn_complete(self) -> None:
+        log.debug("Turn complete")
+
+    def _on_interrupted(self) -> None:
+        log.debug("Interrupted")
+
+    def _on_gemini_error(self, exc: Exception) -> None:
+        log.error("Gemini session error", error=str(exc))
+
+    def _on_gemini_closed(self) -> None:
+        log.info("Gemini session closed")
+        if self._running:
+            log.warning("Gemini closed unexpectedly while agent is running")

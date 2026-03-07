@@ -1,0 +1,23 @@
+{
+  "id": "sentencebuilder",
+  "name": "Sentence Builder",
+  "description": "Word-ordering game where students drag words from a bank to construct the correct sentence. Supports distractor words for added challenge.",
+  "type": "game",
+  "version": 1,
+  "gameKind": "sentencebuilder",
+  "minPlayers": 1,
+  "maxPlayers": 4,
+  "slots": [
+    {
+      "id": "game_data",
+      "kind": "text",
+      "label": "Game data JSON with words array, correctSentence, optional prompt and distractors",
+      "required": true
+    }
+  ],
+  "bundlePath": "bundle.html",
+  "createdAt": "2026-03-01T00:00:00Z",
+  "updatedAt": "2026-03-01T00:00:00Z",
+  "tags": ["grammar", "sentences", "english", "word-order"],
+  "aiInstructions": "Generate a JSON object with: words (array of words to arrange), correctSentence (the target sentence), prompt (optional instruction like 'Arrange the words to describe the picture'), distractors (optional extra wrong words). Example: { words: ['the', 'cat', 'sat', 'on', 'mat'], correctSentence: 'the cat sat on mat', prompt: 'Put these words in order', distractors: ['ran', 'big'] }. Adjust complexity for the student's level."
+}

@@ -1,0 +1,74 @@
+# dependencies
+node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# build output
+dist
+/build
+/.next/
+/out/
+
+# testing
+/coverage
+/test-results
+/playwright-report
+
+# python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+.eggs/
+*.whl
+.venv/
+venv/
+env/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# env / secrets
+.env*
+!.env.example
+*.pem
+
+# misc
+.DS_Store
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# editors / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# firebase
+firebase-debug.log
+firestore-debug.log
+
+# genkit
+.genkit/
+
+# project specific
+data/bundles
+prompt.xml
+prompt.md
+/logs

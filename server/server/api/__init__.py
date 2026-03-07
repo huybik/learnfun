@@ -1,0 +1,22 @@
+"""API package — all FastAPI routers with prefix /api."""
+
+from fastapi import APIRouter
+
+from .bundles import router as bundles_router
+from .events import router as events_router
+from .health import router as health_router
+from .join import router as join_router
+from .logs import router as logs_router
+from .session import router as session_router
+from .ta import router as ta_router
+from .token import router as token_router
+
+api_router = APIRouter(prefix="/api")
+api_router.include_router(session_router)
+api_router.include_router(join_router)
+api_router.include_router(health_router)
+api_router.include_router(token_router)
+api_router.include_router(bundles_router)
+api_router.include_router(logs_router)
+api_router.include_router(events_router)
+api_router.include_router(ta_router)
