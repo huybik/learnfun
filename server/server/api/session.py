@@ -15,6 +15,14 @@ log = get_logger("api:session")
 router = APIRouter()
 
 
+def _log_teacher_spawn_result(task: asyncio.Task[object], room_id: str) -> None:
+    """Ensure background teacher spawn failures are surfaced in logs."""
+    try:
+        task.result()
+    except Exception as exc:
+        log.error("Teacher spawn task failed", room_id=room_id, error=str(exc))
+
+
 class CreateSessionRequest(BaseModel):
     userName: str
     voicePreference: str | None = None
@@ -43,7 +51,7 @@ async def post_session(body: CreateSessionRequest, request: Request):
         }
         teacher_token = generate_livekit_token(room_id, "ai-teacher", "teacher")
 
-        asyncio.create_task(
+        task = asyncio.create_task(
             spawn_teacher(
                 room_id=room_id,
                 livekit_token=teacher_token,
@@ -53,6 +61,7 @@ async def post_session(body: CreateSessionRequest, request: Request):
                 tool_registry=request.app.state.tool_registry,
             )
         )
+        task.add_done_callback(lambda t: _log_teacher_spawn_result(t, room_id))
 
         return result
     except Exception as exc:

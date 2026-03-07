@@ -32,6 +32,45 @@ INPUT_SAMPLE_RATE = 16000
 # Gemini Live output is 24 kHz mono PCM-16
 OUTPUT_SAMPLE_RATE = 24000
 
+_JSON_SCHEMA_KEY_ALIASES: dict[str, str] = {
+    "additional_properties": "additionalProperties",
+    "any_of": "anyOf",
+    "max_items": "maxItems",
+    "max_length": "maxLength",
+    "max_properties": "maxProperties",
+    "min_items": "minItems",
+    "min_length": "minLength",
+    "min_properties": "minProperties",
+    "prefix_items": "prefixItems",
+    "property_ordering": "propertyOrdering",
+}
+
+
+def _sanitize_json_schema(value: Any) -> Any:
+    """Normalize JSON Schema keys for Gemini API compatibility."""
+    if isinstance(value, list):
+        return [_sanitize_json_schema(item) for item in value]
+
+    if not isinstance(value, dict):
+        return value
+
+    sanitized: dict[str, Any] = {}
+    for key, item in value.items():
+        if item is None:
+            continue
+
+        if key == "properties" and isinstance(item, dict):
+            sanitized["properties"] = {
+                prop_name: _sanitize_json_schema(prop_schema)
+                for prop_name, prop_schema in item.items()
+            }
+            continue
+
+        out_key = _JSON_SCHEMA_KEY_ALIASES.get(key, key)
+        sanitized[out_key] = _sanitize_json_schema(item)
+
+    return sanitized
+
 
 class TeacherAgent:
     """Orchestrates the AI Teacher:
@@ -107,7 +146,9 @@ class TeacherAgent:
                 td: dict = {
                     "name": t.name,
                     "description": t.description,
-                    "parameters": t.schema_cls.model_json_schema(),
+                    "parameters_json_schema": _sanitize_json_schema(
+                        t.schema_cls.model_json_schema()
+                    ),
                 }
                 # Long-running tools are NON_BLOCKING so Gemini keeps talking
                 if t.name == "request_ta_action":

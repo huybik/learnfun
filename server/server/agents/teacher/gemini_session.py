@@ -91,15 +91,25 @@ class GeminiSession:
     def _build_config(self) -> types.LiveConnectConfig:
         """Build LiveConnectConfig with session management features."""
         # Function declarations
-        function_declarations = [
-            types.FunctionDeclaration(
-                name=t["name"],
-                description=t["description"],
-                parameters=t.get("parameters"),
-                behavior=t.get("behavior"),
-            )
-            for t in self._tools
-        ]
+        function_declarations: list[types.FunctionDeclaration] = []
+        for t in self._tools:
+            declaration: dict[str, Any] = {
+                "name": t["name"],
+                "description": t["description"],
+                "behavior": t.get("behavior"),
+            }
+
+            if t.get("parameters_json_schema") is not None:
+                declaration["parameters_json_schema"] = t.get("parameters_json_schema")
+            elif t.get("parameters") is not None:
+                # Backward compatibility: prefer JSON schema path for dict payloads.
+                params = t.get("parameters")
+                if isinstance(params, dict):
+                    declaration["parameters_json_schema"] = params
+                else:
+                    declaration["parameters"] = params
+
+            function_declarations.append(types.FunctionDeclaration(**declaration))
 
         # Speech config
         speech_config = None

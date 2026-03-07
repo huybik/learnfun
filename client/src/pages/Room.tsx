@@ -183,6 +183,7 @@ export default function RoomPage() {
               bundle={activeBundle}
               contentType={contentType}
               gameKind={gameKind}
+              lessonKind={lessonKind}
               currentPage={currentPage}
               localUserId={localUserId}
               onGameEnd={handleGameEnd}
