@@ -15,7 +15,7 @@ from server.content.templates import list_templates
 from server.events.helpers import publish_event
 from server.events.subjects import SUBJECTS, room_subject
 from server.logging import get_logger
-from server.run_logger import log_teacher_run
+from server.run_logger import log_teacher_prompt
 from server.tools.registry import ToolRegistry
 from server.tools.schemas import (
     TOOL_DEFINITIONS,
@@ -166,10 +166,10 @@ class TeacherAgent:
 
             # Log system prompt
             try:
-                log_teacher_run(
+                log_teacher_prompt(
                     session_id=self._room_id,
                     prompt=system_instruction,
-                    response={"event": "session_start", "model": self._model, "tools": [t["name"] for t in tool_defs]},
+                    metadata={"model": self._model, "tools": [t["name"] for t in tool_defs]},
                 )
             except Exception:
                 log.warning("Failed to write teacher run log")
@@ -184,6 +184,7 @@ class TeacherAgent:
                 language=voice_cfg["language"],
                 affective_dialog=settings.GEMINI_AFFECTIVE_DIALOG,
                 proactive_audio=settings.GEMINI_PROACTIVE_AUDIO,
+                session_id=self._room_id,
             )
 
             self._wire_gemini_callbacks()

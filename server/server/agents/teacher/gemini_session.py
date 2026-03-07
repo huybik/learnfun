@@ -14,7 +14,7 @@ from google import genai
 from google.genai import types
 
 from server.logging import get_logger
-from server.run_logger import log_teacher_run
+from server.run_logger import log_teacher_event
 
 log = get_logger("gemini_session")
 
@@ -339,6 +339,13 @@ class GeminiSession:
             if not self._reconnecting and self.on_closed:
                 self.on_closed()
 
+    def _log_msg(self, event_type: str, data: Any) -> None:
+        """Best-effort log a teacher event to runs/."""
+        try:
+            log_teacher_event(self._session_id, event_type, data)
+        except Exception:
+            pass
+
     async def _handle_message(self, msg: Any) -> None:
         """Process a single server message."""
         # Usage metadata — log token consumption
@@ -350,6 +357,11 @@ class GeminiSession:
                 response_tokens=um.response_token_count,
                 total_tokens=um.total_token_count,
             )
+            self._log_msg("usage", {
+                "prompt_tokens": um.prompt_token_count,
+                "response_tokens": um.response_token_count,
+                "total_tokens": um.total_token_count,
+            })
 
         # Session resumption update — save handle for reconnects
         if msg.session_resumption_update:
@@ -371,8 +383,13 @@ class GeminiSession:
         # Tool calls
         if msg.tool_call:
             fc_list = msg.tool_call.function_calls or []
-            if fc_list and self.on_tool_call:
-                self.on_tool_call(fc_list)
+            if fc_list:
+                self._log_msg("tool_call", [
+                    {"id": fc.id, "name": fc.name, "args": dict(fc.args) if fc.args else {}}
+                    for fc in fc_list
+                ])
+                if self.on_tool_call:
+                    self.on_tool_call(fc_list)
             return
 
         # Tool call cancellation
@@ -410,10 +427,12 @@ class GeminiSession:
 
         # Transcriptions
         if server_content.output_transcription and server_content.output_transcription.text:
+            self._log_msg("transcription_ai", {"text": server_content.output_transcription.text})
             if self.on_transcription:
                 self.on_transcription("ai", server_content.output_transcription.text)
 
         if server_content.input_transcription and server_content.input_transcription.text:
+            self._log_msg("transcription_user", {"text": server_content.input_transcription.text})
             if self.on_transcription:
                 self.on_transcription("user", server_content.input_transcription.text)
 
