@@ -67,7 +67,7 @@ Interactive learning platform: AI teacher + teaching assistant guide students th
 - `config/` — API config, constants
 
 **Data** (`data/`) — game content (at project root, shared by server + client)
-- `games/` — flashcard, sentencebuilder, spaceshooter, wordmatch, solar-system
+- `games/` — flashcard (only game currently)
 - `games/_sdk/` — shared SDK (GameBridge, GameAPI interface, dev panel) for iframe games
 - Each game is a standalone Vite project: `skill.md` (YAML frontmatter + AI instructions) + `src/` (vanilla TS or any framework)
 - Games run in iframes, served from `/games/{id}/` via `api/games.py`

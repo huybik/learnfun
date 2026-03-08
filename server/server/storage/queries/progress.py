@@ -15,7 +15,7 @@ def _row_to_progress(row) -> LearningProgress:
         total_points=row["total_points"],
         current_streak=row["current_streak"],
         highest_streak=row["highest_streak"],
-        unit_progress=row["unit_progress"] or {},
+        unit_progress=json.loads(row["unit_progress"]) if isinstance(row["unit_progress"], str) else (row["unit_progress"] or {}),
         last_activity_at=str(row["last_activity_at"]) if row["last_activity_at"] else None,
     )
 
