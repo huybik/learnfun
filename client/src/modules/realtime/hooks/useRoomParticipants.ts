@@ -4,13 +4,15 @@ import type { Participant } from "@/types/room";
 
 /** Map LiveKit participants to our app Participant type. */
 function toLkParticipants(lkParticipants: LkParticipant[], hostIdentity?: string): Participant[] {
-  return lkParticipants.map((p) => ({
-    id: p.identity,
-    name: p.name || p.identity,
-    role: p.identity === hostIdentity ? ("host" as const) : ("student" as const),
-    joinedAt: new Date().toISOString(),
-    livekitIdentity: p.identity,
-  }));
+  return lkParticipants
+    .filter((p) => p.identity !== "ai-teacher")
+    .map((p) => ({
+      id: p.identity,
+      name: p.name || p.identity,
+      role: p.identity === hostIdentity ? ("host" as const) : ("student" as const),
+      joinedAt: new Date().toISOString(),
+      livekitIdentity: p.identity,
+    }));
 }
 
 export interface UseRoomParticipantsResult {
