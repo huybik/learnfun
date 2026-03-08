@@ -44,3 +44,14 @@ async def update_profile(
     pool = get_pool()
     await pool.execute(sql, *values)
     log.debug("Profile updated user_id=%s", user_id)
+
+
+async def append_observation(user_id: str, observation: str) -> None:
+    """Append a single observation to the user's profile."""
+    pool = get_pool()
+    await pool.execute(
+        "UPDATE user_profiles SET observations = array_append(observations, $1), updated_at = NOW() WHERE user_id = $2",
+        observation,
+        user_id,
+    )
+    log.debug("Observation appended user_id=%s", user_id)

@@ -12,6 +12,8 @@ from server.events.helpers import publish_event
 from server.events.subjects import SUBJECTS, room_subject
 from server.logging import get_logger
 from server.events.models import Participant, Room
+from server.storage.queries import users as db_users
+from server.storage.queries import sessions as db_sessions
 
 from .tokens import generate_livekit_token, generate_session_token
 
@@ -32,6 +34,7 @@ class StoredSession:
     participants: list[str] = field(default_factory=list)
     created_at: float = 0.0
     ended_at: float | None = None
+    db_session_id: str | None = None
 
 
 _sessions: dict[str, StoredSession] = {}
@@ -67,9 +70,19 @@ async def create_session(
     """Create a new learning session and return connection info."""
     session_id = _new_id()
     room_id = _new_id()
-    user_id = _new_id()
 
     log.info("Creating session", session_id=session_id, room_id=room_id, user_name=user_name)
+
+    # Persist user + session to DB
+    prefs = {}
+    if voice_preference:
+        prefs["voice"] = voice_preference
+    if language_code:
+        prefs["language"] = language_code
+
+    user_profile = await db_users.create_user(user_name, preferences=prefs)
+    user_id = user_profile.id
+    db_session = await db_sessions.create_session(user_id, room_id)
 
     # Store session
     _sessions[session_id] = StoredSession(
@@ -79,6 +92,7 @@ async def create_session(
         host_name=user_name,
         participants=[user_id],
         created_at=datetime.now(timezone.utc).timestamp(),
+        db_session_id=db_session.id,
     )
 
     # Generate tokens
@@ -136,8 +150,10 @@ async def join_session(session_id: str, user_name: str) -> dict:
     if session.ended_at is not None:
         raise ValueError(f"Session already ended: {session_id}")
 
-    user_id = _new_id()
-    log.info("Joining session", session_id=session_id, user_id=user_id, user_name=user_name)
+    log.info("Joining session", session_id=session_id, user_name=user_name)
+
+    user_profile = await db_users.create_user(user_name)
+    user_id = user_profile.id
 
     session.participants.append(user_id)
 
@@ -178,6 +194,12 @@ async def end_session(session_id: str) -> None:
 
     log.info("Ending session", session_id=session_id, room_id=session.room_id)
     session.ended_at = datetime.now(timezone.utc).timestamp()
+
+    if session.db_session_id:
+        try:
+            await db_sessions.end_session(session.db_session_id)
+        except Exception as exc:
+            log.warning("Failed to end DB session", error=str(exc))
 
     await stop_teacher(session.room_id)
 

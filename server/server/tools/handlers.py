@@ -162,7 +162,16 @@ async def handle_signal_feedback(params: dict, ctx: ToolHandlerContext) -> ToolR
 
     points = params.get("points")
     if points:
-        log.info("Points awarded", room_id=room_id, points=points)
+        from server.api.room_manager import get_session_by_room
+        from server.storage.queries.progress import add_points
+
+        session = get_session_by_room(room_id)
+        if session:
+            try:
+                await add_points(session.host_id, points)
+                log.info("Points persisted", room_id=room_id, user_id=session.host_id, points=points)
+            except Exception as exc:
+                log.warning("Failed to persist points", error=str(exc))
 
     return ToolResponse(call_id=ctx.call_id, success=True, data={"delivered": True})
 
@@ -179,6 +188,18 @@ async def handle_update_profile(params: dict, ctx: ToolHandlerContext) -> ToolRe
 
     log.info("Observation recorded", room_id=room_id, observation=observation)
 
+    # Persist to DB
+    from server.api.room_manager import get_session_by_room
+    from server.storage.queries.profiles import append_observation
+
+    session = get_session_by_room(room_id)
+    if session:
+        try:
+            await append_observation(session.host_id, observation)
+        except Exception as exc:
+            log.warning("Failed to persist observation", error=str(exc))
+
+    # Publish for frontend visibility
     channel = room_subject(SUBJECTS["UI_CONTROL"], room_id)
     await publish_event(
         channel=channel,
