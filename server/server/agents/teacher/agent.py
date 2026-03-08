@@ -424,19 +424,7 @@ class TeacherAgent:
                     scheduling="WHEN_IDLE",
                 )
 
-            # Publish TA result to Redis for SSE delivery to browser
-            if response.success and response.bundle:
-                channel = room_subject(SUBJECTS["CONTENT_PUSH"], self._room_id)
-                await publish_event(
-                    channel=channel,
-                    event_type="ta.content_ready",
-                    payload={
-                        "contentId": response.request_id,
-                        "bundle": response.bundle.model_dump(),
-                        "metadata": {"intent": request.intent, "templateId": response.bundle.templateId},
-                    },
-                    source_id="ai-teacher",
-                )
+            # Note: ta.content_ready is already published by the TA request_handler pipeline.
 
             log.info(
                 "TA action completed",

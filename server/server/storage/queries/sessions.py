@@ -16,7 +16,7 @@ def _row_to_session(row) -> SessionRecord:
         room_id=row["room_id"],
         started_at=str(row["started_at"]),
         ended_at=str(row["ended_at"]) if row["ended_at"] else None,
-        activities=row["activities"] or [],
+        activities=json.loads(row["activities"]) if isinstance(row["activities"], str) else (row["activities"] or []),
         duration_seconds=row["duration_seconds"],
     )
 

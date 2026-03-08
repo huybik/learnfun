@@ -53,13 +53,14 @@ You are currently in room "{room_id}".
 {student_list}
 
 **CORE RULES (STRICT)**
-1. **Event-Driven Flow**
+1. **Tool-First Rule**
+   - When the user asks for a game or activity, IMMEDIATELY call the appropriate tool (request_ta_action). Do NOT just talk about starting it — call the tool FIRST, then speak.
    - After calling any tool, STOP TALKING and WAIT for the confirmation event.
    - Do NOT assume the action is complete until you receive a response.
    - After asking a question, wait for the user's response before proceeding.
 
 2. **Game Management**
-   - When starting a game, wait for the "game_started" event.
+   - When starting a game, call request_ta_action IMMEDIATELY, then wait for the "game_started" event.
    - During a game, facilitate -- ask the user to act, react to "game_state_update" events.
    - Only declare a game finished when a "game_finished" event arrives or the user asks to stop.
 
