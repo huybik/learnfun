@@ -48,6 +48,17 @@ const bridge = new GameBridge({
         ],
       },
     ],
+    memory: [
+      { fruits: ['apple', 'banana', 'grape', 'cherry'] },
+    ],
+    oddoneout: [
+      { fruits: ['apple', 'cherry', 'strawberry', 'banana'], odd: 'banana', trait: 'red fruit', explanation: 'Banana is yellow — the rest are red!' },
+      { fruits: ['watermelon', 'pineapple', 'grape', 'coconut'], odd: 'grape', trait: 'big fruit', explanation: 'Grapes are tiny — the rest are big!' },
+    ],
+    pattern: [
+      { sequence: ['apple', 'banana', 'apple', 'banana'], answer: 'apple', options: ['apple', 'grape', 'banana', 'cherry'] },
+      { sequence: ['cherry', 'cherry', 'grape', 'cherry', 'cherry'], answer: 'grape', options: ['cherry', 'grape', 'apple', 'lemon'] },
+    ],
     shop: {
       budget: 100,
       goal: 'Buy fruits for a delicious smoothie! 🥤',
@@ -60,6 +71,22 @@ const bridge = new GameBridge({
         { fruit: 'pineapple', price: 18 },
       ],
     },
+    recipes: [
+      {
+        name: 'Tropical Smoothie',
+        emoji: '🥤',
+        required: ['mango', 'pineapple', 'banana'],
+        budget: 80,
+        available: [
+          { fruit: 'mango', price: 20 },
+          { fruit: 'pineapple', price: 18 },
+          { fruit: 'banana', price: 10 },
+          { fruit: 'apple', price: 12 },
+          { fruit: 'grape', price: 8 },
+          { fruit: 'coconut', price: 25 },
+        ],
+      },
+    ],
   },
 })
 

@@ -392,15 +392,16 @@ body {
   flex-wrap: wrap;
 }
 
-.basket-drop-zone.basket-hover {
-  border-color: var(--accent);
-  border-style: solid;
-  background: rgba(255, 243, 224, 0.9);
-  transform: scale(1.03);
+/* Generic drop hover (used by basket + sort bins) */
+.drop-hover {
+  border-color: var(--accent) !important;
+  border-style: solid !important;
+  background: rgba(255, 243, 224, 0.9) !important;
+  transform: scale(1.05);
   box-shadow: 0 0 20px rgba(255, 143, 0, 0.3);
 }
 
-.basket-drop-zone.basket-hover .basket-icon {
+.basket-drop-zone.drop-hover .basket-icon {
   transform: scale(1.15);
 }
 
@@ -613,6 +614,170 @@ body {
   line-height: 1.4;
 }
 
+/* ============ Timer Bar ============ */
+
+.timer-bar-track {
+  height: 6px;
+  background: rgba(0,0,0,0.1);
+  border-radius: 3px;
+  margin: 0 24px 8px;
+  overflow: hidden;
+}
+
+.timer-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--correct), var(--gold));
+  border-radius: 3px;
+  animation: timer-shrink var(--timer-ms) linear forwards;
+}
+
+@keyframes timer-shrink {
+  0% { width: 100%; }
+  70% { background: linear-gradient(90deg, var(--gold), var(--accent)); }
+  100% { width: 0%; background: var(--wrong); }
+}
+
+/* ============ Shadow & Describe Modes ============ */
+
+.shadow-mode .fruit-svg svg {
+  filter: brightness(0) saturate(0);
+}
+
+.shadow-mode .fruit-label,
+.describe-mode .fruit-label {
+  display: none;
+}
+
+/* ============ Memory Phase ============ */
+
+.memory-grid {
+  flex: none;
+}
+
+.memory-card {
+  max-width: 100px;
+}
+
+.memory-back {
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--accent);
+  opacity: 0.4;
+  user-select: none;
+}
+
+.memory-card:not(.is-flipped) .fruit-inner {
+  background: linear-gradient(135deg, #FFF3E0, #FFE0B2);
+  border-color: var(--accent);
+  border-style: dashed;
+}
+
+.memory-card.is-matched .fruit-inner {
+  border-color: var(--correct);
+  background: #E8F5E9;
+  animation: none;
+}
+
+/* ============ Odd One Out ============ */
+
+.odd-explanation {
+  text-align: center;
+  font-size: 16px;
+  font-weight: 600;
+  color: #5D4037;
+  padding: 4px 24px 8px;
+  animation: hint-bounce 0.4s ease;
+}
+
+/* ============ Pattern Phase ============ */
+
+.pattern-sequence {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 24px;
+  flex-wrap: wrap;
+}
+
+.pattern-item {
+  width: 56px;
+  height: 56px;
+  animation: fruit-pop-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+.pattern-item svg { width: 100%; height: 100%; }
+
+.pattern-blank {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border: 3px dashed var(--accent);
+  border-radius: 14px;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--accent);
+  opacity: 0.5;
+  animation: card-reveal-pulse 1.2s ease infinite;
+}
+
+.pattern-answer {
+  animation: fruit-pop-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  filter: drop-shadow(0 0 8px rgba(67, 160, 71, 0.5));
+}
+
+/* ============ Recipe Phase ============ */
+
+.recipe-card {
+  text-align: center;
+  padding: 10px 24px;
+  animation: hint-bounce 0.4s ease;
+}
+
+.recipe-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.recipe-ingredients {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.recipe-ing {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--accent);
+  border-radius: 10px;
+  padding: 4px;
+  opacity: 0.4;
+  transition: all 0.3s ease;
+}
+.recipe-ing svg { width: 100%; height: 100%; }
+
+.recipe-ing-done {
+  opacity: 1;
+  border-style: solid;
+  border-color: var(--correct);
+  background: #E8F5E9;
+}
+
+.recipe-ing-svg { width: 100%; height: 100%; display: block; }
+.recipe-ing-svg svg { width: 100%; height: 100%; }
+
+.recipe-required {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 10px rgba(255, 143, 0, 0.2);
+}
+
 /* ============ Responsive ============ */
 
 @media (max-width: 480px) {
@@ -641,6 +806,12 @@ body {
   .basket-drop-zone { margin: 6px 12px; padding: 10px 14px; min-height: 56px; }
   .basket-icon { width: 40px; height: 40px; }
   .basket-drop-label { font-size: 13px; }
+  .memory-card { max-width: 80px; }
+  .memory-back { font-size: 28px; }
+  .pattern-item, .pattern-blank { width: 44px; height: 44px; }
+  .pattern-blank { font-size: 22px; }
+  .recipe-ing { width: 32px; height: 32px; }
+  .recipe-title { font-size: 17px; }
 }
 
 @media (max-height: 500px) {

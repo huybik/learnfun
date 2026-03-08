@@ -7,33 +7,42 @@ import { sfxPop, sfxCorrect, sfxWrong, sfxCoin, sfxComplete, sfxWhoosh } from '.
 // ===================== Types =====================
 
 interface IntroItem { fruit: string; title?: string; fact?: string }
-interface Challenge { id: number | string; fruit: string; hint?: string; pool: string[] }
+interface Challenge { id: number | string; fruit: string; hint?: string; pool: string[]; mode?: 'find' | 'shadow' | 'describe' }
 interface SortCategory { name: string; emoji?: string; fruits: string[] }
 interface SortRound { fruits: string[]; categories: SortCategory[] }
 interface ShopItem { fruit: string; price: number }
 interface ShopData { budget: number; items: ShopItem[]; goal?: string }
+interface MemoryRound { fruits: string[] }
+interface OddOneOutRound { fruits: string[]; odd: string; trait: string; explanation?: string }
+interface PatternRound { sequence: string[]; answer: string; options: string[] }
+interface RecipeData { name: string; emoji?: string; required: string[]; available: ShopItem[]; budget: number }
 
-type Phase = 'learn' | 'play' | 'sort' | 'shop'
+type Phase = 'learn' | 'play' | 'memory' | 'oddoneout' | 'pattern' | 'sort' | 'shop' | 'recipe'
 const WAVE_SIZE = 4
 
 export class FruitMarketGame implements GameAPI {
   private bridge: GameBridge
   private root: HTMLElement
   private phase: Phase = 'play'
-  private wave = 0 // learn 3 → play 3 → learn 3 → play 3 → ...
+  private wave = 0
 
   // Learn
   private intro: IntroItem[] = []
-  private introIdx = 0 // absolute index
+  private introIdx = 0
 
   // Play
   private challenges: Challenge[] = []
-  private idx = 0 // absolute index
+  private idx = 0
   private score = 0
   private streak = 0
   private answered = false
   private wrongAttempts = 0
   private advanceTimer = 0
+
+  // Timer
+  private timerEnabled = false
+  private timerDuration = 10000
+  private timerStart = 0
 
   // Sort
   private sortRounds: SortRound[] = []
@@ -46,11 +55,35 @@ export class FruitMarketGame implements GameAPI {
   private shopBudget = 0
   private shopBasket: string[] = []
 
-  // Drag state
+  // Drag
   private dragEl: HTMLElement | null = null
   private dragFruit: string | null = null
   private dragOffsetX = 0
   private dragOffsetY = 0
+
+  // Memory
+  private memoryRounds: MemoryRound[] = []
+  private memoryIdx = 0
+  private memoryCards: { fruit: string; id: number }[] = []
+  private memoryFlipped: number[] = []
+  private memoryMatched: Set<number> = new Set()
+  private memoryLocked = false
+
+  // Odd one out
+  private oddRounds: OddOneOutRound[] = []
+  private oddIdx = 0
+  private oddAnswered = false
+
+  // Pattern
+  private patternRounds: PatternRound[] = []
+  private patternIdx = 0
+  private patternAnswered = false
+
+  // Recipe
+  private recipes: RecipeData[] = []
+  private recipeIdx = 0
+  private recipeBudget = 0
+  private recipeBasket: string[] = []
 
   constructor(root: HTMLElement, bridge: GameBridge) {
     this.root = root
@@ -63,19 +96,22 @@ export class FruitMarketGame implements GameAPI {
     this.intro = (d.intro as IntroItem[]) || []
     this.sortRounds = (d.sort as SortRound[]) || []
     this.shopData = (d.shop as ShopData) || null
+    this.memoryRounds = (d.memory as MemoryRound[]) || []
+    this.oddRounds = (d.oddoneout as OddOneOutRound[]) || []
+    this.patternRounds = (d.pattern as PatternRound[]) || []
+    this.recipes = (d.recipes as RecipeData[]) || []
+    this.timerEnabled = !!d.timed
+    this.timerDuration = Number(d.timerDuration) || 10000
 
-    this.wave = 0
-    this.introIdx = 0
-    this.idx = 0
-    this.score = 0
-    this.streak = 0
-    this.answered = false
-    this.wrongAttempts = 0
-    this.sortIdx = 0
-    this.sortRemaining = []
-    this.sortSelected = null
-    this.shopBudget = this.shopData?.budget ?? 0
-    this.shopBasket = []
+    this.wave = 0; this.introIdx = 0; this.idx = 0
+    this.score = 0; this.streak = 0; this.answered = false; this.wrongAttempts = 0
+    this.sortIdx = 0; this.sortRemaining = []; this.sortSelected = null
+    this.shopBudget = this.shopData?.budget ?? 0; this.shopBasket = []
+    this.memoryIdx = 0; this.memoryCards = []; this.memoryFlipped = []
+    this.memoryMatched = new Set(); this.memoryLocked = false
+    this.oddIdx = 0; this.oddAnswered = false
+    this.patternIdx = 0; this.patternAnswered = false
+    this.recipeIdx = 0; this.recipeBudget = this.recipes[0]?.budget ?? 0; this.recipeBasket = []
     clearTimeout(this.advanceTimer)
 
     this.phase = this.intro.length > 0 ? 'learn' : 'play'
@@ -106,30 +142,43 @@ export class FruitMarketGame implements GameAPI {
           const item = this.shopData?.items.find(i => i.fruit.toLowerCase() === val.toLowerCase())
           if (item) this.handleBuy(item)
         }
+        if (this.phase === 'memory') {
+          const idx = this.memoryCards.findIndex(c => c.fruit.toLowerCase() === val.toLowerCase() && !this.memoryMatched.has(c.id) && !this.memoryFlipped.includes(c.id))
+          if (idx >= 0) this.handleMemoryFlip(this.memoryCards[idx].id)
+        }
+        if (this.phase === 'oddoneout') this.handleOddPick(val)
+        if (this.phase === 'pattern') this.handlePatternPick(val)
+        if (this.phase === 'recipe') {
+          const item = this.recipes[this.recipeIdx]?.available.find(i => i.fruit.toLowerCase() === val.toLowerCase())
+          if (item) this.handleRecipeBuy(item)
+        }
       },
       next: () => this.advance(),
       reveal: () => {
         if (this.phase === 'play') this.doReveal()
         if (this.phase === 'sort') this.doSortReveal()
+        if (this.phase === 'oddoneout') this.doOddReveal()
+        if (this.phase === 'pattern') this.doPatternReveal()
       },
       jump: () => {
         const to = Number(params.to)
         if (this.phase === 'learn') {
           this.introIdx = clamp(to, 0, this.intro.length - 1)
           this.wave = Math.floor(this.introIdx / WAVE_SIZE)
-          this.render()
         } else if (this.phase === 'play') {
           this.idx = clamp(to, 0, this.challenges.length - 1)
           this.wave = Math.floor(this.idx / WAVE_SIZE)
-          this.answered = false
-          this.wrongAttempts = 0
-          clearTimeout(this.advanceTimer)
-          this.render()
+          this.answered = false; this.wrongAttempts = 0; clearTimeout(this.advanceTimer)
         } else if (this.phase === 'sort') {
-          this.sortIdx = clamp(to, 0, this.sortRounds.length - 1)
-          this.initSortRound()
-          this.render()
+          this.sortIdx = clamp(to, 0, this.sortRounds.length - 1); this.initSortRound()
+        } else if (this.phase === 'memory') {
+          this.memoryIdx = clamp(to, 0, this.memoryRounds.length - 1); this.initMemoryRound()
+        } else if (this.phase === 'oddoneout') {
+          this.oddIdx = clamp(to, 0, this.oddRounds.length - 1); this.oddAnswered = false
+        } else if (this.phase === 'pattern') {
+          this.patternIdx = clamp(to, 0, this.patternRounds.length - 1); this.patternAnswered = false
         }
+        this.render()
       },
       end: () => this.finish(),
       set: () => {
@@ -137,7 +186,7 @@ export class FruitMarketGame implements GameAPI {
         if (field === 'score') { this.score = Number(params.value); this.updateHUD() }
         if (field === 'phase') {
           const val = String(params.value) as Phase
-          if (['play', 'learn', 'sort', 'shop'].includes(val)) this.transitionTo(val)
+          if (['play', 'learn', 'sort', 'shop', 'memory', 'oddoneout', 'pattern', 'recipe'].includes(val)) this.transitionTo(val)
         }
       },
     }
@@ -150,11 +199,26 @@ export class FruitMarketGame implements GameAPI {
       const item = this.intro[this.introIdx]
       return { phase: 'learn' as const, introIndex: this.introIdx, introTotal: this.intro.length, currentFruit: item?.fruit ?? '', wave: this.wave }
     }
+    if (this.phase === 'memory') {
+      return { phase: 'memory' as const, round: this.memoryIdx, total: this.memoryRounds.length, matched: this.memoryMatched.size / 2, pairs: this.memoryCards.length / 2, score: this.score }
+    }
+    if (this.phase === 'oddoneout') {
+      const r = this.oddRounds[this.oddIdx]
+      return { phase: 'oddoneout' as const, round: this.oddIdx, total: this.oddRounds.length, trait: r?.trait ?? '', answered: this.oddAnswered, score: this.score }
+    }
+    if (this.phase === 'pattern') {
+      return { phase: 'pattern' as const, round: this.patternIdx, total: this.patternRounds.length, answered: this.patternAnswered, score: this.score }
+    }
     if (this.phase === 'sort') {
       return { phase: 'sort' as const, sortRound: this.sortIdx, sortTotal: this.sortRounds.length, remaining: this.sortRemaining.length, score: this.score }
     }
     if (this.phase === 'shop') {
       return { phase: 'shop' as const, budget: this.shopBudget, basketSize: this.shopBasket.length, basket: [...this.shopBasket], score: this.score }
+    }
+    if (this.phase === 'recipe') {
+      const r = this.recipes[this.recipeIdx]
+      const got = this.recipeBasket.filter(f => r?.required.includes(f)).length
+      return { phase: 'recipe' as const, recipe: r?.name ?? '', round: this.recipeIdx, total: this.recipes.length, budget: this.recipeBudget, basket: [...this.recipeBasket], remaining: (r?.required.length ?? 0) - got, score: this.score }
     }
     const c = this.challenges[this.idx]
     return {
@@ -163,78 +227,70 @@ export class FruitMarketGame implements GameAPI {
     }
   }
 
-  destroy() {
-    clearTimeout(this.advanceTimer)
-    this.root.innerHTML = ''
-  }
+  destroy() { clearTimeout(this.advanceTimer); this.root.innerHTML = '' }
 
   // ===================== Phase Flow =====================
 
-  /** How many learn→play waves exist (interleaves batches of WAVE_SIZE) */
   private get totalWaves(): number {
     if (this.intro.length === 0 || this.challenges.length === 0) return 1
-    return Math.max(
-      Math.ceil(this.intro.length / WAVE_SIZE),
-      Math.ceil(this.challenges.length / WAVE_SIZE),
-    )
+    return Math.max(Math.ceil(this.intro.length / WAVE_SIZE), Math.ceil(this.challenges.length / WAVE_SIZE))
   }
 
-  private waveIntroEnd(): number {
-    return Math.min((this.wave + 1) * WAVE_SIZE, this.intro.length)
-  }
-
-  private waveChallengeEnd(): number {
-    return Math.min((this.wave + 1) * WAVE_SIZE, this.challenges.length)
-  }
-
-  private waveHasIntros(): boolean {
-    return this.wave * WAVE_SIZE < this.intro.length
-  }
-
-  private waveHasChallenges(): boolean {
-    return this.wave * WAVE_SIZE < this.challenges.length
-  }
+  private waveIntroEnd() { return Math.min((this.wave + 1) * WAVE_SIZE, this.intro.length) }
+  private waveChallengeEnd() { return Math.min((this.wave + 1) * WAVE_SIZE, this.challenges.length) }
+  private waveHasIntros() { return this.wave * WAVE_SIZE < this.intro.length }
+  private waveHasChallenges() { return this.wave * WAVE_SIZE < this.challenges.length }
 
   private transitionTo(phase: Phase) {
     this.phase = phase
     sfxWhoosh()
+    clearTimeout(this.advanceTimer)
     if (phase === 'learn') { this.wave = 0; this.introIdx = 0 }
     if (phase === 'play') { this.wave = 0; this.idx = 0; this.answered = false; this.wrongAttempts = 0 }
     if (phase === 'sort') { this.sortIdx = 0; this.initSortRound() }
     if (phase === 'shop') { this.shopBudget = this.shopData?.budget ?? 0; this.shopBasket = [] }
+    if (phase === 'memory') { this.memoryIdx = 0; this.initMemoryRound() }
+    if (phase === 'oddoneout') { this.oddIdx = 0; this.oddAnswered = false }
+    if (phase === 'pattern') { this.patternIdx = 0; this.patternAnswered = false }
+    if (phase === 'recipe') { this.recipeIdx = 0; this.recipeBudget = this.recipes[0]?.budget ?? 0; this.recipeBasket = [] }
     this.render()
     this.sync()
     this.bridge.emitEvent('phaseChange', { phase })
   }
 
-  /** Move to the next wave of learn→play, or on to sort/shop/finish */
+  private nextPhaseAfter(current: Phase) {
+    const order: [Phase, () => boolean][] = [
+      ['memory', () => this.memoryRounds.length > 0],
+      ['oddoneout', () => this.oddRounds.length > 0],
+      ['pattern', () => this.patternRounds.length > 0],
+      ['sort', () => this.sortRounds.length > 0],
+      ['recipe', () => this.recipes.length > 0],
+      ['shop', () => !!this.shopData],
+    ]
+    const start = current === 'play' || current === 'learn' ? 0 : order.findIndex(([p]) => p === current) + 1
+    for (let i = start; i < order.length; i++) {
+      if (order[i][1]()) { this.transitionTo(order[i][0]); return }
+    }
+    this.finish()
+  }
+
   private advanceWave() {
     this.wave++
     if (this.wave < this.totalWaves) {
       if (this.waveHasIntros()) {
-        this.phase = 'learn'
-        this.introIdx = this.wave * WAVE_SIZE
-        sfxWhoosh()
-        this.render()
-        this.sync()
+        this.phase = 'learn'; this.introIdx = this.wave * WAVE_SIZE
+        sfxWhoosh(); this.render(); this.sync()
         this.bridge.emitEvent('phaseChange', { phase: 'learn' })
       } else if (this.waveHasChallenges()) {
-        this.phase = 'play'
-        this.idx = this.wave * WAVE_SIZE
-        this.answered = false
-        this.wrongAttempts = 0
-        sfxWhoosh()
-        this.render()
-        this.sync()
+        this.phase = 'play'; this.idx = this.wave * WAVE_SIZE
+        this.answered = false; this.wrongAttempts = 0
+        sfxWhoosh(); this.render(); this.sync()
         this.bridge.emitEvent('phaseChange', { phase: 'play' })
       } else {
-        this.advanceWave() // skip empty wave
+        this.advanceWave()
       }
     } else {
-      // All waves done → sort/shop/finish
-      if (this.sortRounds.length > 0) this.transitionTo('sort')
-      else if (this.shopData) this.transitionTo('shop')
-      else this.finish()
+      this.nextPhaseAfter('play')
     }
   }
 
@@ -244,57 +300,63 @@ export class FruitMarketGame implements GameAPI {
     if (this.phase === 'learn') {
       const wEnd = this.waveIntroEnd()
       if (this.introIdx < wEnd - 1) {
-        this.introIdx++
-        sfxPop()
-        this.render()
-        this.sync()
+        this.introIdx++; sfxPop(); this.render(); this.sync()
         this.bridge.emitEvent('introAdvance', { index: this.introIdx, fruit: this.intro[this.introIdx]?.fruit })
       } else if (this.waveHasChallenges()) {
-        // Learn done for this wave → play
-        this.phase = 'play'
-        this.idx = this.wave * WAVE_SIZE
-        this.answered = false
-        this.wrongAttempts = 0
-        sfxWhoosh()
-        this.render()
-        this.sync()
+        this.phase = 'play'; this.idx = this.wave * WAVE_SIZE
+        this.answered = false; this.wrongAttempts = 0
+        sfxWhoosh(); this.render(); this.sync()
         this.bridge.emitEvent('phaseChange', { phase: 'play' })
-      } else {
-        this.advanceWave()
-      }
+      } else { this.advanceWave() }
       return
     }
 
     if (this.phase === 'play') {
       const wEnd = this.waveChallengeEnd()
       if (this.idx < wEnd - 1) {
-        this.idx++
-        this.answered = false
-        this.wrongAttempts = 0
-        this.render()
-        this.sync()
-      } else {
-        this.advanceWave()
-      }
+        this.idx++; this.answered = false; this.wrongAttempts = 0
+        this.render(); this.sync()
+      } else { this.advanceWave() }
+      return
+    }
+
+    if (this.phase === 'memory') {
+      if (this.memoryIdx < this.memoryRounds.length - 1) {
+        this.memoryIdx++; this.initMemoryRound(); this.render(); this.sync()
+      } else { this.nextPhaseAfter('memory') }
+      return
+    }
+
+    if (this.phase === 'oddoneout') {
+      if (this.oddIdx < this.oddRounds.length - 1) {
+        this.oddIdx++; this.oddAnswered = false; this.render(); this.sync()
+      } else { this.nextPhaseAfter('oddoneout') }
+      return
+    }
+
+    if (this.phase === 'pattern') {
+      if (this.patternIdx < this.patternRounds.length - 1) {
+        this.patternIdx++; this.patternAnswered = false; this.render(); this.sync()
+      } else { this.nextPhaseAfter('pattern') }
       return
     }
 
     if (this.phase === 'sort') {
       if (this.sortIdx < this.sortRounds.length - 1) {
-        this.sortIdx++
-        this.initSortRound()
-        this.render()
-        this.sync()
-      } else {
-        if (this.shopData) this.transitionTo('shop')
-        else this.finish()
-      }
+        this.sortIdx++; this.initSortRound(); this.render(); this.sync()
+      } else { this.nextPhaseAfter('sort') }
       return
     }
 
-    if (this.phase === 'shop') {
-      this.finish()
+    if (this.phase === 'recipe') {
+      if (this.recipeIdx < this.recipes.length - 1) {
+        this.recipeIdx++; this.recipeBudget = this.recipes[this.recipeIdx]?.budget ?? 0
+        this.recipeBasket = []; this.render(); this.sync()
+      } else { this.nextPhaseAfter('recipe') }
+      return
     }
+
+    if (this.phase === 'shop') { this.nextPhaseAfter('shop') }
   }
 
   // ===================== Rendering =====================
@@ -303,8 +365,12 @@ export class FruitMarketGame implements GameAPI {
     switch (this.phase) {
       case 'learn': this.renderIntro(); break
       case 'play': this.renderChallenge(); break
+      case 'memory': this.renderMemory(); break
+      case 'oddoneout': this.renderOddOneOut(); break
+      case 'pattern': this.renderPattern(); break
       case 'sort': this.renderSort(); break
       case 'shop': this.renderShop(); break
+      case 'recipe': this.renderRecipe(); break
     }
   }
 
@@ -361,10 +427,25 @@ export class FruitMarketGame implements GameAPI {
     this.root.appendChild(hud)
 
     const hint = el('div', 'challenge-hint')
-    hint.textContent = c.hint || `Find the ${c.fruit}!`
+    if (c.mode === 'shadow') hint.textContent = c.hint || 'Can you guess by the shape?'
+    else if (c.mode === 'describe') hint.textContent = c.hint || 'Which fruit matches this description?'
+    else hint.textContent = c.hint || `Find the ${c.fruit}!`
     this.root.appendChild(hint)
 
+    // Timer bar
+    if (this.timerEnabled && !this.answered) {
+      const track = el('div', 'timer-bar-track')
+      const fill = el('div', 'timer-bar-fill')
+      fill.style.setProperty('--timer-ms', `${this.timerDuration}ms`)
+      track.appendChild(fill)
+      this.root.appendChild(track)
+      this.timerStart = Date.now()
+      this.advanceTimer = window.setTimeout(() => { if (!this.answered) this.doReveal() }, this.timerDuration)
+    }
+
     const grid = el('div', 'fruit-grid')
+    if (c.mode === 'shadow') grid.classList.add('shadow-mode')
+    if (c.mode === 'describe') grid.classList.add('describe-mode')
     const pool = c.pool || [c.fruit]
     grid.style.gridTemplateColumns = `repeat(${pool.length <= 4 ? 2 : pool.length <= 6 ? 3 : 4}, 1fr)`
 
@@ -395,6 +476,189 @@ export class FruitMarketGame implements GameAPI {
     this.root.appendChild(dots)
   }
 
+  private renderMemory() {
+    this.root.innerHTML = ''
+    const round = this.memoryRounds[this.memoryIdx]
+    if (!round) return
+
+    const hud = el('div', 'hud')
+    hud.innerHTML = `
+      <div class="hud-left"><span class="hud-star">★</span> <span class="hud-score-val">${this.score}</span></div>
+      <div class="hud-center">Memory! ${this.memoryMatched.size / 2} / ${this.memoryCards.length / 2}</div>
+      <div class="hud-right"></div>
+    `
+    this.root.appendChild(hud)
+
+    const hint = el('div', 'challenge-hint')
+    hint.textContent = 'Find the matching pairs!'
+    this.root.appendChild(hint)
+
+    const grid = el('div', 'fruit-grid memory-grid')
+    const total = this.memoryCards.length
+    const cols = total <= 8 ? 4 : total <= 12 ? 4 : 5
+    grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`
+
+    this.memoryCards.forEach((card, i) => {
+      const isFlipped = this.memoryFlipped.includes(card.id) || this.memoryMatched.has(card.id)
+      const isMatched = this.memoryMatched.has(card.id)
+      const cardEl = el('div', 'fruit-card memory-card' + (isFlipped ? ' is-flipped' : '') + (isMatched ? ' is-matched' : ''))
+      cardEl.style.animationDelay = `${i * 0.04}s`
+      const inner = el('div', 'fruit-inner memory-inner')
+
+      if (isFlipped) {
+        const svgWrap = el('div', 'fruit-svg')
+        svgWrap.innerHTML = getFruitSvg(card.fruit)
+        inner.appendChild(svgWrap)
+        const label = el('span', 'fruit-label')
+        label.textContent = card.fruit
+        inner.appendChild(label)
+      } else {
+        const back = el('div', 'memory-back')
+        back.textContent = '?'
+        inner.appendChild(back)
+      }
+
+      cardEl.appendChild(inner)
+      if (!isFlipped && !this.memoryLocked) {
+        cardEl.addEventListener('pointerenter', () => sfxPop())
+        cardEl.addEventListener('click', () => this.handleMemoryFlip(card.id))
+      }
+      grid.appendChild(cardEl)
+    })
+    this.root.appendChild(grid)
+
+    const dots = el('div', 'progress-dots')
+    const pairs = this.memoryCards.length / 2
+    const matched = this.memoryMatched.size / 2
+    for (let i = 0; i < pairs; i++) {
+      dots.appendChild(el('div', i < matched ? 'dot done' : i === matched ? 'dot active' : 'dot'))
+    }
+    this.root.appendChild(dots)
+  }
+
+  private renderOddOneOut() {
+    const round = this.oddRounds[this.oddIdx]
+    if (!round) return
+    this.root.innerHTML = ''
+
+    const hud = el('div', 'hud')
+    hud.innerHTML = `
+      <div class="hud-left"><span class="hud-star">★</span> <span class="hud-score-val">${this.score}</span></div>
+      <div class="hud-center">Odd one out! ${this.oddIdx + 1} / ${this.oddRounds.length}</div>
+      <div class="hud-right">${this.streak >= 2 ? '<span class="hud-streak">🔥 ' + this.streak + '</span>' : ''}</div>
+    `
+    this.root.appendChild(hud)
+
+    const hint = el('div', 'challenge-hint')
+    hint.textContent = `Which one is NOT a ${round.trait}?`
+    this.root.appendChild(hint)
+
+    const grid = el('div', 'fruit-grid')
+    grid.style.gridTemplateColumns = `repeat(${round.fruits.length <= 4 ? 2 : 3}, 1fr)`
+
+    round.fruits.forEach((fruit, i) => {
+      const isOdd = fruit.toLowerCase() === round.odd.toLowerCase()
+      const card = el('div', 'fruit-card')
+      card.style.animationDelay = `${i * 0.07}s`
+      if (this.oddAnswered) card.classList.add(isOdd ? 'is-correct' : 'is-dimmed')
+
+      const inner = el('div', 'fruit-inner')
+      const svgWrap = el('div', 'fruit-svg')
+      svgWrap.innerHTML = getFruitSvg(fruit)
+      inner.appendChild(svgWrap)
+      const label = el('span', 'fruit-label')
+      label.textContent = fruit
+      inner.appendChild(label)
+      card.appendChild(inner)
+
+      if (!this.oddAnswered) {
+        card.addEventListener('pointerenter', () => sfxPop())
+        card.addEventListener('click', () => this.handleOddPick(fruit))
+      }
+      grid.appendChild(card)
+    })
+    this.root.appendChild(grid)
+
+    if (this.oddAnswered && round.explanation) {
+      const expl = el('div', 'odd-explanation')
+      expl.textContent = round.explanation
+      this.root.appendChild(expl)
+    }
+
+    const dots = el('div', 'progress-dots')
+    for (let i = 0; i < this.oddRounds.length; i++) {
+      dots.appendChild(el('div', i < this.oddIdx ? 'dot done' : i === this.oddIdx ? 'dot active' : 'dot'))
+    }
+    this.root.appendChild(dots)
+  }
+
+  private renderPattern() {
+    const round = this.patternRounds[this.patternIdx]
+    if (!round) return
+    this.root.innerHTML = ''
+
+    const hud = el('div', 'hud')
+    hud.innerHTML = `
+      <div class="hud-left"><span class="hud-star">★</span> <span class="hud-score-val">${this.score}</span></div>
+      <div class="hud-center">Pattern! ${this.patternIdx + 1} / ${this.patternRounds.length}</div>
+      <div class="hud-right">${this.streak >= 2 ? '<span class="hud-streak">🔥 ' + this.streak + '</span>' : ''}</div>
+    `
+    this.root.appendChild(hud)
+
+    const hint = el('div', 'challenge-hint')
+    hint.textContent = 'What comes next?'
+    this.root.appendChild(hint)
+
+    const seqWrap = el('div', 'pattern-sequence')
+    round.sequence.forEach(fruit => {
+      const item = el('div', 'pattern-item')
+      item.innerHTML = getFruitSvg(fruit)
+      seqWrap.appendChild(item)
+    })
+    if (this.patternAnswered) {
+      const ans = el('div', 'pattern-item pattern-answer')
+      ans.innerHTML = getFruitSvg(round.answer)
+      seqWrap.appendChild(ans)
+    } else {
+      const blank = el('div', 'pattern-item pattern-blank')
+      blank.textContent = '?'
+      seqWrap.appendChild(blank)
+    }
+    this.root.appendChild(seqWrap)
+
+    const grid = el('div', 'fruit-grid')
+    grid.style.gridTemplateColumns = `repeat(${round.options.length}, 1fr)`
+
+    round.options.forEach((fruit, i) => {
+      const isAnswer = fruit.toLowerCase() === round.answer.toLowerCase()
+      const card = el('div', 'fruit-card')
+      card.style.animationDelay = `${i * 0.07}s`
+      if (this.patternAnswered) card.classList.add(isAnswer ? 'is-correct' : 'is-dimmed')
+
+      const inner = el('div', 'fruit-inner')
+      const svgWrap = el('div', 'fruit-svg')
+      svgWrap.innerHTML = getFruitSvg(fruit)
+      inner.appendChild(svgWrap)
+      const label = el('span', 'fruit-label')
+      label.textContent = fruit
+      inner.appendChild(label)
+      card.appendChild(inner)
+
+      if (!this.patternAnswered) {
+        card.addEventListener('pointerenter', () => sfxPop())
+        card.addEventListener('click', () => this.handlePatternPick(fruit))
+      }
+      grid.appendChild(card)
+    })
+    this.root.appendChild(grid)
+
+    const dots = el('div', 'progress-dots')
+    for (let i = 0; i < this.patternRounds.length; i++) {
+      dots.appendChild(el('div', i < this.patternIdx ? 'dot done' : i === this.patternIdx ? 'dot active' : 'dot'))
+    }
+    this.root.appendChild(dots)
+  }
+
   private renderSort() {
     const round = this.sortRounds[this.sortIdx]
     if (!round) return
@@ -411,7 +675,7 @@ export class FruitMarketGame implements GameAPI {
     const hint = el('div', 'challenge-hint')
     hint.textContent = this.sortSelected
       ? `Where does the ${this.sortSelected} go?`
-      : 'Tap a fruit, then pick its bin!'
+      : 'Tap a fruit, then pick its bin — or drag!'
     this.root.appendChild(hint)
 
     // Category bins
@@ -450,6 +714,19 @@ export class FruitMarketGame implements GameAPI {
         card.appendChild(inner)
         card.addEventListener('pointerenter', () => sfxPop())
         card.addEventListener('click', () => { this.sortSelected = fruitName; this.renderSort() })
+
+        // Drag to sort
+        card.style.touchAction = 'none'
+        card.addEventListener('pointerdown', (e) => {
+          this.startDrag(e, fruitName, card, '.sort-bin', (target) => {
+            const bins = [...this.root.querySelectorAll('.sort-bin')]
+            const catIdx = bins.indexOf(target)
+            if (catIdx >= 0) {
+              this.sortSelected = fruitName
+              this.handleSort(fruitName, round.categories[catIdx])
+            }
+          })
+        })
         grid.appendChild(card)
       })
       this.root.appendChild(grid)
@@ -512,7 +789,7 @@ export class FruitMarketGame implements GameAPI {
         card.addEventListener('pointerenter', () => sfxPop())
         card.addEventListener('click', () => this.handleBuy(item))
         card.style.touchAction = 'none'
-        card.addEventListener('pointerdown', (e) => this.onDragStart(e, item.fruit, card))
+        card.addEventListener('pointerdown', (e) => this.startDrag(e, item.fruit, card, '.basket-drop-zone', () => this.handleBuy(item)))
       }
       grid.appendChild(card)
     })
@@ -523,7 +800,6 @@ export class FruitMarketGame implements GameAPI {
     const basketIcon = el('div', 'basket-icon')
     basketIcon.innerHTML = basketSvg
     dropZone.appendChild(basketIcon)
-
     if (this.shopBasket.length > 0) {
       const basketItems = el('div', 'basket-items')
       this.shopBasket.forEach(fruit => {
@@ -539,7 +815,6 @@ export class FruitMarketGame implements GameAPI {
     }
     this.root.appendChild(dropZone)
 
-    // Done button or auto-finish
     if (this.shopBasket.length > 0) {
       if (!canBuyMore) {
         this.advanceTimer = window.setTimeout(() => this.advance(), 2500)
@@ -552,42 +827,131 @@ export class FruitMarketGame implements GameAPI {
     }
   }
 
+  private renderRecipe() {
+    const recipe = this.recipes[this.recipeIdx]
+    if (!recipe) return
+    this.root.innerHTML = ''
+
+    const got = this.recipeBasket.filter(f => recipe.required.includes(f))
+    const allDone = got.length >= recipe.required.length
+
+    const hud = el('div', 'hud')
+    hud.innerHTML = `
+      <div class="hud-left"><span class="hud-star">★</span> <span class="hud-score-val">${this.score}</span></div>
+      <div class="hud-center">🪙 ${this.recipeBudget} coins</div>
+      <div class="hud-right">${this.recipes.length > 1 ? `${this.recipeIdx + 1}/${this.recipes.length}` : ''}</div>
+    `
+    this.root.appendChild(hud)
+
+    // Recipe card
+    const recipeCard = el('div', 'recipe-card')
+    let ingHtml = ''
+    recipe.required.forEach(f => {
+      const done = got.includes(f)
+      ingHtml += `<span class="recipe-ing ${done ? 'recipe-ing-done' : ''}"><span class="recipe-ing-svg">${getFruitSvg(f)}</span></span>`
+    })
+    recipeCard.innerHTML = `
+      <div class="recipe-title">${recipe.emoji || '📝'} ${recipe.name}</div>
+      <div class="recipe-ingredients">${ingHtml}</div>
+    `
+    this.root.appendChild(recipeCard)
+
+    const hint = el('div', 'challenge-hint')
+    hint.textContent = allDone ? 'Recipe complete! 🎉' : 'Buy the ingredients!'
+    this.root.appendChild(hint)
+
+    const grid = el('div', 'fruit-grid')
+    const items = recipe.available
+    grid.style.gridTemplateColumns = `repeat(${items.length <= 4 ? 2 : items.length <= 6 ? 3 : 4}, 1fr)`
+
+    items.forEach((item, i) => {
+      const bought = this.recipeBasket.includes(item.fruit)
+      const canAfford = this.recipeBudget >= item.price
+      const isRequired = recipe.required.includes(item.fruit)
+      const card = el('div', 'fruit-card shop-item' + (bought ? ' is-bought' : '') + (!canAfford && !bought ? ' is-expensive' : ''))
+      card.style.animationDelay = `${i * 0.07}s`
+
+      const inner = el('div', 'fruit-inner')
+      if (isRequired && !bought) inner.classList.add('recipe-required')
+      const svgWrap = el('div', 'fruit-svg')
+      svgWrap.innerHTML = getFruitSvg(item.fruit)
+      inner.appendChild(svgWrap)
+      const label = el('span', 'fruit-label')
+      label.textContent = item.fruit
+      inner.appendChild(label)
+      const price = el('span', 'shop-price')
+      price.textContent = bought ? '✓' : `🪙 ${item.price}`
+      inner.appendChild(price)
+      card.appendChild(inner)
+
+      if (!bought && canAfford) {
+        card.addEventListener('pointerenter', () => sfxPop())
+        card.addEventListener('click', () => this.handleRecipeBuy(item))
+        card.style.touchAction = 'none'
+        card.addEventListener('pointerdown', (e) => this.startDrag(e, item.fruit, card, '.basket-drop-zone', () => this.handleRecipeBuy(item)))
+      }
+      grid.appendChild(card)
+    })
+    this.root.appendChild(grid)
+
+    // Basket drop zone
+    const dropZone = el('div', 'basket-drop-zone')
+    const basketIcon = el('div', 'basket-icon')
+    basketIcon.innerHTML = basketSvg
+    dropZone.appendChild(basketIcon)
+    if (this.recipeBasket.length > 0) {
+      const basketItems = el('div', 'basket-items')
+      this.recipeBasket.forEach(fruit => {
+        const mini = el('span', 'shop-basket-svg')
+        mini.innerHTML = getFruitSvg(fruit)
+        basketItems.appendChild(mini)
+      })
+      dropZone.appendChild(basketItems)
+    } else {
+      const dropLabel = el('div', 'basket-drop-label')
+      dropLabel.textContent = 'Drag ingredients here!'
+      dropZone.appendChild(dropLabel)
+    }
+    this.root.appendChild(dropZone)
+
+    if (allDone) {
+      this.advanceTimer = window.setTimeout(() => this.advance(), 2000)
+    }
+  }
+
   // ===================== Drag & Drop =====================
 
-  private onDragStart(e: PointerEvent, fruit: string, card: HTMLElement) {
+  private startDrag(e: PointerEvent, fruit: string, card: HTMLElement, dropSelector: string, onDrop: (target: HTMLElement) => void) {
     if (this.dragEl) return
-    e.preventDefault()
     card.setPointerCapture(e.pointerId)
 
+    const startX = e.clientX, startY = e.clientY
     const rect = card.getBoundingClientRect()
-    this.dragFruit = fruit
     this.dragOffsetX = e.clientX - rect.left
     this.dragOffsetY = e.clientY - rect.top
-
-    // Create ghost
-    const ghost = el('div', 'drag-ghost')
-    ghost.innerHTML = getFruitSvg(fruit)
-    ghost.style.width = `${rect.width * 0.8}px`
-    ghost.style.height = `${rect.width * 0.8}px`
-    ghost.style.left = `${e.clientX - this.dragOffsetX}px`
-    ghost.style.top = `${e.clientY - this.dragOffsetY}px`
-    document.body.appendChild(ghost)
-    this.dragEl = ghost
-
-    card.classList.add('is-dragging')
-    sfxPop()
+    let dragging = false
 
     const onMove = (ev: PointerEvent) => {
-      if (!this.dragEl) return
-      this.dragEl.style.left = `${ev.clientX - this.dragOffsetX}px`
-      this.dragEl.style.top = `${ev.clientY - this.dragOffsetY}px`
-
-      const dropZone = this.root.querySelector('.basket-drop-zone')
-      if (dropZone) {
-        const dzRect = dropZone.getBoundingClientRect()
-        const over = ev.clientX >= dzRect.left && ev.clientX <= dzRect.right &&
-                     ev.clientY >= dzRect.top && ev.clientY <= dzRect.bottom
-        dropZone.classList.toggle('basket-hover', over)
+      if (!dragging && Math.abs(ev.clientX - startX) + Math.abs(ev.clientY - startY) > 8) {
+        dragging = true
+        const ghost = el('div', 'drag-ghost')
+        ghost.innerHTML = getFruitSvg(fruit)
+        ghost.style.width = `${rect.width * 0.8}px`
+        ghost.style.height = `${rect.width * 0.8}px`
+        document.body.appendChild(ghost)
+        this.dragEl = ghost
+        this.dragFruit = fruit
+        card.classList.add('is-dragging')
+        sfxPop()
+      }
+      if (dragging && this.dragEl) {
+        ev.preventDefault()
+        this.dragEl.style.left = `${ev.clientX - this.dragOffsetX}px`
+        this.dragEl.style.top = `${ev.clientY - this.dragOffsetY}px`
+        this.root.querySelectorAll<HTMLElement>(dropSelector).forEach(dz => {
+          const r = dz.getBoundingClientRect()
+          dz.classList.toggle('drop-hover', ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom)
+        })
       }
     }
 
@@ -596,24 +960,15 @@ export class FruitMarketGame implements GameAPI {
       card.removeEventListener('pointerup', onEnd)
       card.removeEventListener('pointercancel', onEnd)
       card.classList.remove('is-dragging')
-
-      const dropZone = this.root.querySelector('.basket-drop-zone')
-      if (dropZone) {
-        const dzRect = dropZone.getBoundingClientRect()
-        const over = ev.clientX >= dzRect.left && ev.clientX <= dzRect.right &&
-                     ev.clientY >= dzRect.top && ev.clientY <= dzRect.bottom
-        dropZone.classList.remove('basket-hover')
-
-        if (over && this.dragFruit) {
-          const item = this.shopData?.items.find(i => i.fruit === this.dragFruit)
-          if (item) this.handleBuy(item)
-        }
+      if (dragging) {
+        this.root.querySelectorAll<HTMLElement>(dropSelector).forEach(dz => {
+          const r = dz.getBoundingClientRect()
+          const over = ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom
+          dz.classList.remove('drop-hover')
+          if (over) onDrop(dz)
+        })
       }
-
-      if (this.dragEl) {
-        this.dragEl.remove()
-        this.dragEl = null
-      }
+      if (this.dragEl) { this.dragEl.remove(); this.dragEl = null }
       this.dragFruit = null
     }
 
@@ -634,13 +989,23 @@ export class FruitMarketGame implements GameAPI {
     if (isCorrect) {
       this.answered = true
       this.score += 10
+      let bonus = 0
+      if (this.timerEnabled) {
+        const elapsed = Date.now() - this.timerStart
+        bonus = Math.max(0, Math.ceil((1 - elapsed / this.timerDuration) * 5))
+        this.score += bonus
+      }
       this.streak++
       card.classList.add('is-correct')
       sfxCorrect()
       setTimeout(() => sfxCoin(), 350)
       this.burstParticles(card)
-      this.floatScore(card, '+10')
+      this.floatScore(card, bonus > 0 ? `+${10 + bonus}` : '+10')
       this.updateHUD()
+
+      // Remove shadow/describe mode on correct to reveal
+      const grid = this.root.querySelector('.fruit-grid')
+      if (grid) { grid.classList.remove('shadow-mode', 'describe-mode') }
 
       this.root.querySelectorAll<HTMLElement>('.fruit-card').forEach(c => {
         if (c !== card) c.classList.add('is-dimmed')
@@ -650,6 +1015,7 @@ export class FruitMarketGame implements GameAPI {
         challengeIndex: this.idx, expected: c.fruit, given: fruitName, score: this.score,
       })
       this.sync()
+      clearTimeout(this.advanceTimer)
       this.advanceTimer = window.setTimeout(() => this.advance(), 1800)
     } else {
       this.wrongAttempts++
@@ -673,15 +1039,16 @@ export class FruitMarketGame implements GameAPI {
     const c = this.challenges[this.idx]
     if (!c) return
     sfxWhoosh()
+    clearTimeout(this.advanceTimer)
+
+    const grid = this.root.querySelector('.fruit-grid')
+    if (grid) { grid.classList.remove('shadow-mode', 'describe-mode') }
 
     const pool = c.pool || []
     const cards = this.root.querySelectorAll<HTMLElement>('.fruit-card')
     pool.forEach((name, i) => {
-      if (name.toLowerCase() === c.fruit.toLowerCase()) {
-        cards[i]?.classList.add('is-revealed')
-      } else {
-        cards[i]?.classList.add('is-dimmed')
-      }
+      if (name.toLowerCase() === c.fruit.toLowerCase()) cards[i]?.classList.add('is-revealed')
+      else cards[i]?.classList.add('is-dimmed')
     })
 
     this.sync()
@@ -697,15 +1064,11 @@ export class FruitMarketGame implements GameAPI {
 
   private handleSort(fruitName: string, category: SortCategory) {
     const isCorrect = category.fruits.some(f => f.toLowerCase() === fruitName.toLowerCase())
-
     if (isCorrect) {
       this.sortRemaining = this.sortRemaining.filter(f => f !== fruitName)
-      this.score += 5
-      this.sortSelected = null
-      sfxCorrect()
-      setTimeout(() => sfxCoin(), 200)
+      this.score += 5; this.sortSelected = null
+      sfxCorrect(); setTimeout(() => sfxCoin(), 200)
       this.bridge.emitEvent('correctSort', { fruit: fruitName, category: category.name, score: this.score })
-
       if (this.sortRemaining.length === 0) {
         this.bridge.emitEvent('sortRoundComplete', { round: this.sortIdx, score: this.score })
         this.advanceTimer = window.setTimeout(() => this.advance(), 1200)
@@ -741,8 +1104,122 @@ export class FruitMarketGame implements GameAPI {
     const bins = this.root.querySelectorAll('.sort-bin')
     const catIdx = round.categories.indexOf(cat)
     if (catIdx >= 0 && bins[catIdx]) bins[catIdx].classList.add('is-revealed')
-
     this.advanceTimer = window.setTimeout(() => this.handleSort(fruit, cat), 1500)
+  }
+
+  private initMemoryRound() {
+    const round = this.memoryRounds[this.memoryIdx]
+    if (!round) return
+    const cards: { fruit: string; id: number }[] = []
+    round.fruits.forEach((fruit, i) => {
+      cards.push({ fruit, id: i * 2 })
+      cards.push({ fruit, id: i * 2 + 1 })
+    })
+    this.memoryCards = cards.sort(() => Math.random() - 0.5)
+    this.memoryFlipped = []
+    this.memoryMatched = new Set()
+    this.memoryLocked = false
+  }
+
+  private handleMemoryFlip(cardId: number) {
+    if (this.memoryLocked || this.memoryFlipped.includes(cardId) || this.memoryMatched.has(cardId)) return
+    this.memoryFlipped.push(cardId)
+    sfxPop()
+    this.renderMemory()
+
+    if (this.memoryFlipped.length === 2) {
+      this.memoryLocked = true
+      const [id1, id2] = this.memoryFlipped
+      const c1 = this.memoryCards.find(c => c.id === id1)!
+      const c2 = this.memoryCards.find(c => c.id === id2)!
+
+      if (c1.fruit === c2.fruit) {
+        this.memoryMatched.add(id1)
+        this.memoryMatched.add(id2)
+        this.score += 10
+        this.memoryFlipped = []
+        this.memoryLocked = false
+        sfxCorrect(); setTimeout(() => sfxCoin(), 200)
+        this.bridge.emitEvent('memoryMatch', { fruit: c1.fruit, matched: this.memoryMatched.size / 2, total: this.memoryCards.length / 2, score: this.score })
+
+        if (this.memoryMatched.size === this.memoryCards.length) {
+          this.bridge.emitEvent('memoryRoundComplete', { round: this.memoryIdx, score: this.score })
+          this.advanceTimer = window.setTimeout(() => this.advance(), 1200)
+        }
+        this.renderMemory()
+        this.sync()
+      } else {
+        sfxWrong()
+        this.bridge.emitEvent('memoryMiss', { fruit1: c1.fruit, fruit2: c2.fruit })
+        setTimeout(() => {
+          this.memoryFlipped = []
+          this.memoryLocked = false
+          this.renderMemory()
+        }, 1000)
+      }
+    }
+  }
+
+  private handleOddPick(fruit: string) {
+    if (this.oddAnswered) return
+    const round = this.oddRounds[this.oddIdx]
+    if (!round) return
+
+    this.oddAnswered = true
+    const isCorrect = fruit.toLowerCase() === round.odd.toLowerCase()
+
+    if (isCorrect) {
+      this.score += 10; this.streak++
+      sfxCorrect(); setTimeout(() => sfxCoin(), 200)
+      this.bridge.emitEvent('oddCorrect', { round: this.oddIdx, odd: round.odd, score: this.score })
+      const cards = this.root.querySelectorAll<HTMLElement>('.fruit-card')
+      const idx = round.fruits.findIndex(f => f.toLowerCase() === fruit.toLowerCase())
+      if (idx >= 0 && cards[idx]) { this.burstParticles(cards[idx]); this.floatScore(cards[idx], '+10') }
+    } else {
+      this.streak = 0; sfxWrong()
+      this.bridge.emitEvent('oddWrong', { round: this.oddIdx, picked: fruit, odd: round.odd })
+    }
+    this.renderOddOneOut()
+    this.sync()
+    this.advanceTimer = window.setTimeout(() => this.advance(), 2000)
+  }
+
+  private doOddReveal() {
+    if (this.oddAnswered) return
+    this.oddAnswered = true; sfxWhoosh()
+    this.renderOddOneOut(); this.sync()
+    this.advanceTimer = window.setTimeout(() => this.advance(), 2200)
+  }
+
+  private handlePatternPick(fruit: string) {
+    if (this.patternAnswered) return
+    const round = this.patternRounds[this.patternIdx]
+    if (!round) return
+
+    this.patternAnswered = true
+    const isCorrect = fruit.toLowerCase() === round.answer.toLowerCase()
+
+    if (isCorrect) {
+      this.score += 10; this.streak++
+      sfxCorrect(); setTimeout(() => sfxCoin(), 200)
+      this.bridge.emitEvent('patternCorrect', { round: this.patternIdx, answer: round.answer, score: this.score })
+      const cards = this.root.querySelectorAll<HTMLElement>('.fruit-card')
+      const idx = round.options.findIndex(f => f.toLowerCase() === fruit.toLowerCase())
+      if (idx >= 0 && cards[idx]) { this.burstParticles(cards[idx]); this.floatScore(cards[idx], '+10') }
+    } else {
+      this.streak = 0; sfxWrong()
+      this.bridge.emitEvent('patternWrong', { round: this.patternIdx, picked: fruit, answer: round.answer })
+    }
+    this.renderPattern()
+    this.sync()
+    this.advanceTimer = window.setTimeout(() => this.advance(), 2000)
+  }
+
+  private doPatternReveal() {
+    if (this.patternAnswered) return
+    this.patternAnswered = true; sfxWhoosh()
+    this.renderPattern(); this.sync()
+    this.advanceTimer = window.setTimeout(() => this.advance(), 2200)
   }
 
   private handleBuy(item: ShopItem) {
@@ -757,6 +1234,21 @@ export class FruitMarketGame implements GameAPI {
     this.sync()
   }
 
+  private handleRecipeBuy(item: ShopItem) {
+    if (this.recipeBasket.includes(item.fruit) || this.recipeBudget < item.price) return
+    clearTimeout(this.advanceTimer)
+    this.recipeBasket.push(item.fruit)
+    this.recipeBudget -= item.price
+    const recipe = this.recipes[this.recipeIdx]
+    const isRequired = recipe?.required.includes(item.fruit)
+    this.score += isRequired ? 10 : 5
+    sfxCoin()
+    if (isRequired) setTimeout(() => sfxCorrect(), 200)
+    this.bridge.emitEvent('recipeBuy', { fruit: item.fruit, price: item.price, budget: this.recipeBudget, required: isRequired })
+    this.renderRecipe()
+    this.sync()
+  }
+
   private finish() {
     clearTimeout(this.advanceTimer)
     sfxComplete()
@@ -766,12 +1258,18 @@ export class FruitMarketGame implements GameAPI {
     const maxScore = this.challenges.length * 10
       + this.sortRounds.reduce((sum, r) => sum + r.fruits.length * 5, 0)
       + (this.shopData?.items.length ?? 0) * 5
+      + this.memoryRounds.reduce((sum, r) => sum + r.fruits.length * 10, 0)
+      + this.oddRounds.length * 10
+      + this.patternRounds.length * 10
+      + this.recipes.reduce((sum, r) => sum + r.required.length * 10, 0)
 
     this.root.innerHTML = ''
     const screen = el('div', 'end-screen')
     let details = ''
     if (this.streak >= 2) details += `<div class="end-detail">🔥 Best streak: ${this.streak}</div>`
     if (this.shopBasket.length > 0) details += `<div class="end-detail">🧺 Bought ${this.shopBasket.length} fruits</div>`
+    if (this.memoryRounds.length > 0) details += `<div class="end-detail">🃏 Memory pairs matched!</div>`
+    if (this.patternRounds.length > 0) details += `<div class="end-detail">🔢 Patterns completed!</div>`
 
     screen.innerHTML = `
       <div class="end-trophy">🏆</div>
@@ -805,7 +1303,6 @@ export class FruitMarketGame implements GameAPI {
     const cx = rect.left + rect.width / 2
     const cy = rect.top + rect.height / 2
     const colors = ['#FF6B6B', '#FFD93D', '#6BCB77', '#4D96FF', '#FF922B', '#CC5DE8']
-
     for (let i = 0; i < 14; i++) {
       const p = document.createElement('div')
       p.className = 'particle'
@@ -813,8 +1310,7 @@ export class FruitMarketGame implements GameAPI {
       const dist = 50 + Math.random() * 60
       p.style.setProperty('--px', `${Math.cos(angle) * dist}px`)
       p.style.setProperty('--py', `${Math.sin(angle) * dist}px`)
-      p.style.left = `${cx}px`
-      p.style.top = `${cy}px`
+      p.style.left = `${cx}px`; p.style.top = `${cy}px`
       p.style.background = colors[i % colors.length]
       p.style.width = p.style.height = `${6 + Math.random() * 6}px`
       document.body.appendChild(p)
@@ -833,9 +1329,7 @@ export class FruitMarketGame implements GameAPI {
     f.addEventListener('animationend', () => f.remove())
   }
 
-  private sync() {
-    this.bridge.updateState(this.getState())
-  }
+  private sync() { this.bridge.updateState(this.getState()) }
 }
 
 function el(tag: string, className?: string): HTMLElement {
