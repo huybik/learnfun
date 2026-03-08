@@ -67,6 +67,7 @@ export default function RoomPage() {
 
   // --- Game host ref (to send teacher actions to iframe) ---
   const gameHostRef = useRef<GameHostHandle>(null);
+  const screenshotTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // --- Auto-fade timer: re-render every second to update message opacity ---
   const [, setTick] = useState(0);
@@ -103,6 +104,7 @@ export default function RoomPage() {
   // Mark loading done once LiveKit connects (or immediately if no LiveKit)
   // Auto-enable mic so the teacher can hear the user
   useEffect(() => {
+    const ac = new AbortController();
     if (!hasLiveKit) {
       setLoading(false);
       setLoadingMsg("");
@@ -122,8 +124,12 @@ export default function RoomPage() {
           voicePreference: sessionData?.voicePreference,
           languageCode: sessionData?.languageCode,
         }),
-      }).catch((err) => console.error("[RoomPage] Ensure teacher error", err));
+        signal: ac.signal,
+      }).catch((err) => {
+        if (!ac.signal.aborted) console.error("[RoomPage] Ensure teacher error", err);
+      });
     }
+    return () => ac.abort();
   }, [hasLiveKit, room.connectionState]);
 
   // --- Content activation ---
@@ -234,7 +240,9 @@ export default function RoomPage() {
 
       // Send screenshot on game start so teacher sees the visual
       if (name === "gameStarted") {
-        setTimeout(async () => {
+        if (screenshotTimerRef.current) clearTimeout(screenshotTimerRef.current);
+        screenshotTimerRef.current = setTimeout(async () => {
+          screenshotTimerRef.current = null;
           const dataUrl = await gameHostRef.current?.captureScreenshot();
           if (dataUrl) {
             fetch("/api/teacher/image", {
@@ -262,6 +270,10 @@ export default function RoomPage() {
   );
 
   const handleEndGame = useCallback(() => {
+    if (screenshotTimerRef.current) {
+      clearTimeout(screenshotTimerRef.current);
+      screenshotTimerRef.current = null;
+    }
     setIsGameActive(false);
     setGameId(undefined);
     setGameInitData(undefined);

@@ -202,8 +202,8 @@ export function useServerEvents(
     connectSSE(roomId);
 
     return () => {
-      unmountedRef.current = true;
       cleanup();
+      unmountedRef.current = true;
     };
   }, [roomId, connectSSE, cleanup]);
 

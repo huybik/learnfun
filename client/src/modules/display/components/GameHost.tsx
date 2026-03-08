@@ -60,7 +60,8 @@ export const GameHost = forwardRef<GameHostHandle, GameHostProps>(
     // Listen for messages from the game iframe
     const onMessage = useCallback(
       (e: MessageEvent) => {
-        // Only handle messages from our iframe
+        // Only handle messages from our iframe at same origin
+        if (e.origin !== window.location.origin) return;
         if (iframeRef.current && e.source !== iframeRef.current.contentWindow) return;
 
         const msg = e.data;

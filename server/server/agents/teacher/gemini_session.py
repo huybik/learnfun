@@ -68,6 +68,7 @@ class GeminiSession:
         self._connected = False
         self._receive_task: Optional[asyncio.Task[None]] = None
         self._reconnecting = False
+        self._state_lock = asyncio.Lock()
 
         # Session resumption state
         self._session_handle: Optional[str] = None
@@ -184,7 +185,8 @@ class GeminiSession:
 
     async def disconnect(self) -> None:
         """Close the session."""
-        self._reconnecting = False  # prevent auto-reconnect during intentional disconnect
+        async with self._state_lock:
+            self._reconnecting = False  # prevent auto-reconnect during intentional disconnect
 
         if self._receive_task and not self._receive_task.done():
             self._receive_task.cancel()
@@ -210,13 +212,17 @@ class GeminiSession:
 
     async def _reconnect(self) -> None:
         """Reconnect using saved session handle."""
-        if not self._session_handle or not self._session_resumable:
-            log.warning(
-                "Cannot reconnect",
-                has_handle=self._session_handle is not None,
-                resumable=self._session_resumable,
-            )
-            return
+        async with self._state_lock:
+            if not self._reconnecting:
+                return  # disconnect() was called, abort reconnect
+            if not self._session_handle or not self._session_resumable:
+                log.warning(
+                    "Cannot reconnect",
+                    has_handle=self._session_handle is not None,
+                    resumable=self._session_resumable,
+                )
+                self._reconnecting = False
+                return
 
         log.info("Reconnecting with session handle")
 
@@ -231,14 +237,21 @@ class GeminiSession:
         self._connected = False
 
         for attempt in range(1, MAX_RECONNECT_ATTEMPTS + 1):
+            async with self._state_lock:
+                if not self._reconnecting:
+                    return  # disconnect() called mid-reconnect
             try:
                 await asyncio.sleep(RECONNECT_DELAY_S * attempt)
                 await self.connect()
+                async with self._state_lock:
+                    self._reconnecting = False
                 log.info("Reconnected successfully", attempt=attempt)
                 return
             except Exception as exc:
                 log.warning("Reconnect attempt failed", attempt=attempt, error=str(exc))
 
+        async with self._state_lock:
+            self._reconnecting = False
         log.error("All reconnect attempts exhausted")
         if self.on_error:
             self.on_error(RuntimeError("Failed to reconnect after max attempts"))
@@ -395,7 +408,10 @@ class GeminiSession:
         if msg.go_away is not None:
             time_left = getattr(msg.go_away, "time_left", None)
             log.info("GoAway received, will reconnect", time_left=time_left)
-            self._reconnecting = True
+            async with self._state_lock:
+                if self._reconnecting:
+                    return  # already reconnecting
+                self._reconnecting = True
             asyncio.create_task(self._reconnect())
             return
 

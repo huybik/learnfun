@@ -15,6 +15,7 @@ log = get_logger("teacher:manager")
 
 # room_id → TeacherAgent
 _teachers: dict[str, TeacherAgent] = {}
+_lock = asyncio.Lock()
 
 
 async def spawn_teacher(
@@ -27,37 +28,44 @@ async def spawn_teacher(
     tool_registry: ToolRegistry,
 ) -> TeacherAgent:
     """Create and start a TeacherAgent for a room."""
-    if room_id in _teachers:
-        log.warning("Teacher already exists for room, replacing", room_id=room_id)
-        await stop_teacher(room_id)
+    async with _lock:
+        if room_id in _teachers:
+            log.warning("Teacher already exists for room, replacing", room_id=room_id)
+            await _stop_teacher_unlocked(room_id)
 
-    agent = TeacherAgent(
-        room_id=room_id,
-        livekit_token=livekit_token,
-        user_profile=user_profile,
-        participants=participants,
-        ta_agent=ta_agent,
-        tool_registry=tool_registry,
-    )
+        agent = TeacherAgent(
+            room_id=room_id,
+            livekit_token=livekit_token,
+            user_profile=user_profile,
+            participants=participants,
+            ta_agent=ta_agent,
+            tool_registry=tool_registry,
+        )
 
-    # Register early so callers can find the agent while it's starting.
-    # send_text already no-ops if Gemini isn't connected yet.
-    _teachers[room_id] = agent
-    try:
-        await agent.start()
-    except Exception:
-        _teachers.pop(room_id, None)
-        raise
-    log.info("Teacher spawned", room_id=room_id)
-    return agent
+        # Register early so callers can find the agent while it's starting.
+        # send_text already no-ops if Gemini isn't connected yet.
+        _teachers[room_id] = agent
+        try:
+            await agent.start()
+        except Exception:
+            _teachers.pop(room_id, None)
+            raise
+        log.info("Teacher spawned", room_id=room_id)
+        return agent
 
 
-async def stop_teacher(room_id: str) -> None:
-    """Stop and remove the teacher for a room."""
+async def _stop_teacher_unlocked(room_id: str) -> None:
+    """Stop and remove a teacher (caller must hold _lock)."""
     agent = _teachers.pop(room_id, None)
     if agent:
         await agent.stop()
         log.info("Teacher stopped", room_id=room_id)
+
+
+async def stop_teacher(room_id: str) -> None:
+    """Stop and remove the teacher for a room."""
+    async with _lock:
+        await _stop_teacher_unlocked(room_id)
 
 
 def get_teacher(room_id: str) -> Optional[TeacherAgent]:
@@ -67,7 +75,8 @@ def get_teacher(room_id: str) -> Optional[TeacherAgent]:
 
 async def stop_all() -> None:
     """Stop all active teachers (used during shutdown)."""
-    room_ids = list(_teachers.keys())
-    if room_ids:
-        log.info("Stopping all teachers", count=len(room_ids))
-        await asyncio.gather(*(stop_teacher(rid) for rid in room_ids))
+    async with _lock:
+        room_ids = list(_teachers.keys())
+        if room_ids:
+            log.info("Stopping all teachers", count=len(room_ids))
+            await asyncio.gather(*(_stop_teacher_unlocked(rid) for rid in room_ids))

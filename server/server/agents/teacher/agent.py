@@ -111,6 +111,7 @@ class TeacherAgent:
         self._audio_source: Optional[rtc.AudioSource] = None
         self._audio_track: Optional[rtc.LocalAudioTrack] = None
         self._running = False
+        self._tasks: set[asyncio.Task[None]] = set()
 
     # ------------------------------------------------------------------
     # Public API
@@ -205,6 +206,13 @@ class TeacherAgent:
         log.info("Stopping teacher agent", room_id=self._room_id)
         self._running = False
 
+        # Cancel tracked background tasks
+        for task in list(self._tasks):
+            task.cancel()
+        if self._tasks:
+            await asyncio.gather(*self._tasks, return_exceptions=True)
+        self._tasks.clear()
+
         if self._gemini:
             await self._gemini.disconnect()
             self._gemini = None
@@ -217,6 +225,11 @@ class TeacherAgent:
         self._audio_track = None
 
         log.info("Teacher agent stopped")
+
+    def _track_task(self, task: asyncio.Task[None]) -> None:
+        """Register a background task so it can be cancelled on stop()."""
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
 
     async def send_text(self, text: str) -> bool:
         """Send a text message to Gemini.
@@ -286,7 +299,7 @@ class TeacherAgent:
 
         log.debug("Audio track subscribed", participant=participant.identity)
         audio_stream = rtc.AudioStream(track, sample_rate=INPUT_SAMPLE_RATE, num_channels=1)
-        asyncio.create_task(self._forward_audio_to_gemini(audio_stream, participant.identity))
+        self._track_task(asyncio.create_task(self._forward_audio_to_gemini(audio_stream, participant.identity)))
 
     async def _forward_audio_to_gemini(
         self, audio_stream: rtc.AudioStream, participant_id: str
@@ -350,7 +363,7 @@ class TeacherAgent:
             if not fc.id or not fc.name:
                 continue
             log.info("Dispatching tool call", name=fc.name, id=fc.id)
-            asyncio.create_task(self._execute_tool_call(fc))
+            self._track_task(asyncio.create_task(self._execute_tool_call(fc)))
 
     async def _execute_tool_call(self, fc: Any) -> None:
         """Execute a single tool call through the registry or direct TA dispatch."""
@@ -452,12 +465,14 @@ class TeacherAgent:
     def _on_gemini_transcription(self, source: str, text: str) -> None:
         """Publish transcription to Redis for SSE delivery."""
         channel = room_subject(SUBJECTS["TRANSCRIPT"], self._room_id)
-        asyncio.create_task(
-            publish_event(
-                channel=channel,
-                event_type="transcript",
-                payload={"source": source, "text": text},
-                source_id="ai-teacher",
+        self._track_task(
+            asyncio.create_task(
+                publish_event(
+                    channel=channel,
+                    event_type="transcript",
+                    payload={"source": source, "text": text},
+                    source_id="ai-teacher",
+                )
             )
         )
 

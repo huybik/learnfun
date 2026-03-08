@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -38,6 +39,7 @@ class StoredSession:
 
 
 _sessions: dict[str, StoredSession] = {}
+_lock = asyncio.Lock()
 
 
 def _list_active() -> list[StoredSession]:
@@ -85,15 +87,16 @@ async def create_session(
     db_session = await db_sessions.create_session(user_id, room_id)
 
     # Store session
-    _sessions[session_id] = StoredSession(
-        session_id=session_id,
-        room_id=room_id,
-        host_id=user_id,
-        host_name=user_name,
-        participants=[user_id],
-        created_at=datetime.now(timezone.utc).timestamp(),
-        db_session_id=db_session.id,
-    )
+    async with _lock:
+        _sessions[session_id] = StoredSession(
+            session_id=session_id,
+            room_id=room_id,
+            host_id=user_id,
+            host_name=user_name,
+            participants=[user_id],
+            created_at=datetime.now(timezone.utc).timestamp(),
+            db_session_id=db_session.id,
+        )
 
     # Generate tokens
     token = generate_session_token(
@@ -144,18 +147,20 @@ async def create_session(
 
 async def join_session(session_id: str, user_name: str) -> dict:
     """Join an existing session as a student."""
-    session = _sessions.get(session_id)
-    if session is None:
-        raise ValueError(f"Session not found: {session_id}")
-    if session.ended_at is not None:
-        raise ValueError(f"Session already ended: {session_id}")
+    async with _lock:
+        session = _sessions.get(session_id)
+        if session is None:
+            raise ValueError(f"Session not found: {session_id}")
+        if session.ended_at is not None:
+            raise ValueError(f"Session already ended: {session_id}")
 
     log.info("Joining session", session_id=session_id, user_name=user_name)
 
     user_profile = await db_users.create_user(user_name)
     user_id = user_profile.id
 
-    session.participants.append(user_id)
+    async with _lock:
+        session.participants.append(user_id)
 
     token = generate_session_token(
         user_id=user_id,
@@ -188,12 +193,13 @@ async def join_session(session_id: str, user_name: str) -> dict:
 
 async def end_session(session_id: str) -> None:
     """End a session."""
-    session = _sessions.get(session_id)
-    if session is None:
-        raise ValueError(f"Session not found: {session_id}")
+    async with _lock:
+        session = _sessions.get(session_id)
+        if session is None:
+            raise ValueError(f"Session not found: {session_id}")
+        session.ended_at = datetime.now(timezone.utc).timestamp()
 
     log.info("Ending session", session_id=session_id, room_id=session.room_id)
-    session.ended_at = datetime.now(timezone.utc).timestamp()
 
     if session.db_session_id:
         try:
