@@ -13,6 +13,7 @@ Interactive learning platform: AI teacher + teaching assistant guide students th
   - `join.py`, `session.py`, `token.py` — session/join flows
   - `events.py` — SSE streaming to browser via Redis subscription
   - `ta.py` — TA agent endpoint (uses `app.state.ta_agent`)
+  - `games.py` — serves built game dist files from `data/games/{id}/dist/`
   - `bundles.py`, `health.py`
 - `agents/teacher/` — LiveKit-based teacher agent
   - `agent.py` — TeacherAgent (LiveKit Agent, Gemini Live voice)
@@ -47,14 +48,11 @@ Interactive learning platform: AI teacher + teaching assistant guide students th
 - `pages/Room.tsx` — main room page (uses extracted hooks)
 - `pages/Home.tsx` — landing page
 - `modules/display/` — content rendering
-  - `components/Board.tsx` — main board layout
-  - `components/ContentRenderer.tsx` — unified game renderer with GameContext
-  - `components/BundleRenderer.tsx` — delegates to ContentRenderer
+  - `components/Board.tsx` — main board layout (layered: GameHost + cursors + annotations + effects)
+  - `components/GameHost.tsx` — iframe-based game loader, postMessage bridge to games
   - `components/ScreenEffects.tsx` — merged overlays (focus highlight + emotes)
   - `components/SharedCursors.tsx`, `Annotations.tsx`
   - `components/ui/` — ChatInput, ControlBar, LoadingOverlay, ParticipantList, ScoreBoard
-  - `hooks/useGameState.ts`, `hooks/useBundleLoader.ts`
-  - `plugin-registry.ts` — unified game component registry
   - `layout/RoomLayout.tsx`
 - `modules/realtime/` — real-time communication
   - `hooks/useRoom.ts`, `useVoice.ts`, `usePresence.ts`, `useServerEvents.ts`
@@ -70,11 +68,13 @@ Interactive learning platform: AI teacher + teaching assistant guide students th
 
 **Data** (`data/`) — game content (at project root, shared by server + client)
 - `games/` — flashcard, sentencebuilder, spaceshooter, wordmatch, solar-system
-- Each game has: `skill.md` (YAML frontmatter + AI instructions) + `src/` (React component)
+- `games/_sdk/` — shared SDK (GameBridge, GameAPI interface, dev panel) for iframe games
+- Each game is a standalone Vite project: `skill.md` (YAML frontmatter + AI instructions) + `src/` (vanilla TS or any framework)
+- Games run in iframes, served from `/games/{id}/` via `api/games.py`
 
 ## Key Patterns
 
-- **Game plugin**: Each game in `data/games/<id>/` has a `skill.md` (frontmatter for metadata, body for AI context) and `src/` (React component). No manifest.json — skill.md is the single source.
+- **Game plugin**: Each game in `data/games/<id>/` is a standalone Vite project with `skill.md` (frontmatter for metadata, body for AI context). Games implement `GameAPI` (init/handleAction/getState/destroy) via the `_sdk` bridge. Communication uses postMessage (HostToGame: init/action, GameToHost: ready/state/event/end). No manifest.json — skill.md is the single source.
 - **Skill.md structure**: YAML frontmatter (id, name, tags, maxPlayers) + markdown sections: Input Data (for TA generation), State Updates (for teacher), Teacher Guide (facilitation tips)
 - **Event envelope**: All Redis events use `publish_event()` from `events/helpers.py` (type, timestamp, sourceId, payload)
 - **Logging**: Server uses `get_logger()` from `server/logging.py` (not `logging.getLogger()`)

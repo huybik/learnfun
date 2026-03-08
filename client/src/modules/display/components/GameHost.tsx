@@ -38,7 +38,7 @@ export const GameHost = forwardRef<GameHostHandle, GameHostProps>(
       sendAction(name: string, params: Record<string, unknown>) {
         iframeRef.current?.contentWindow?.postMessage(
           { type: "action", name, params },
-          "*",
+          window.location.origin,
         );
       },
     }));
@@ -57,7 +57,7 @@ export const GameHost = forwardRef<GameHostHandle, GameHostProps>(
             // Game loaded — send init data
             iframeRef.current?.contentWindow?.postMessage(
               { type: "init", data: initDataRef.current },
-              "*",
+              window.location.origin,
             );
             break;
           case "state":
@@ -90,3 +90,5 @@ export const GameHost = forwardRef<GameHostHandle, GameHostProps>(
     );
   },
 );
+
+GameHost.displayName = "GameHost";
