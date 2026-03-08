@@ -49,6 +49,14 @@ def log_ta_run(session_id: str, prompt: str, response: Any) -> None:
     (d / f"{ts}_response.json").write_text(_serialize(response), encoding="utf-8")
 
 
+def log_ta_error(session_id: str, error: str, context: Any) -> None:
+    """Log a TA generation error."""
+    ts = _ts()
+    d = _ensure_dir(_session_dir(session_id) / "ai-ta")
+    entry = {"ts": ts, "error": error, **context} if isinstance(context, dict) else {"ts": ts, "error": error, "context": context}
+    (d / f"{ts}_error.json").write_text(_serialize(entry), encoding="utf-8")
+
+
 def log_teacher_prompt(session_id: str, prompt: str, metadata: Any) -> None:
     """Log the Teacher system prompt (called once at session start)."""
     ts = _ts()

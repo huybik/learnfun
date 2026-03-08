@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import time
+import traceback
 from typing import Any, Optional
 
 from google import genai
@@ -11,13 +13,16 @@ from google.genai import types
 
 from server.content.models import GameMeta
 from server.logging import get_logger
-from server.run_logger import log_ta_run
+from server.run_logger import log_ta_error, log_ta_run
 
 from .models import GenerateParams
 
 log = get_logger("ta:content-generator")
 
 FilledData = dict[str, Any]
+
+MAX_RETRIES = 3
+BASE_DELAY = 1.0  # seconds
 
 
 class ContentGenerator:
@@ -47,53 +52,82 @@ class ContentGenerator:
             model=self._model,
         )
 
-        start = time.monotonic()
+        last_exc: Exception | None = None
+        session_id = params.room_id or params.intent
 
-        try:
-            response = await self._client.aio.models.generate_content(
-                model=self._model,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    thinking_config=types.ThinkingConfig(thinking_level="low"),
-                ),
-            )
-
-            elapsed = int((time.monotonic() - start) * 1000)
-            log.info("Content generated", game_id=game.id, elapsed=elapsed)
-
-            text = response.text
-            if not text:
-                raise ValueError("Gemini returned an empty response")
-
-            parsed = json.loads(text)
-
+        for attempt in range(1, MAX_RETRIES + 1):
+            start = time.monotonic()
             try:
-                log_ta_run(
-                    session_id=params.room_id or params.intent,
-                    prompt=prompt,
-                    response={
-                        "text": text,
-                        "parsed": parsed,
-                        "usage_metadata": str(getattr(response, "usage_metadata", None)),
-                        "model": self._model,
-                        "game_id": game.id,
-                        "elapsed_ms": elapsed,
-                    },
+                response = await self._client.aio.models.generate_content(
+                    model=self._model,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        thinking_config=types.ThinkingConfig(thinking_level="low"),
+                    ),
                 )
-            except Exception:
-                log.warning("Failed to write run log", game_id=game.id)
 
-            return parsed
-        except Exception as exc:
-            elapsed = int((time.monotonic() - start) * 1000)
-            log.error(
-                "Content generation failed",
-                game_id=game.id,
-                elapsed=elapsed,
-                error=str(exc),
-            )
-            raise RuntimeError(f"Content generation failed: {exc}") from exc
+                elapsed = int((time.monotonic() - start) * 1000)
+                log.info("Content generated", game_id=game.id, elapsed=elapsed, attempt=attempt)
+
+                text = response.text
+                if not text:
+                    raise ValueError("Gemini returned an empty response")
+
+                parsed = json.loads(text)
+
+                try:
+                    log_ta_run(
+                        session_id=session_id,
+                        prompt=prompt,
+                        response={
+                            "text": text,
+                            "parsed": parsed,
+                            "usage_metadata": str(getattr(response, "usage_metadata", None)),
+                            "model": self._model,
+                            "game_id": game.id,
+                            "elapsed_ms": elapsed,
+                            "attempt": attempt,
+                        },
+                    )
+                except Exception:
+                    log.warning("Failed to write run log", game_id=game.id)
+
+                return parsed
+
+            except Exception as exc:
+                elapsed = int((time.monotonic() - start) * 1000)
+                last_exc = exc
+                log.error(
+                    "Content generation failed",
+                    game_id=game.id,
+                    elapsed=elapsed,
+                    attempt=attempt,
+                    max_retries=MAX_RETRIES,
+                    error=str(exc),
+                )
+                try:
+                    log_ta_error(
+                        session_id=session_id,
+                        error=str(exc),
+                        context={
+                            "game_id": game.id,
+                            "intent": params.intent,
+                            "model": self._model,
+                            "attempt": attempt,
+                            "elapsed_ms": elapsed,
+                            "traceback": traceback.format_exc(),
+                        },
+                    )
+                except Exception:
+                    log.warning("Failed to write error log", game_id=game.id)
+
+                if attempt < MAX_RETRIES:
+                    delay = BASE_DELAY * (2 ** (attempt - 1))
+                    log.info("Retrying after backoff", delay=delay, attempt=attempt)
+                    await asyncio.sleep(delay)
+
+        raise RuntimeError(f"Content generation failed after {MAX_RETRIES} attempts: {last_exc}") from last_exc
 
     # ------------------------------------------------------------------
     # Private helpers
