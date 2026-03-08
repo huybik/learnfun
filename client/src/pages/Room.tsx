@@ -147,7 +147,7 @@ export default function RoomPage() {
   // --- Text chat: send to AI teacher ---
   const handleSendText = useCallback(
     (text: string) => {
-      addTranscript("user", text);
+      addTranscript("user", text, true);
       fetch("/api/teacher/message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

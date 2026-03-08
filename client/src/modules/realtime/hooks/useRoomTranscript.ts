@@ -24,7 +24,7 @@ export function useRoomTranscript(): UseRoomTranscriptResult {
   const userTurnSealedRef = useRef(true);
 
   const addTranscript = useCallback(
-    (source: TranscriptEntry["source"], text: string) => {
+    (source: TranscriptEntry["source"], text: string, forceNew = false) => {
       if (!text.trim()) return;
 
       // Seal the other source when this source starts speaking
@@ -39,7 +39,7 @@ export function useRoomTranscript(): UseRoomTranscriptResult {
       setTranscript((prev) => {
         const last = prev[prev.length - 1];
         // Merge with the last entry if same source and turn not sealed
-        if (last && last.source === source && source !== "system" && !isSealed) {
+        if (last && last.source === source && source !== "system" && !isSealed && !forceNew) {
           const updated = [...prev];
           updated[updated.length - 1] = {
             ...last,

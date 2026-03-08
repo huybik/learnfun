@@ -119,7 +119,8 @@ export function useServerEvents(
 
       es.addEventListener("transcript", (e) => {
         try {
-          const data = JSON.parse(e.data) as TranscriptPayload;
+          const envelope = JSON.parse(e.data);
+          const data = (envelope.payload ?? envelope) as TranscriptPayload;
           handlersRef.current.onTranscript?.(data);
         } catch (err) {
           console.error("[SSE] Failed to parse transcript", err);
