@@ -43,16 +43,26 @@ export function createDevPanel(cb: DevPanelCallbacks): DevPanel {
     <h3>Events</h3>
     <div id="dp-events"></div>
   `
-  document.body.appendChild(panel)
-  document.body.style.marginRight = '320px'
+  // Wrap existing body content + panel in a flex container
+  const wrapper = document.createElement('div')
+  wrapper.id = 'game-dev-wrapper'
+  while (document.body.firstChild) wrapper.appendChild(document.body.firstChild)
+  document.body.appendChild(wrapper)
+  wrapper.appendChild(panel)
 
   // --- Inject styles ---
   const style = document.createElement('style')
   style.textContent = `
+    #game-dev-wrapper {
+      display: flex; height: 100vh; overflow: hidden;
+    }
+    #game-dev-wrapper > *:first-child {
+      flex: 1; overflow: auto;
+    }
     #game-dev-panel {
-      position: fixed; right: 0; top: 0; bottom: 0; width: 320px;
+      width: 320px; flex-shrink: 0;
       background: #1a1a2e; color: #ddd; font-family: monospace; font-size: 12px;
-      overflow-y: auto; padding: 12px; border-left: 2px solid #333; z-index: 99999;
+      overflow-y: auto; padding: 12px; border-left: 2px solid #333;
     }
     #game-dev-panel h3 { margin: 12px 0 4px; color: #7c8aff; font-size: 13px; }
     #game-dev-panel textarea, #game-dev-panel input {
@@ -131,7 +141,9 @@ export function createDevPanel(cb: DevPanelCallbacks): DevPanel {
     destroy() {
       panel.remove()
       style.remove()
-      document.body.style.marginRight = ''
+      // Unwrap children back to body
+      while (wrapper.firstChild) document.body.appendChild(wrapper.firstChild)
+      wrapper.remove()
     },
   }
 }
