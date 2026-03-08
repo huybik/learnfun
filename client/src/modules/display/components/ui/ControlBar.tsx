@@ -1,4 +1,5 @@
 import React from "react";
+import { MdMic, MdMicOff, MdVideocam, MdVideocamOff, MdClose, MdPowerSettingsNew, MdPause, MdPlayArrow } from "react-icons/md";
 import { cn } from "@/lib/utils";
 
 interface ControlBarProps {
@@ -55,13 +56,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
           )}
           title={isMuted ? "Unmute" : "Mute"}
         >
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            {isMuted ? (
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
-            ) : (
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4M12 1a3 3 0 00-3 3v4a3 3 0 006 0V4a3 3 0 00-3-3z" />
-            )}
-          </svg>
+          {isMuted ? <MdMicOff size={20} /> : <MdMic size={20} />}
         </button>
 
         {/* Camera toggle */}
@@ -75,13 +70,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
           )}
           title={isCameraOn ? "Turn camera off" : "Turn camera on"}
         >
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            {isCameraOn ? (
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            ) : (
-              <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L5.636 5.636" />
-            )}
-          </svg>
+          {isCameraOn ? <MdVideocam size={20} /> : <MdVideocamOff size={20} />}
         </button>
 
         {/* End game button (only during games) */}
@@ -91,9 +80,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
             className="flex h-9 items-center gap-1 rounded-full bg-red-600 px-3 text-sm font-medium text-white hover:bg-red-700"
             title="End game"
           >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <MdClose size={18} />
             End
           </button>
         )}
@@ -123,18 +110,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
                 : "Resume"
           }
         >
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            {connectionState === "disconnected" ? (
-              // Play icon
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 3l14 9-14 9V3z" />
-            ) : connectionState === "connected" ? (
-              // Pause icon
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10 9v6m4-6v6" />
-            ) : (
-              // Resume (play) icon
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 3l14 9-14 9V3z" />
-            )}
-          </svg>
+          {connectionState === "disconnected" ? <MdPowerSettingsNew size={20} /> : connectionState === "connected" ? <MdPause size={20} /> : <MdPlayArrow size={20} />}
         </button>
       </div>
     </section>

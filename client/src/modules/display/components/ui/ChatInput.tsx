@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { MdSend } from "react-icons/md";
 import { cn } from "@/lib/utils";
 
 interface ChatInputProps {
@@ -57,9 +58,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled }) => {
         )}
         title="Send"
       >
-        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M12 5l7 7-7 7" />
-        </svg>
+        <MdSend size={18} />
       </button>
     </form>
   );

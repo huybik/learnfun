@@ -13,6 +13,7 @@ import { useServerEvents, type ContentReadyPayload, type UIControlPayload, type 
 import { useSessionData } from "@/modules/realtime/hooks/useSessionData";
 import { useRoomTranscript } from "@/modules/realtime/hooks/useRoomTranscript";
 import { useRoomParticipants } from "@/modules/realtime/hooks/useRoomParticipants";
+import { MdGroup } from "react-icons/md";
 import { cn } from "@/lib/utils";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -358,40 +359,41 @@ export default function RoomPage() {
       }
       overlay={
         <>
-          {/* Participant count badge — top-right */}
-          <div className="absolute right-4 top-4 z-50">
-            <button
-              onClick={() => setShowParticipants((v) => !v)}
-              className="flex items-center gap-1.5 rounded-full bg-neutral-800/60 px-3 py-1.5 text-sm text-neutral-300 backdrop-blur transition hover:bg-neutral-700/60"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              {roomParticipants.length}
-            </button>
+          {/* Top-right: participant badge + connection indicators on same line */}
+          <div className="absolute right-4 top-4 z-50 flex items-center gap-2">
+            {/* Tiny connection indicators */}
+            <div className="flex gap-1.5 text-[10px]">
+              <span className={cn("rounded-full px-1.5 py-0.5", sse.connected ? "bg-emerald-900/40 text-emerald-400" : "bg-red-900/40 text-red-400")}>
+                {sse.connected ? "SSE" : "SSE off"}
+              </span>
+              <span className={cn("rounded-full px-1.5 py-0.5", room.connectionState === "connected" ? "bg-emerald-900/40 text-emerald-400" : "bg-neutral-800/40 text-neutral-500")}>
+                {room.connectionState === "connected" ? "LK" : "LK off"}
+              </span>
+            </div>
 
-            {/* Participant list dropdown */}
-            {showParticipants && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowParticipants(false)} />
-                <div className="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl bg-neutral-800/90 p-3 shadow-xl backdrop-blur">
-                  <ParticipantList
-                    participants={roomParticipants}
-                    localUserId={localUserId}
-                  />
-                </div>
-              </>
-            )}
-          </div>
+            {/* Participant count badge */}
+            <div className="relative">
+              <button
+                onClick={() => setShowParticipants((v) => !v)}
+                className="flex items-center gap-1.5 rounded-full bg-neutral-800/60 px-3 py-1.5 text-sm text-neutral-300 backdrop-blur transition hover:bg-neutral-700/60"
+              >
+                <MdGroup size={18} />
+                {roomParticipants.length}
+              </button>
 
-          {/* Connection status badges — top-right, below participant badge */}
-          <div className="absolute right-4 top-14 z-40 flex gap-2 text-[10px] text-neutral-500">
-            <span className={cn("rounded-full px-2 py-0.5", sse.connected ? "bg-emerald-900/40 text-emerald-400" : "bg-red-900/40 text-red-400")}>
-              {sse.connected ? "SSE" : "SSE off"}
-            </span>
-            <span className={cn("rounded-full px-2 py-0.5", room.connectionState === "connected" ? "bg-emerald-900/40 text-emerald-400" : "bg-neutral-800/40")}>
-              {room.connectionState === "connected" ? "LK" : "LK off"}
-            </span>
+              {/* Participant list dropdown */}
+              {showParticipants && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowParticipants(false)} />
+                  <div className="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl bg-neutral-800/90 p-3 shadow-xl backdrop-blur">
+                    <ParticipantList
+                      participants={roomParticipants}
+                      localUserId={localUserId}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </>
       }
