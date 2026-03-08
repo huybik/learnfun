@@ -1,0 +1,18 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="pearGradient" cx="45%" cy="40%" r="60%" fx="35%" fy="30%">
+      <stop offset="0%" style="stop-color:#dce775" />
+      <stop offset="100%" style="stop-color:#afb42b" />
+    </radialGradient>
+  </defs>
+  <!-- Stem -->
+  <path d="M64,30 C64,20 68,12 72,10" style="fill:none;stroke:#5d4037;stroke-width:6;stroke-linecap:round" />
+  <!-- Leaf -->
+  <path d="M66,22 C82,22 92,8 92,8 C92,8 94,26 78,30 C66,30 66,22 66,22 Z" style="fill:#43a047" />
+  <!-- Pear Body -->
+  <path d="M64,30 C48,30 42,52 38,78 C34,108 48,118 64,118 C80,118 94,108 90,78 C86,52 80,30 64,30 Z" style="fill:url(#pearGradient)" />
+  <!-- Shine Detail -->
+  <ellipse cx="54" cy="58" rx="7" ry="12" transform="rotate(15, 54, 58)" style="fill:#ffffff;fill-opacity:0.3" />
+  <!-- Bottom shadow/dimple -->
+  <path d="M58,118 Q64,114 70,118" style="fill:none;stroke:#827717;stroke-width:3;stroke-linecap:round;opacity:0.5" />
+</svg>

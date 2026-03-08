@@ -1,0 +1,17 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="berryGrad" cx="45%" cy="40%" r="50%">
+      <stop offset="0%" style="stop-color:#6584FF" />
+      <stop offset="100%" style="stop-color:#3549BA" />
+    </radialGradient>
+    <linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#81C784" />
+      <stop offset="100%" style="stop-color:#2E7D32" />
+    </linearGradient>
+  </defs>
+  <path d="M68 32 C 85 10, 115 15, 110 45 C 105 60, 80 50, 68 35 Z" fill="url(#leafGrad)" />
+  <path d="M68 32 Q 72 40 64 42" stroke="#1B2668" stroke-width="3" fill="none" stroke-linecap="round" />
+  <circle cx="64" cy="74" r="46" fill="url(#berryGrad)" />
+  <path d="M64 28 L 68 36 L 76 34 L 72 42 L 80 46 L 72 50 L 76 58 L 68 54 L 64 62 L 60 54 L 52 58 L 56 50 L 48 46 L 56 42 L 52 34 L 60 36 Z" fill="#1B2668" />
+  <ellipse cx="45" cy="58" rx="14" ry="8" transform="rotate(-30 45 58)" fill="white" fill-opacity="0.25" />
+</svg>

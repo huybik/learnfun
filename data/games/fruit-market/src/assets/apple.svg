@@ -1,0 +1,20 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="appleBody" cx="40%" cy="40%" r="60%">
+      <stop offset="0%" style="stop-color:#FF5E5E" />
+      <stop offset="100%" style="stop-color:#D32F2F" />
+    </radialGradient>
+    <linearGradient id="leafGreen" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#A3D977" />
+      <stop offset="100%" style="stop-color:#4CAF50" />
+    </linearGradient>
+  </defs>
+  <!-- Stem -->
+  <path d="M60,15 C60,15 62,8 70,10 C70,10 68,18 68,18 L66,45 L62,45 Z" fill="#795548" />
+  <!-- Leaf -->
+  <path d="M66,30 C85,15 105,35 95,50 C80,60 66,45 66,30" fill="url(#leafGreen)" />
+  <!-- Apple Body -->
+  <path d="M64,45 C45,45 25,55 25,82 C25,110 45,122 64,118 C83,122 103,110 103,82 C103,55 83,45 64,45" fill="url(#appleBody)" />
+  <!-- Glossy Shine -->
+  <ellipse cx="48" cy="70" rx="10" ry="15" transform="rotate(25, 48, 70)" fill="#FFFFFF" fill-opacity="0.3" />
+</svg>

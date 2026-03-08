@@ -1,0 +1,31 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bodyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFEB3B;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FB8C00;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="leafGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#8BC34A;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2E7D32;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- Crown/Leaves -->
+  <path d="M64,50 Q30,10 25,40 Q45,55 64,55 Z" fill="url(#leafGrad)" />
+  <path d="M64,50 Q98,10 103,40 Q83,55 64,55 Z" fill="url(#leafGrad)" />
+  <path d="M64,50 Q45,5 40,40 Q55,50 64,55 Z" fill="url(#leafGrad)" opacity="0.9" />
+  <path d="M64,50 Q83,5 88,40 Q73,50 64,55 Z" fill="url(#leafGrad)" opacity="0.9" />
+  <path d="M64,5 Q72,30 64,55 Q56,30 64,5 Z" fill="url(#leafGrad)" />
+  <!-- Main Body -->
+  <path d="M64,42 C40,42 32,58 32,88 C32,112 44,124 64,124 C84,124 96,112 96,88 C96,58 88,42 64,42 Z" fill="url(#bodyGrad)" />
+  <!-- Pattern/Texture -->
+  <g stroke="#BF360C" stroke-width="2" stroke-linecap="round" opacity="0.2">
+    <path d="M45,50 L83,115" fill="none" />
+    <path d="M35,70 L75,123" fill="none" />
+    <path d="M60,43 L95,100" fill="none" />
+    <path d="M83,50 L45,115" fill="none" />
+    <path d="M93,70 L53,123" fill="none" />
+    <path d="M68,43 L33,100" fill="none" />
+  </g>
+  <!-- Highlights -->
+  <path d="M45,65 C40,75 40,95 45,105" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" opacity="0.3" />
+</svg>

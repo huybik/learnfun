@@ -1,0 +1,23 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="cherryGrad" cx="35%" cy="30%" r="70%">
+      <stop offset="0%" style="stop-color:#ff5e5e"/>
+      <stop offset="100%" style="stop-color:#c40000"/>
+    </radialGradient>
+    <linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#90e344"/>
+      <stop offset="100%" style="stop-color:#4a7c13"/>
+    </linearGradient>
+  </defs>
+  <!-- Stems -->
+  <path d="M64 25 C 64 45 45 55 40 85" style="fill:none;stroke:#71a32a;stroke-width:6;stroke-linecap:round"/>
+  <path d="M64 25 C 75 45 88 50 88 80" style="fill:none;stroke:#71a32a;stroke-width:6;stroke-linecap:round"/>
+  <!-- Leaf -->
+  <path d="M64 25 C 85 5 105 15 105 35 C 105 55 85 50 64 25" style="fill:url(#leafGrad)"/>
+  <!-- Fruit -->
+  <circle cx="40" cy="92" r="26" style="fill:url(#cherryGrad)"/>
+  <circle cx="88" cy="86" r="26" style="fill:url(#cherryGrad)"/>
+  <!-- Highlights -->
+  <path d="M30 82 C 34 76 44 76 46 82 C 46 88 38 92 30 82 Z" style="fill:#ffffff;fill-opacity:0.3"/>
+  <path d="M78 76 C 82 70 92 70 94 76 C 94 82 86 86 78 76 Z" style="fill:#ffffff;fill-opacity:0.3"/>
+</svg>

@@ -1,0 +1,29 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bodyGrad" cx="50%" cy="40%" r="50%" fx="40%" fy="30%">
+      <stop offset="0%" style="stop-color:#ff5e5e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#c40000;stop-opacity:1" />
+    </radialGradient>
+    <linearGradient id="leafGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#9de344;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#4b8b00;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- Strawberry Body -->
+  <path d="M64 118c-30 0-48-28-48-62 0-32 20-40 48-40s48 8 48 40c0 34-18 62-48 62z" style="fill:url(#bodyGrad);" />
+  <!-- Stem -->
+  <path d="M60 8c0-2 2-4 4-4s4 2 4 4v18h-8z" style="fill:#5a8a1a;" />
+  <!-- Leaves (Calyx) -->
+  <path d="M64 32c-15-2-28-12-32-20 2 12 12 20 20 22-14 4-22 14-22 24 10-6 22-8 34-4 12-4 24-2 34 4 0-10-8-20-22-24 8-2 18-10 20-22-4 8-17 18-32 20z" style="fill:url(#leafGrad);" />
+  <!-- Seeds -->
+  <g style="fill:#ffea00; opacity:0.8;">
+    <ellipse cx="48" cy="48" rx="2" ry="3" transform="rotate(-10 48 48)"/>
+    <ellipse cx="80" cy="48" rx="2" ry="3" transform="rotate(10 80 48)"/>
+    <ellipse cx="36" cy="68" rx="2" ry="3" transform="rotate(-15 36 68)"/>
+    <ellipse cx="64" cy="68" rx="2" ry="3"/>
+    <ellipse cx="92" cy="68" rx="2" ry="3" transform="rotate(15 92 68)"/>
+    <ellipse cx="48" cy="88" rx="2" ry="3" transform="rotate(-5 48 88)"/>
+    <ellipse cx="80" cy="88" rx="2" ry="3" transform="rotate(5 80 88)"/>
+    <ellipse cx="64" cy="102" rx="2" ry="3"/>
+  </g>
+</svg>

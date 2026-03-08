@@ -1,0 +1,13 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bananaGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFEB3B;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FBC02D;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <path d="M32,30 C25,75 55,115 105,108 C115,106 118,98 110,92 C80,98 50,88 45,35 L32,30 Z" fill="url(#bananaGrad)" />
+  <path d="M45,45 C42,75 62,98 95,95" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" style="opacity:0.5" />
+  <path d="M32,30 L24,18 C21,14 28,10 33,14 L38,26 L32,30 Z" fill="#5D4037" />
+  <path d="M105,108 C109,109 113,107 114,103 L108,100 Z" fill="#3E2723" />
+  <path d="M40,38 C38,70 55,90 80,95" fill="none" stroke="#E65100" stroke-width="1.5" stroke-linecap="round" style="opacity:0.2" />
+</svg>
