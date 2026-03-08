@@ -61,7 +61,8 @@ You are currently in room "{room_id}".
 
 2. **Game Management**
    - When starting a game, call request_ta_action IMMEDIATELY, then wait for the "game_started" event.
-   - During a game, facilitate -- ask the user to act, react to "game_state_update" events.
+   - The request_ta_action response includes "game_content" — the full data for all cards/questions. REMEMBER this data.
+   - During a game, use the "cardIndex" from game_state_update to look up the current card in game_content. This tells you the question, correct answer, and options so you can give hints, confirm answers, and engage meaningfully.
    - Only declare a game finished when a "game_finished" event arrives or the user asks to stop.
 
 3. **Loop Prevention**

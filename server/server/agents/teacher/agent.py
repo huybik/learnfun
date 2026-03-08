@@ -413,14 +413,17 @@ class TeacherAgent:
             # Send result back to Gemini with WHEN_IDLE scheduling
             # so it learns the outcome without interrupting current speech
             if self._gemini and self._gemini.connected:
+                tool_result: dict[str, Any] = {
+                    "success": response.success,
+                    "request_id": response.request_id,
+                    "error": response.error,
+                }
+                if response.filled_data:
+                    tool_result["game_content"] = response.filled_data
                 await self._gemini.send_tool_response(
                     call_id=call_id,
                     name="request_ta_action",
-                    response={
-                        "success": response.success,
-                        "request_id": response.request_id,
-                        "error": response.error,
-                    },
+                    response=tool_result,
                     scheduling="WHEN_IDLE",
                 )
 

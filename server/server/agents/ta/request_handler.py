@@ -179,9 +179,9 @@ async def handle_ta_request(
 
         # 3. Determine difficulty
         difficulty_hint = ""
-        if user_profiles:
+        first_user_id = (user_profiles[0].get("id", "") if user_profiles else "")
+        if first_user_id:
             try:
-                first_user_id = user_profiles[0].get("id", "")
                 progress = await _get_learning_progress(first_user_id)
                 adjustment = adjust_difficulty(progress)
                 difficulty_hint = adjustment.hint
