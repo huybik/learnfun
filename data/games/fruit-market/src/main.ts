@@ -14,12 +14,13 @@ const bridge = new GameBridge({
     { name: 'set', params: { field: 'string', value: 'string' }, description: 'Override a game field', godMode: true },
   ],
   defaultInitData: {
-    mode: 'identify',
     challenges: [
-      { id: 1, fruit: 'apple', hint: 'This red fruit keeps the doctor away', options: ['apple', 'cherry', 'strawberry', 'peach'] },
-      { id: 2, fruit: 'banana', hint: 'Yellow and curved, monkeys love it', options: ['banana', 'lemon', 'mango', 'pineapple'] },
-      { id: 3, fruit: 'watermelon', hint: 'Big, green outside, red inside with seeds', options: ['watermelon', 'coconut', 'avocado', 'kiwi'] },
-      { id: 4, fruit: 'grape', hint: 'Small and round, grows in bunches on vines', options: ['grape', 'blueberry', 'cherry', 'pear'] },
+      { id: 1, fruit: 'apple', hint: '🍎 Find the crunchy red fruit that keeps the doctor away!', pool: ['apple', 'cherry', 'strawberry', 'peach', 'pear', 'orange'] },
+      { id: 2, fruit: 'banana', hint: '🐒 Find the yellow curved fruit that monkeys love!', pool: ['banana', 'lemon', 'mango', 'pineapple', 'pear', 'kiwi'] },
+      { id: 3, fruit: 'watermelon', hint: '🏖️ Find the BIG green fruit that is red and juicy inside!', pool: ['watermelon', 'coconut', 'avocado', 'kiwi', 'grape', 'pineapple'] },
+      { id: 4, fruit: 'grape', hint: '🍇 Find the tiny fruit that grows in bunches on vines!', pool: ['grape', 'blueberry', 'cherry', 'pear', 'strawberry', 'orange'] },
+      { id: 5, fruit: 'pineapple', hint: '🏝️ Find the spiky tropical fruit with a crown on top!', pool: ['pineapple', 'coconut', 'mango', 'lemon', 'avocado', 'kiwi'] },
+      { id: 6, fruit: 'strawberry', hint: '❤️ Find the small red heart-shaped fruit with tiny seeds!', pool: ['strawberry', 'cherry', 'apple', 'peach', 'blueberry', 'grape'] },
     ],
   },
 })
