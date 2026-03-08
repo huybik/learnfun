@@ -19,6 +19,38 @@ interface RecipeData { name: string; emoji?: string; required: string[]; availab
 
 type Phase = 'learn' | 'play' | 'memory' | 'oddoneout' | 'pattern' | 'sort' | 'shop' | 'recipe'
 const WAVE_SIZE = 4
+const BIN_COLORS: Record<string, [string, string]> = {
+  '🔴': ['#EF9A9A', '#C62828'],
+  '🟡': ['#FFF176', '#F9A825'],
+  '🟣': ['#CE93D8', '#7B1FA2'],
+  '🟢': ['#A5D6A7', '#2E7D32'],
+  '🔵': ['#90CAF9', '#1565C0'],
+  '🟠': ['#FFCC80', '#E65100'],
+  '🟤': ['#BCAAA4', '#4E342E'],
+}
+
+function coloredBasket(idx: number, light: string, dark: string): string {
+  const g = `cb${idx}`
+  return `<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+    <defs><linearGradient id="${g}" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="${light}"/><stop offset="100%" stop-color="${dark}"/>
+    </linearGradient></defs>
+    <path d="M34,52 C34,20 94,20 94,52" fill="none" stroke="${dark}" stroke-width="7" stroke-linecap="round"/>
+    <path d="M34,52 C34,24 94,24 94,52" fill="none" stroke="${light}" stroke-width="3" stroke-linecap="round" opacity="0.4"/>
+    <path d="M18,56 L28,108 C30,114 36,118 42,118 L86,118 C92,118 98,114 100,108 L110,56 Z" fill="url(#${g})"/>
+    <line x1="22" y1="68" x2="106" y2="68" stroke="${dark}" stroke-width="1.5" opacity="0.3"/>
+    <line x1="24" y1="80" x2="104" y2="80" stroke="${dark}" stroke-width="1.5" opacity="0.3"/>
+    <line x1="26" y1="92" x2="102" y2="92" stroke="${dark}" stroke-width="1.5" opacity="0.3"/>
+    <line x1="28" y1="104" x2="100" y2="104" stroke="${dark}" stroke-width="1.5" opacity="0.3"/>
+    <line x1="40" y1="56" x2="36" y2="118" stroke="${dark}" stroke-width="1.5" opacity="0.25"/>
+    <line x1="56" y1="56" x2="52" y2="118" stroke="${dark}" stroke-width="1.5" opacity="0.25"/>
+    <line x1="72" y1="56" x2="72" y2="118" stroke="${dark}" stroke-width="1.5" opacity="0.25"/>
+    <line x1="88" y1="56" x2="88" y2="118" stroke="${dark}" stroke-width="1.5" opacity="0.25"/>
+    <rect x="16" y="52" width="96" height="10" rx="5" fill="${dark}"/>
+    <rect x="20" y="53" width="88" height="3" rx="1.5" fill="white" opacity="0.3"/>
+    <path d="M22,62 L110,62 L108,66 L20,66 Z" fill="${dark}" opacity="0.15"/>
+  </svg>`
+}
 
 export class FruitMarketGame implements GameAPI {
   private bridge: GameBridge
@@ -60,6 +92,7 @@ export class FruitMarketGame implements GameAPI {
   private dragFruit: string | null = null
   private dragOffsetX = 0
   private dragOffsetY = 0
+  private rerender = false
 
   // Memory
   private memoryRounds: MemoryRound[] = []
@@ -676,21 +709,32 @@ export class FruitMarketGame implements GameAPI {
     hint.textContent = this.sortSelected
       ? `Where does the ${this.sortSelected} go?`
       : 'Tap a fruit, then pick its bin — or drag!'
+    if (this.rerender) hint.style.animation = 'none'
     this.root.appendChild(hint)
 
-    // Category bins
+    // Category bins (colored baskets)
     const binsWrap = el('div', 'sort-bins')
-    round.categories.forEach(cat => {
-      const sortedCount = cat.fruits.filter(f => !this.sortRemaining.includes(f)).length
+    round.categories.forEach((cat, catIdx) => {
+      const sorted = cat.fruits.filter(f => !this.sortRemaining.includes(f))
+      const binClr = BIN_COLORS[cat.emoji || '']
       const bin = el('div', 'sort-bin' + (this.sortSelected ? ' sort-bin-active' : ''))
-      bin.innerHTML = `
-        <div class="sort-bin-emoji">${cat.emoji || '📦'}</div>
-        <div class="sort-bin-label">${cat.name}</div>
-        <div class="sort-bin-count">${sortedCount} / ${cat.fruits.length}</div>
-      `
-      if (this.sortSelected) {
-        bin.addEventListener('click', () => this.handleSort(this.sortSelected!, cat))
+      const basketEl = el('div', 'sort-bin-basket')
+      basketEl.innerHTML = binClr ? coloredBasket(catIdx, binClr[0], binClr[1]) : basketSvg
+      bin.appendChild(basketEl)
+      if (sorted.length > 0) {
+        const fruits = el('div', 'sort-bin-fruits')
+        sorted.forEach(f => { const s = el('span', 'sort-bin-fruit'); s.innerHTML = getFruitSvg(f); fruits.appendChild(s) })
+        bin.appendChild(fruits)
       }
+      const label = el('div', 'sort-bin-label')
+      label.textContent = cat.name
+      bin.appendChild(label)
+      const count = el('div', 'sort-bin-count')
+      count.textContent = `${sorted.length} / ${cat.fruits.length}`
+      bin.appendChild(count)
+      bin.addEventListener('click', () => {
+        if (this.sortSelected) this.handleSort(this.sortSelected, cat)
+      })
       binsWrap.appendChild(bin)
     })
     this.root.appendChild(binsWrap)
@@ -703,7 +747,8 @@ export class FruitMarketGame implements GameAPI {
 
       this.sortRemaining.forEach((fruitName, i) => {
         const card = el('div', 'fruit-card' + (fruitName === this.sortSelected ? ' is-selected' : ''))
-        card.style.animationDelay = `${i * 0.07}s`
+        if (this.rerender) card.style.animation = 'none'
+        else card.style.animationDelay = `${i * 0.07}s`
         const inner = el('div', 'fruit-inner')
         const svgWrap = el('div', 'fruit-svg')
         svgWrap.innerHTML = getFruitSvg(fruitName)
@@ -713,7 +758,14 @@ export class FruitMarketGame implements GameAPI {
         inner.appendChild(label)
         card.appendChild(inner)
         card.addEventListener('pointerenter', () => sfxPop())
-        card.addEventListener('click', () => { this.sortSelected = fruitName; this.renderSort() })
+        card.addEventListener('click', () => {
+          this.root.querySelectorAll('.fruit-card.is-selected').forEach(c => c.classList.remove('is-selected'))
+          card.classList.add('is-selected')
+          this.sortSelected = fruitName
+          const h = this.root.querySelector('.challenge-hint')
+          if (h) h.textContent = `Where does the ${fruitName} go?`
+          this.root.querySelectorAll('.sort-bin').forEach(b => b.classList.add('sort-bin-active'))
+        })
 
         // Drag to sort
         card.style.touchAction = 'none'
@@ -1065,15 +1117,23 @@ export class FruitMarketGame implements GameAPI {
   private handleSort(fruitName: string, category: SortCategory) {
     const isCorrect = category.fruits.some(f => f.toLowerCase() === fruitName.toLowerCase())
     if (isCorrect) {
+      const cards = this.root.querySelectorAll<HTMLElement>('.fruit-card')
+      const ci = this.sortRemaining.indexOf(fruitName)
+      if (ci >= 0 && cards[ci]) {
+        cards[ci].classList.add('is-correct')
+        this.burstParticles(cards[ci])
+        this.floatScore(cards[ci], '+5')
+      }
       this.sortRemaining = this.sortRemaining.filter(f => f !== fruitName)
       this.score += 5; this.sortSelected = null
       sfxCorrect(); setTimeout(() => sfxCoin(), 200)
+      this.updateHUD()
       this.bridge.emitEvent('correctSort', { fruit: fruitName, category: category.name, score: this.score })
       if (this.sortRemaining.length === 0) {
         this.bridge.emitEvent('sortRoundComplete', { round: this.sortIdx, score: this.score })
-        this.advanceTimer = window.setTimeout(() => this.advance(), 1200)
+        this.advanceTimer = window.setTimeout(() => this.advance(), 1500)
       }
-      this.renderSort()
+      setTimeout(() => { this.rerender = true; this.renderSort(); this.rerender = false }, 450)
     } else {
       sfxWrong()
       const bins = this.root.querySelectorAll('.sort-bin')
@@ -1099,7 +1159,7 @@ export class FruitMarketGame implements GameAPI {
 
     sfxWhoosh()
     this.sortSelected = fruit
-    this.renderSort()
+    this.rerender = true; this.renderSort(); this.rerender = false
 
     const bins = this.root.querySelectorAll('.sort-bin')
     const catIdx = round.categories.indexOf(cat)
