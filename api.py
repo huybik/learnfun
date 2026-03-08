@@ -5,21 +5,77 @@ import signal
 import socket
 import sys
 import os
+import time
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 CLIENT_DIR = os.path.join(ROOT, "client")
 SERVER_DIR = os.path.join(ROOT, "server")
 
 DOCKER_SERVICES = ["postgres", "redis", "livekit"]
+SHUTDOWN_GRACE_SECONDS = 8.0
+FORCE_KILL_SECONDS = 2.0
 
 procs: list[subprocess.Popen] = []
+_shutting_down = False
 
 
 def cleanup(*_):
+    global _shutting_down
+    if _shutting_down:
+        return
+    _shutting_down = True
+
+    # Signal whole process groups so uvicorn reloader / npm child processes exit too.
     for p in procs:
-        p.terminate()
+        if p.poll() is not None:
+            continue
+        try:
+            if os.name == "nt":
+                p.terminate()
+            else:
+                os.killpg(p.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            continue
+        except Exception:
+            p.terminate()
+
+    deadline = time.time() + SHUTDOWN_GRACE_SECONDS
     for p in procs:
-        p.wait()
+        if p.poll() is not None:
+            continue
+        timeout = max(0.0, deadline - time.time())
+        if timeout == 0.0:
+            break
+        try:
+            p.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            pass
+
+    for p in procs:
+        if p.poll() is not None:
+            continue
+        try:
+            if os.name == "nt":
+                p.kill()
+            else:
+                os.killpg(p.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            continue
+        except Exception:
+            p.kill()
+
+    hard_deadline = time.time() + FORCE_KILL_SECONDS
+    for p in procs:
+        if p.poll() is not None:
+            continue
+        timeout = max(0.0, hard_deadline - time.time())
+        if timeout == 0.0:
+            break
+        try:
+            p.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            pass
+
     sys.exit(0)
 
 
@@ -95,6 +151,7 @@ client_port = find_free_port(5173)
 procs.append(subprocess.Popen(
     [sys.executable, "-m", "uvicorn", "server.main:app", "--reload", "--host", "0.0.0.0", "--port", str(server_port)],
     cwd=SERVER_DIR,
+    start_new_session=True,
 ))
 
 # Start Vite dev server with server port passed via env
@@ -103,6 +160,7 @@ procs.append(subprocess.Popen(
     ["npm", "run", "dev", "--", "--port", str(client_port)],
     cwd=CLIENT_DIR,
     env=client_env,
+    start_new_session=True,
 ))
 
 print(f"Server: http://localhost:{server_port}")

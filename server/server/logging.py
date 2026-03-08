@@ -1,4 +1,12 @@
+import logging
+import os
+
 import structlog
+
+
+def _resolve_log_level() -> int:
+    raw_level = os.getenv("LOG_LEVEL", "DEBUG").upper()
+    return getattr(logging, raw_level, logging.INFO)
 
 structlog.configure(
     processors=[
@@ -9,7 +17,7 @@ structlog.configure(
         structlog.processors.format_exc_info,
         structlog.processors.JSONRenderer(),
     ],
-    wrapper_class=structlog.make_filtering_bound_logger(0),
+    wrapper_class=structlog.make_filtering_bound_logger(_resolve_log_level()),
     context_class=dict,
     logger_factory=structlog.PrintLoggerFactory(),
     cache_logger_on_first_use=True,

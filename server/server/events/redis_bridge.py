@@ -47,7 +47,8 @@ class RedisBridge:
             raise RuntimeError("RedisBridge not connected — call connect() first")
         payload = json.dumps(data, default=str)
         await self._redis.publish(channel, payload)
-        log.debug("published", channel=channel)
+        if not channel.endswith(".transcript"):
+            log.debug("published", channel=channel)
 
     async def subscribe(self, channel: str) -> AsyncIterator[Any]:
         """Yield parsed messages from *channel* until cancelled."""
