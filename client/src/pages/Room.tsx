@@ -4,6 +4,7 @@ import { Board } from "@/modules/display/components/Board";
 import type { GameHostHandle } from "@/modules/display/components/GameHost";
 import { ControlBar } from "@/modules/display/components/ui/ControlBar";
 import { ParticipantList } from "@/modules/display/components/ui/ParticipantList";
+import { ScoreBoard } from "@/modules/display/components/ui/ScoreBoard";
 import { LoadingOverlay } from "@/modules/display/components/ui/LoadingOverlay";
 import { ChatInput } from "@/modules/display/components/ui/ChatInput";
 import { useRoom } from "@/modules/realtime/hooks/useRoom";
@@ -12,9 +13,13 @@ import { useServerEvents, type ContentReadyPayload, type UIControlPayload, type 
 import { useSessionData } from "@/modules/realtime/hooks/useSessionData";
 import { useRoomTranscript } from "@/modules/realtime/hooks/useRoomTranscript";
 import { useRoomParticipants } from "@/modules/realtime/hooks/useRoomParticipants";
+import { cn } from "@/lib/utils";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FilledBundle } from "@/types/content";
+
+const MSG_FADE_MS = 5000; // messages fade after 5s
+const MSG_VISIBLE_MS = 800; // fade-out transition duration
 
 // ---------------------------------------------------------------------------
 // Room Page
@@ -39,8 +44,8 @@ export default function RoomPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMsg, setLoadingMsg] = useState("Connecting...");
   const [error, setError] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isCameraOn, setIsCameraOn] = useState(false);
+  const [showParticipants, setShowParticipants] = useState(false);
 
   // --- Content state ---
   const [gameId, setGameId] = useState<string | undefined>();
@@ -52,8 +57,20 @@ export default function RoomPage() {
   const [emoteTrigger, setEmoteTrigger] = useState<{ emoji: string; key: number } | null>(null);
   const [confetti, setConfetti] = useState(false);
 
+  // --- Score HUD state ---
+  const [score, setScore] = useState(0);
+  const [streak, setStreak] = useState(0);
+  const [feedback, setFeedback] = useState<{ type: "correct" | "incorrect"; key: number; points?: number } | null>(null);
+
   // --- Game host ref (to send teacher actions to iframe) ---
   const gameHostRef = useRef<GameHostHandle>(null);
+
+  // --- Auto-fade timer: re-render every second to update message opacity ---
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   // --- Custom hooks ---
   const sessionData = useSessionData();
@@ -112,6 +129,9 @@ export default function RoomPage() {
       setGameId(bundle.templateId.toLowerCase());
       setGameInitData(parseInitData(bundle));
       setIsGameActive(true);
+      setScore(0);
+      setStreak(0);
+      setFeedback(null);
       addTranscript("system", "Content loaded!");
     },
     [addTranscript],
@@ -148,6 +168,9 @@ export default function RoomPage() {
         }
       } else if (type === "signal_feedback") {
         const ft = payload.feedbackType as string;
+        if (ft === "correct" || ft === "incorrect") {
+          setFeedback({ type: ft, key: Date.now(), points: payload.points as number | undefined });
+        }
         if (ft === "correct") {
           setConfetti(true);
           setTimeout(() => setConfetti(false), 100);
@@ -190,6 +213,7 @@ export default function RoomPage() {
 
   const handleGameStateUpdate = useCallback(
     (state: Record<string, unknown>) => {
+      if (typeof state.score === "number") setScore(state.score);
       sendToTeacher(`[game_state_update] ${JSON.stringify(state)}`);
     },
     [sendToTeacher],
@@ -197,6 +221,13 @@ export default function RoomPage() {
 
   const handleGameEvent = useCallback(
     (name: string, data: Record<string, unknown>) => {
+      if (name === "correctAnswer") {
+        setStreak((s) => s + 1);
+        setFeedback({ type: "correct", key: Date.now(), points: 10 });
+      } else if (name === "incorrectAnswer") {
+        setStreak(0);
+        setFeedback({ type: "incorrect", key: Date.now() });
+      }
       sendToTeacher(`[game_event:${name}] ${JSON.stringify(data)}`);
     },
     [sendToTeacher],
@@ -246,8 +277,11 @@ export default function RoomPage() {
     );
   }
 
+  const now = Date.now();
+
   return (
     <RoomLayout
+      hud={isGameActive ? <ScoreBoard score={score} streak={streak} feedback={feedback} /> : undefined}
       board={
         <div className="relative flex h-full flex-col">
           {/* Error banner */}
@@ -273,63 +307,41 @@ export default function RoomPage() {
             />
           </div>
 
-          {/* Transcript overlay (bottom of board) */}
+          {/* Chat overlay (bottom of board) — auto-fading messages */}
           <div className="pointer-events-none absolute bottom-16 left-0 right-0 z-40 flex justify-center">
-            <div className="pointer-events-auto max-h-48 w-full max-w-2xl overflow-y-auto rounded-t-xl px-4 py-3">
-              {transcript.length === 0 && !loading && (
-                <p className="text-center text-sm text-neutral-500">
-                  Waiting for AI teacher to speak...
-                </p>
-              )}
-              {transcript.slice(-8).map((entry, i) => (
-                <div
-                  key={i}
-                  className={`mb-1.5 rounded-lg px-3 py-1.5 text-sm backdrop-blur-sm ${entry.source === "ai"
-                    ? "bg-emerald-900/30 text-emerald-100"
-                    : entry.source === "user"
-                      ? "bg-neutral-800/40 text-neutral-200 ml-auto max-w-[80%]"
-                      : "bg-neutral-900/30 text-neutral-500 text-center text-xs italic"
-                    }`}
-                >
-                  {entry.source !== "system" && (
-                    <span className="mr-2 text-xs font-semibold uppercase text-neutral-500">
-                      {entry.source === "ai" ? "Teacher" : "You"}
-                    </span>
-                  )}
-                  {entry.text}
-                </div>
-              ))}
+            <div className="pointer-events-auto w-full max-w-2xl px-4 py-3">
+              {transcript.slice(-6).map((entry, i) => {
+                const age = now - entry.timestamp;
+                const faded = age > MSG_FADE_MS;
+                return (
+                  <div
+                    key={entry.timestamp + i}
+                    className={cn(
+                      "mb-1.5 rounded-lg px-3 py-1.5 text-sm backdrop-blur-sm transition-opacity",
+                      faded ? "opacity-0" : "opacity-100",
+                      entry.source === "ai"
+                        ? "bg-emerald-900/30 text-emerald-100"
+                        : entry.source === "user"
+                          ? "ml-auto max-w-[80%] bg-neutral-800/40 text-neutral-200"
+                          : "bg-neutral-900/30 text-center text-xs italic text-neutral-500",
+                    )}
+                    style={{ transitionDuration: `${MSG_VISIBLE_MS}ms` }}
+                  >
+                    {entry.source !== "system" && (
+                      <span className="mr-2 text-xs font-semibold uppercase text-neutral-500">
+                        {entry.source === "ai" ? "Teacher" : "You"}
+                      </span>
+                    )}
+                    {entry.text}
+                  </div>
+                );
+              })}
               <div ref={transcriptEndRef} />
               <ChatInput
                 onSend={handleSendText}
                 disabled={!sse.connected}
               />
             </div>
-          </div>
-        </div>
-      }
-      sidebar={
-        <div className="flex flex-col gap-4 p-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-neutral-300">
-              Room {roomId.slice(0, 8)}
-            </h2>
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="text-neutral-500 hover:text-white lg:hidden"
-            >
-              &times;
-            </button>
-          </div>
-          <ParticipantList
-            participants={roomParticipants}
-            localUserId={localUserId}
-          />
-          {/* Debug info */}
-          <div className="space-y-1 border-t border-white/10 pt-3 text-xs text-neutral-500">
-            <p>LiveKit: {room.connectionState}</p>
-            <p>SSE: {sse.connected ? "connected" : "disconnected"}</p>
-            <p>Mic: {voice.isMicEnabled ? "active" : "muted"}</p>
           </div>
         </div>
       }
@@ -344,8 +356,46 @@ export default function RoomPage() {
           connectionState={controlBarConnectionState}
         />
       }
+      overlay={
+        <>
+          {/* Participant count badge — top-right */}
+          <div className="absolute right-4 top-4 z-50">
+            <button
+              onClick={() => setShowParticipants((v) => !v)}
+              className="flex items-center gap-1.5 rounded-full bg-neutral-800/60 px-3 py-1.5 text-sm text-neutral-300 backdrop-blur transition hover:bg-neutral-700/60"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              {roomParticipants.length}
+            </button>
+
+            {/* Participant list dropdown */}
+            {showParticipants && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowParticipants(false)} />
+                <div className="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl bg-neutral-800/90 p-3 shadow-xl backdrop-blur">
+                  <ParticipantList
+                    participants={roomParticipants}
+                    localUserId={localUserId}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Connection status badges — top-right, below participant badge */}
+          <div className="absolute right-4 top-14 z-40 flex gap-2 text-[10px] text-neutral-500">
+            <span className={cn("rounded-full px-2 py-0.5", sse.connected ? "bg-emerald-900/40 text-emerald-400" : "bg-red-900/40 text-red-400")}>
+              {sse.connected ? "SSE" : "SSE off"}
+            </span>
+            <span className={cn("rounded-full px-2 py-0.5", room.connectionState === "connected" ? "bg-emerald-900/40 text-emerald-400" : "bg-neutral-800/40")}>
+              {room.connectionState === "connected" ? "LK" : "LK off"}
+            </span>
+          </div>
+        </>
+      }
       loadingOverlay={<LoadingOverlay visible={loading} message={loadingMsg} />}
-      sidebarOpen={sidebarOpen}
     />
   );
 }

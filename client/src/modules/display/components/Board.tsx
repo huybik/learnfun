@@ -81,7 +81,7 @@ export const Board: React.FC<BoardProps> = ({
   return (
     <div
       ref={boardRef}
-      className="relative h-full w-full overflow-hidden rounded-xl bg-neutral-900"
+      className="relative h-full w-full overflow-hidden bg-neutral-900"
       onMouseMove={handleMouseMove}
     >
       {/* Layer 1: Content */}
