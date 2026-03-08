@@ -274,6 +274,22 @@ class GeminiSession:
         )
         log.debug("Sent text", text=text[:120])
 
+    async def send_image(
+        self, image_bytes: bytes, mime_type: str = "image/jpeg", caption: str = ""
+    ) -> None:
+        """Send an image (with optional caption) as client content."""
+        if not self._session:
+            return
+        parts: list[types.Part] = []
+        if caption:
+            parts.append(types.Part(text=caption))
+        parts.append(types.Part(inline_data=types.Blob(data=image_bytes, mime_type=mime_type)))
+        await self._session.send_client_content(
+            turns=types.Content(role="user", parts=parts),
+            turn_complete=True,
+        )
+        log.debug("Sent image", mime_type=mime_type, size_kb=len(image_bytes) // 1024)
+
     async def send_tool_response(
         self,
         call_id: str,

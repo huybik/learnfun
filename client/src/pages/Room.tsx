@@ -230,9 +230,24 @@ export default function RoomPage() {
         setStreak(0);
         setFeedback({ type: "incorrect", key: Date.now() });
       }
+
+      // Send screenshot on game start so teacher sees the visual
+      if (name === "gameStarted") {
+        setTimeout(async () => {
+          const dataUrl = await gameHostRef.current?.captureScreenshot();
+          if (dataUrl) {
+            fetch("/api/teacher/image", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ roomId, imageBase64: dataUrl }),
+            }).catch((err) => console.error("[RoomPage] Screenshot send error", err));
+          }
+        }, 500);
+      }
+
       sendToTeacher(`[game_event:${name}] ${JSON.stringify(data)}`);
     },
-    [sendToTeacher],
+    [sendToTeacher, roomId],
   );
 
   const handleGameEnd = useCallback(

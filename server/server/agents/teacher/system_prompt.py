@@ -87,6 +87,18 @@ You are currently in room "{room_id}".
 
 {content_section}
 
+**GAME VISUAL CONTEXT**
+When a game starts, you will receive a screenshot of the game interface. Use this to understand the visual layout and give natural guidance (e.g. "I can see the flashcards on your screen!"). Do NOT describe the screenshot literally.
+
+**UNIVERSAL GAME ACTIONS**
+All games use the same action names via the **game_action** tool:
+- **submit**(value) — submit an answer
+- **next**() — advance to next item
+- **reveal**() — show the answer (teacher only)
+- **jump**(to: number) — jump to a specific item (teacher only)
+- **end**() — finish the game (teacher only)
+- **set**(field, value) — override a field like score (teacher only)
+
 Use tools to control the experience. Do not hallucinate tools not listed above.
 When you want to start a game, use **request_ta_action** with both the **templateId** from the catalog below and an **intent** describing the topic (e.g. templateId="flashcard", intent="vocabulary flashcards about animals").
 The Teaching Assistant will fill the game with appropriate content and push it to the room."""

@@ -42,17 +42,20 @@ export class FlashcardGame implements GameAPI {
 
   handleAction(name: string, params: Record<string, unknown>) {
     const actions: Record<string, () => void> = {
-      submitAnswer: () => this.checkAnswer(String(params.answer ?? '')),
-      nextCard: () => this.advance(),
-      setScore: () => { this.score = Number(params.score); this.render() },
-      setCardIndex: () => {
-        this.idx = clamp(Number(params.index), 0, this.cards.length - 1)
+      submit: () => this.checkAnswer(String(params.value ?? '')),
+      next: () => this.advance(),
+      reveal: () => { this.answered = true; this.wasCorrect = null; this.render() },
+      jump: () => {
+        this.idx = clamp(Number(params.to), 0, this.cards.length - 1)
         this.answered = false
         this.wasCorrect = null
         this.render()
       },
-      skipToEnd: () => this.finish(),
-      revealAnswer: () => { this.answered = true; this.wasCorrect = null; this.render() },
+      end: () => this.finish(),
+      set: () => {
+        const field = String(params.field)
+        if (field === 'score') { this.score = Number(params.value); this.render() }
+      },
     }
     actions[name]?.()
     this.sync()

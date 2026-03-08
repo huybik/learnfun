@@ -1,6 +1,7 @@
-"""Teacher API — send text + ensure teacher is running for a room."""
+"""Teacher API — send text/image + ensure teacher is running for a room."""
 
 import asyncio
+import base64 as b64mod
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
@@ -19,6 +20,11 @@ class TeacherMessageBody(BaseModel):
     text: str
 
 
+class TeacherImageBody(BaseModel):
+    roomId: str
+    imageBase64: str
+
+
 @router.post("/teacher/message")
 async def post_teacher_message(body: TeacherMessageBody):
     log.info("Teacher message received", room_id=body.roomId, text_len=len(body.text))
@@ -33,6 +39,29 @@ async def post_teacher_message(body: TeacherMessageBody):
         raise HTTPException(status_code=503, detail="Teacher is temporarily unavailable")
 
     log.debug("Teacher message forwarded", room_id=body.roomId)
+    return {"ok": True}
+
+
+@router.post("/teacher/image")
+async def post_teacher_image(body: TeacherImageBody):
+    """Send a game screenshot to the teacher for visual context."""
+    agent = get_teacher(body.roomId)
+    if not agent:
+        raise HTTPException(status_code=404, detail="No teacher active for this room")
+
+    # Strip data URL prefix if present
+    raw = body.imageBase64
+    mime_type = "image/jpeg"
+    if raw.startswith("data:"):
+        header, raw = raw.split(",", 1)
+        if "image/png" in header:
+            mime_type = "image/png"
+
+    image_bytes = b64mod.b64decode(raw)
+    sent = await agent.send_image(image_bytes, mime_type=mime_type)
+    if not sent:
+        raise HTTPException(status_code=503, detail="Teacher is temporarily unavailable")
+
     return {"ok": True}
 
 

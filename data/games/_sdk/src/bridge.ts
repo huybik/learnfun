@@ -4,6 +4,7 @@ import { createDevPanel, type DevPanel } from './dev-panel'
 export class GameBridge {
   private game: GameAPI | null = null
   private devPanel: DevPanel | null = null
+  private _prevStateJSON = ''
   readonly isIframe: boolean
 
   constructor(private config: BridgeConfig = {}) {
@@ -50,8 +51,11 @@ export class GameBridge {
     this.devPanel?.onGameMessage(msg)
   }
 
-  /** Send state snapshot to host. Call after any state change. */
+  /** Send state snapshot to host. Only sends when state actually changed. */
   updateState(state: Record<string, unknown>) {
+    const json = JSON.stringify(state)
+    if (json === this._prevStateJSON) return
+    this._prevStateJSON = json
     this.sendToHost({ type: 'state', state })
   }
 

@@ -75,6 +75,9 @@ Interactive learning platform: AI teacher + teaching assistant guide students th
 ## Key Patterns
 
 - **Game plugin**: Each game in `data/games/<id>/` is a standalone Vite project with `skill.md` (frontmatter for metadata, body for AI context). Games implement `GameAPI` (init/handleAction/getState/destroy) via the `_sdk` bridge. Communication uses postMessage (HostToGame: init/action, GameToHost: ready/state/event/end). No manifest.json — skill.md is the single source.
+- **Universal game actions**: All games use the same action names: `submit(value)`, `next()`, `reveal()`, `jump(to)`, `end()`, `set(field, value)`. Each game maps these to its internal logic in `handleAction`.
+- **State dedup**: GameBridge only sends state updates when state actually changes (JSON comparison).
+- **Game screenshot**: On game start, GameHost captures iframe via html2canvas → sends to `/api/teacher/image` → Gemini receives screenshot as visual context.
 - **Skill.md structure**: YAML frontmatter (id, name, tags, maxPlayers) + markdown sections: Input Data (for TA generation), State Updates (for teacher), Teacher Guide (facilitation tips)
 - **Event envelope**: All Redis events use `publish_event()` from `events/helpers.py` (type, timestamp, sourceId, payload)
 - **Logging**: Server uses `get_logger()` from `server/logging.py` (not `logging.getLogger()`)

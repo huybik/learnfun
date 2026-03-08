@@ -25,19 +25,19 @@ Generate a JSON object with key `game_data` containing a string of JSON with `su
 
 Create 5-10 items at the student's level.
 
-## Actions
+## Actions (universal)
 
 ### Player
-- submitAnswer(answer: string) — submit an answer for the current card
-- nextCard() — advance to the next card
+- submit(value: string) — submit an answer for the current card
+- next() — advance to the next card
 
 ### Teacher
-- submitAnswer(answer: string) — same as player
-- nextCard() — same as player
-- revealAnswer() — reveal the answer without scoring
-- setScore(score: number) — override the current score
-- setCardIndex(index: number) — jump to a specific card
-- skipToEnd() — end the game immediately
+- submit(value: string) — same as player
+- next() — same as player
+- reveal() — reveal the answer without scoring
+- jump(to: number) — jump to a specific card by index
+- end() — end the game immediately
+- set(field: string, value: unknown) — override a game field (e.g. field="score", value=50)
 
 ## State
 ```json
@@ -55,6 +55,6 @@ Create 5-10 items at the student's level.
 - Start by asking what topic the student wants to practice
 - Encourage after each card ("Great job!", "Almost!")
 - React to correctAnswer/incorrectAnswer events
-- Use revealAnswer if student is stuck for too long
-- Use setCardIndex to skip to harder cards if student is doing well
+- Use reveal() if student is stuck for too long
+- Use jump(to) to skip to harder cards if student is doing well
 - Switch sub-types between rounds to keep engagement high

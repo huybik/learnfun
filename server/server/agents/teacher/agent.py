@@ -234,6 +234,18 @@ class TeacherAgent:
         await self._gemini.send_text(text)
         return True
 
+    async def send_image(
+        self,
+        image_bytes: bytes,
+        mime_type: str = "image/jpeg",
+        caption: str = "This is a screenshot of the game the student currently sees.",
+    ) -> bool:
+        """Send an image to Gemini for visual context."""
+        if not self._running or not self._gemini or not self._gemini.connected:
+            return False
+        await self._gemini.send_image(image_bytes, mime_type=mime_type, caption=caption)
+        return True
+
     # ------------------------------------------------------------------
     # LiveKit room
     # ------------------------------------------------------------------

@@ -12,6 +12,8 @@ import { useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 
 export interface GameHostHandle {
   /** Send an action to the game iframe (from teacher or platform). */
   sendAction(name: string, params: Record<string, unknown>): void;
+  /** Capture a screenshot of the game iframe (same-origin only). */
+  captureScreenshot(): Promise<string | null>;
 }
 
 interface GameHostProps {
@@ -33,13 +35,25 @@ export const GameHost = forwardRef<GameHostHandle, GameHostProps>(
     const initDataRef = useRef(initData);
     initDataRef.current = initData;
 
-    // Expose sendAction to parent via ref
+    // Expose sendAction + captureScreenshot to parent via ref
     useImperativeHandle(ref, () => ({
       sendAction(name: string, params: Record<string, unknown>) {
         iframeRef.current?.contentWindow?.postMessage(
           { type: "action", name, params },
           window.location.origin,
         );
+      },
+      async captureScreenshot(): Promise<string | null> {
+        const doc = iframeRef.current?.contentDocument;
+        if (!doc?.body) return null;
+        try {
+          const { default: html2canvas } = await import("html2canvas");
+          const canvas = await html2canvas(doc.body, { scale: 0.5, logging: false });
+          return canvas.toDataURL("image/jpeg", 0.6);
+        } catch (e) {
+          console.error("[GameHost] Screenshot capture failed", e);
+          return null;
+        }
       },
     }));
 

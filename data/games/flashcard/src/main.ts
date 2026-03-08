@@ -6,12 +6,12 @@ const root = document.getElementById('game')!
 
 const bridge = new GameBridge({
   actions: [
-    { name: 'submitAnswer', params: { answer: 'string' }, description: 'Submit an answer for the current card' },
-    { name: 'nextCard', description: 'Advance to the next card' },
-    { name: 'revealAnswer', description: 'Reveal the answer without scoring', godMode: true },
-    { name: 'setScore', params: { score: 'number' }, description: 'Set the score', godMode: true },
-    { name: 'setCardIndex', params: { index: 'number' }, description: 'Jump to a specific card', godMode: true },
-    { name: 'skipToEnd', description: 'End the game immediately', godMode: true },
+    { name: 'submit', params: { value: 'string' }, description: 'Submit an answer' },
+    { name: 'next', description: 'Advance to next card' },
+    { name: 'reveal', description: 'Reveal the answer without scoring', godMode: true },
+    { name: 'jump', params: { to: 'number' }, description: 'Jump to a specific card', godMode: true },
+    { name: 'end', description: 'End the game immediately', godMode: true },
+    { name: 'set', params: { field: 'string', value: 'string' }, description: 'Override a game field', godMode: true },
   ],
   defaultInitData: {
     sub_type: 'SentenceCompletion',
