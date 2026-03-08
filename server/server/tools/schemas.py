@@ -52,7 +52,6 @@ class RequestTaActionParams(BaseModel):
 
 
 class QueryContentParams(BaseModel):
-    type: Literal["lesson", "game"]
     tags: Optional[list[str]] = None
     difficulty: Optional[str] = None
     user_context: Optional[dict[str, Any]] = Field(default=None, alias="userContext")
@@ -84,9 +83,8 @@ class UpdateProfileParams(BaseModel):
 
 
 class LoadContentParams(BaseModel):
-    content_type: Literal["unit", "template", "bundle"] = Field(alias="contentType")
+    content_type: Literal["game", "bundle"] = Field(alias="contentType")
     content_id: str = Field(min_length=1, alias="contentId")
-    page: Optional[int] = Field(default=None, ge=1)
 
     model_config = {"populate_by_name": True}
 
@@ -157,8 +155,8 @@ TOOL_DEFINITIONS: list[ToolRegistration] = [
     ToolRegistration(
         name="query_content",
         description=(
-            "Search for matching lesson or game templates. The TA uses this "
-            "to find content that fits the current learning context."
+            "Search for available games by tags. Returns matching games "
+            "from the registry."
         ),
         schema_cls=QueryContentParams,
         allowed_callers=["ta"],
@@ -166,9 +164,8 @@ TOOL_DEFINITIONS: list[ToolRegistration] = [
     ToolRegistration(
         name="execute_filled_bundle",
         description=(
-            "Push a filled content bundle to the live room. Validates data "
-            "against the template schema, stores the bundle, and notifies "
-            "room participants."
+            "Push a filled content bundle to the live room. Stores the "
+            "bundle and notifies room participants."
         ),
         schema_cls=ExecuteFilledBundleParams,
         allowed_callers=["ta"],
@@ -203,7 +200,7 @@ TOOL_DEFINITIONS: list[ToolRegistration] = [
     ToolRegistration(
         name="load_content",
         description=(
-            "Load a content item (unit, template, or filled bundle) into "
+            "Load a content item (game metadata or filled bundle) into "
             "the current session."
         ),
         schema_cls=LoadContentParams,

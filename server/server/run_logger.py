@@ -9,7 +9,7 @@ from typing import Any
 
 from server.config import settings
 
-_ROOT_DIR = Path(settings.DATA_DIR).resolve().parent.parent
+_ROOT_DIR = Path(settings.DATA_DIR).resolve().parent
 RUNS_DIR = _ROOT_DIR / "runs"
 
 # Cache session start timestamps: session_id -> timestamp string

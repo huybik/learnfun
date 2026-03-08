@@ -6,7 +6,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel
 
-from server.content.models import FilledBundle, TemplateManifest
+from server.content.models import FilledBundle, GameMeta
 
 
 # ---------------------------------------------------------------------------
@@ -38,7 +38,7 @@ class TAResponse(BaseModel):
 
 
 class GenerateParams(BaseModel):
-    template: TemplateManifest
+    game: GameMeta
     intent: str
     room_id: str = ""
     context: dict[str, Any] = {}

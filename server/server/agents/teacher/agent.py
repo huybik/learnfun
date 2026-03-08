@@ -11,7 +11,7 @@ from livekit import rtc
 from server.agents.ta.agent import TAAgent
 from server.agents.ta.models import TARequest
 from server.config import settings
-from server.content.templates import list_templates
+from server.content.templates import list_games
 from server.events.helpers import publish_event
 from server.events.subjects import SUBJECTS, room_subject
 from server.logging import get_logger
@@ -126,11 +126,11 @@ class TeacherAgent:
 
         try:
             # 1. Build system prompt
-            available_content = []
+            available_games = []
             try:
-                available_content = list_templates()
+                available_games = list_games()
             except Exception as exc:
-                log.warning("Could not load content catalog", error=str(exc))
+                log.warning("Could not load game catalog", error=str(exc))
 
             # Resolve voice + language from user profile preferences
             prefs = self._user_profile.get("preferences", {})
@@ -161,7 +161,7 @@ class TeacherAgent:
                 participants=self._participants,
                 user_profiles=[self._user_profile] if self._user_profile else [],
                 tools=tool_defs,
-                available_content=available_content,
+                available_games=available_games,
             )
 
             # Log system prompt

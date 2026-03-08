@@ -10,8 +10,8 @@ from datetime import datetime, timezone
 from typing import Any
 
 from server.content.bundles import store_bundle as store_bundle_local
-from server.content.models import FilledBundle, TemplateManifest
-from server.content.templates import list_templates
+from server.content.models import FilledBundle, GameMeta
+from server.content.templates import get_game, list_games
 from server.events.helpers import publish_event
 from server.events.subjects import SUBJECTS, room_subject
 from server.logging import get_logger
@@ -157,21 +157,21 @@ async def handle_ta_request(
     log.info("Handling TA request", request_id=request_id, intent=intent, room_id=room_id)
 
     try:
-        # 1. Resolve template
-        template = _lookup_template(req.template_id)
-        if template is None:
+        # 1. Resolve game
+        game = _lookup_game(req.template_id)
+        if game is None:
             return TAResponse(
                 request_id=request_id,
                 success=False,
-                error=f'No template found for intent: "{intent}"',
+                error=f'No game found: "{req.template_id}"',
                 elapsed=_elapsed_ms(start),
             )
 
         log.debug(
-            "Template selected",
+            "Game selected",
             request_id=request_id,
-            template_id=template.id,
-            template_name=template.name,
+            game_id=game.id,
+            game_name=game.name,
         )
 
         # 2. Build personalization context
@@ -194,7 +194,7 @@ async def handle_ta_request(
         # 4. Generate content
         filled_data = await generator.generate_filled_data(
             GenerateParams(
-                template=template,
+                game=game,
                 intent=intent,
                 room_id=room_id,
                 context=context,
@@ -206,21 +206,18 @@ async def handle_ta_request(
         # 5. Build bundle
         now = datetime.now(timezone.utc).isoformat()
         bundle = FilledBundle(
-            templateId=template.id,
+            templateId=game.id,
             sessionId=request_id,
             filledSlots=_flatten_to_string_record(filled_data),
-            bundlePath="",
             createdAt=now,
         )
 
         # 6. Store bundle
         try:
             bundle_id = store_bundle_local(bundle)
-            bundle.bundlePath = bundle_id
-            log.debug("store_bundle", bundle_id=bundle_id, template_id=bundle.templateId)
+            log.debug("store_bundle", bundle_id=bundle_id, game_id=bundle.templateId)
         except Exception as exc:
             log.error("Failed to store bundle", request_id=request_id, error=str(exc))
-            bundle.bundlePath = f"pending://{request_id}"
 
         # 7. Publish to room
         try:
@@ -231,7 +228,7 @@ async def handle_ta_request(
                 payload={
                     "contentId": request_id,
                     "bundle": bundle.model_dump(),
-                    "metadata": {"intent": intent, "templateId": template.id},
+                    "metadata": {"intent": intent, "templateId": game.id},
                 },
                 source_id="ta-agent",
             )
@@ -265,15 +262,15 @@ async def handle_ta_request(
         )
 
 
-def _lookup_template(template_id: str) -> TemplateManifest | None:
-    """Look up a template by exact ID (no AI resolution)."""
-    all_templates = list_templates()
-    match = next((t for t in all_templates if t.id == template_id), None)
-    if match:
-        log.debug("lookup_template: direct match", template_id=template_id)
-    else:
-        log.warning("lookup_template: not found", template_id=template_id)
-    return match
+def _lookup_game(game_id: str) -> GameMeta | None:
+    """Look up a game by exact ID."""
+    try:
+        game = get_game(game_id)
+        log.debug("lookup_game: found", game_id=game_id)
+        return game
+    except FileNotFoundError:
+        log.warning("lookup_game: not found", game_id=game_id)
+        return None
 
 
 async def _get_learning_progress(user_id: str) -> LearningProgress:

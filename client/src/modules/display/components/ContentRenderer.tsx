@@ -5,23 +5,21 @@ import { GameContext, type GameContextValue, type GameResults, type GameState } 
 
 interface ContentRendererProps {
   bundle: FilledBundle;
-  /** The content kind key, e.g. "wordmatch" or "solar-system". */
+  /** The game ID key, e.g. "wordmatch" or "solar-system". */
   contentKind: string;
   /** Component registry to look up the kind in. */
   registry: Record<string, ComponentType>;
-  /** The slot key to extract initial data from (e.g. "game_data" or "lesson_data"). */
+  /** The slot key to extract initial data from. */
   dataSlotKey: string;
-  /** Label for error/loading text, e.g. "Game" or "Lesson". */
-  label: string;
   /** Called when state updates (to sync with AI / Yjs). */
   onGameStateUpdate: (state: GameState) => void;
-  /** Called when the content ends. */
+  /** Called when the game ends. */
   onGameEnd: (results?: GameResults) => void;
 }
 
 /**
- * Unified renderer for game pods and interactive lessons.
- * Selects the appropriate component from the given registry,
+ * Unified renderer for all games.
+ * Selects the appropriate component from the registry,
  * wraps it in GameContext, and handles lifecycle.
  */
 export const ContentRenderer: React.FC<ContentRendererProps> = ({
@@ -29,7 +27,6 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
   contentKind,
   registry,
   dataSlotKey,
-  label,
   onGameStateUpdate,
   onGameEnd,
 }) => {
@@ -59,12 +56,12 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
   if (!Component) {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center gap-4 text-white">
-        <p className="text-xl font-semibold">Unknown {label} Type</p>
+        <p className="text-xl font-semibold">Unknown Game</p>
         <p className="text-neutral-400">
-          {label} kind &quot;{contentKind}&quot; is not registered.
+          Game &quot;{contentKind}&quot; is not registered.
         </p>
         <button
-          onClick={() => onGameEnd({ outcome: "quit", reason: `unknown_${label.toLowerCase()}` })}
+          onClick={() => onGameEnd({ outcome: "quit", reason: `unknown_game` })}
           className="rounded bg-red-600 px-4 py-2 text-sm font-medium hover:bg-red-700"
         >
           Exit
@@ -78,7 +75,7 @@ export const ContentRenderer: React.FC<ContentRendererProps> = ({
       <Suspense
         fallback={
           <div className="flex h-full w-full items-center justify-center text-neutral-400">
-            Loading {label.toLowerCase()}...
+            Loading game...
           </div>
         }
       >

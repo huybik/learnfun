@@ -25,15 +25,15 @@
         "./src/*"
       ],
       "@data/*": [
-        "data/*"
+        "../data/*"
       ]
     }
   },
   "include": [
     "src/**/*.ts",
     "src/**/*.tsx",
-    "data/**/*.ts",
-    "data/**/*.tsx"
+    "../data/**/*.ts",
+    "../data/**/*.tsx"
   ],
   "exclude": [
     "node_modules"

@@ -2,13 +2,12 @@
  * Module 5: Interactive Main Display & Renderer
  *
  * Public API — re-exports all display components, hooks, and layout.
- * Games and lessons are loaded lazily via the plugin registry.
+ * Games are loaded lazily via the plugin registry.
  */
 
 // ---- Components ----
 export { Board } from "./components/Board";
 export { BundleRenderer } from "./components/BundleRenderer";
-export { LessonRenderer } from "./components/LessonRenderer";
 export { ContentRenderer } from "./components/ContentRenderer";
 export { SharedCursors } from "./components/SharedCursors";
 export { Annotations } from "./components/Annotations";
@@ -23,9 +22,7 @@ export { LoadingOverlay } from "./components/ui/LoadingOverlay";
 // ---- Plugin Registry ----
 export {
   GAME_COMPONENTS,
-  LESSON_COMPONENTS,
   hasGameComponent,
-  hasLessonComponent,
 } from "./plugin-registry";
 
 // ---- Hooks ----

@@ -61,7 +61,6 @@ export interface ContentReadyEvent extends BaseEvent {
   type: "ta.content_ready";
   payload: {
     contentId: string;
-    bundlePath: string;
     metadata?: Record<string, unknown>;
   };
 }

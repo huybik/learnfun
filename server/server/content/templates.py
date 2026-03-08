@@ -1,83 +1,79 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
-from typing import Optional
 
 from server.config import settings
-from server.content.models import (
-    GamePodTemplate,
-    LessonTemplate,
-    TemplateManifest,
-)
+from server.content.models import GameMeta
 from server.logging import get_logger
 
 log = get_logger("template-registry")
 
-MANIFEST_FILE = "manifest.json"
+SKILL_FILE = "skill.md"
 
 
 def _data_dir() -> Path:
     return Path(settings.DATA_DIR)
 
 
-def _dirs_for_type(
-    type_filter: Optional[str],
-) -> list[Path]:
-    """Return directories to scan for the given type filter."""
-    dirs: list[Path] = []
-    if not type_filter or type_filter == "game":
-        dirs.append(_data_dir() / "games")
-    if not type_filter or type_filter == "lesson":
-        dirs.append(_data_dir() / "lessons")
-    return dirs
-
-
-def _parse_manifest(raw: dict) -> TemplateManifest:
-    """Validate a manifest dict into the correct model subtype."""
-    if raw.get("type") == "lesson":
-        return LessonTemplate.model_validate(raw)
-    return GamePodTemplate.model_validate(raw)
-
-
-def list_templates(
-    type_filter: Optional[str] = None,
-) -> list[TemplateManifest]:
-    """Scan data/games/ and data/lessons/ for manifest.json files."""
-    manifests: list[TemplateManifest] = []
-
-    for dir_path in _dirs_for_type(type_filter):
-        if not dir_path.is_dir():
+def _parse_frontmatter(raw: str) -> dict:
+    """Parse simple YAML-like frontmatter (key: value, with [list] support)."""
+    result: dict = {}
+    for line in raw.strip().splitlines():
+        line = line.strip()
+        if not line or ":" not in line:
             continue
-        for subdir in sorted(dir_path.iterdir()):
-            if not subdir.is_dir():
-                continue
-            manifest_path = subdir / MANIFEST_FILE
-            if not manifest_path.exists():
-                continue
-            try:
-                raw = json.loads(manifest_path.read_text())
-                manifest = _parse_manifest(raw)
-                if not type_filter or manifest.type == type_filter:
-                    manifests.append(manifest)
-            except Exception as exc:
-                log.warning(
-                    "Skipping invalid manifest",
-                    path=str(manifest_path),
-                    error=str(exc),
-                )
-
-    log.debug("Listed templates", count=len(manifests), type=type_filter or "all")
-    return manifests
+        key, _, value = line.partition(":")
+        value = value.strip()
+        # Parse [list, items]
+        if value.startswith("[") and value.endswith("]"):
+            items = [s.strip() for s in value[1:-1].split(",")]
+            result[key.strip()] = items
+        # Parse numbers
+        elif value.isdigit():
+            result[key.strip()] = int(value)
+        else:
+            result[key.strip()] = value
+    return result
 
 
-def get_template(template_id: str) -> TemplateManifest:
-    """Get a single template manifest by ID. Searches games/ then lessons/."""
-    for dir_path in _dirs_for_type(None):
-        manifest_path = dir_path / template_id / MANIFEST_FILE
-        if not manifest_path.exists():
+def _parse_skill(path: Path) -> GameMeta:
+    """Parse a skill.md file: frontmatter + markdown body."""
+    text = path.read_text(encoding="utf-8")
+    match = re.match(r"^---\n(.+?)\n---\n(.*)$", text, re.DOTALL)
+    if not match:
+        raise ValueError(f"No frontmatter in {path}")
+    meta = _parse_frontmatter(match.group(1))
+    meta["skill_text"] = match.group(2).strip()
+    return GameMeta.model_validate(meta)
+
+
+def list_games() -> list[GameMeta]:
+    """Scan data/games/ for skill.md files."""
+    games_dir = _data_dir() / "games"
+    if not games_dir.is_dir():
+        return []
+
+    results: list[GameMeta] = []
+    for subdir in sorted(games_dir.iterdir()):
+        if not subdir.is_dir():
             continue
-        raw = json.loads(manifest_path.read_text())
-        return _parse_manifest(raw)
+        skill_path = subdir / SKILL_FILE
+        if not skill_path.exists():
+            continue
+        try:
+            results.append(_parse_skill(skill_path))
+        except Exception as exc:
+            log.warning("Skipping invalid skill.md", path=str(skill_path), error=str(exc))
 
-    raise FileNotFoundError(f'Template not found: "{template_id}"')
+    log.debug("Listed games", count=len(results))
+    return results
+
+
+def get_game(game_id: str) -> GameMeta:
+    """Get a single game by ID."""
+    skill_path = _data_dir() / "games" / game_id / SKILL_FILE
+    if not skill_path.exists():
+        raise FileNotFoundError(f'Game not found: "{game_id}"')
+    return _parse_skill(skill_path)

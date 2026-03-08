@@ -7,7 +7,7 @@ from typing import Any
 
 from server.content.bundles import get_bundle, store_bundle
 from server.content.models import FilledBundle
-from server.content.templates import get_template, list_templates
+from server.content.templates import get_game, list_games
 from server.events.helpers import publish_event
 from server.events.subjects import SUBJECTS, room_subject
 from server.logging import get_logger
@@ -50,21 +50,21 @@ def register_all(registry: ToolRegistry) -> None:
 
 
 async def handle_query_content(params: dict, ctx: ToolHandlerContext) -> ToolResponse:
-    """Search templates by type and optional tags."""
-    templates = list_templates(type_filter=params.get("type"))
+    """Search games by optional tags."""
+    games = list_games()
 
     tags = params.get("tags")
     if tags:
         tag_set = {t.lower() for t in tags}
-        templates = [
-            t for t in templates
-            if t.tags and tag_set & {tag.lower() for tag in t.tags}
+        games = [
+            g for g in games
+            if tag_set & {tag.lower() for tag in g.tags}
         ]
 
     return ToolResponse(
         call_id=ctx.call_id,
         success=True,
-        data={"templates": [t.model_dump() for t in templates]},
+        data={"games": [g.model_dump(exclude={"skill_text"}) for g in games]},
     )
 
 
@@ -79,16 +79,16 @@ async def handle_execute_filled_bundle(params: dict, ctx: ToolHandlerContext) ->
     room_id = params["room_id"]
     filled_data = params["filled_data"]
 
+    # Verify the game exists
     try:
-        template = get_template(bundle_id)
+        get_game(bundle_id)
     except FileNotFoundError:
-        return ToolResponse(call_id=ctx.call_id, success=False, error=f"Template not found: {bundle_id}")
+        return ToolResponse(call_id=ctx.call_id, success=False, error=f"Game not found: {bundle_id}")
 
     bundle = FilledBundle(
         templateId=bundle_id,
         sessionId=room_id,
         filledSlots=filled_data,
-        bundlePath=template.bundlePath,
         createdAt=datetime.now(timezone.utc).isoformat(),
     )
     store_bundle(bundle)
@@ -106,15 +106,14 @@ async def handle_execute_filled_bundle(params: dict, ctx: ToolHandlerContext) ->
         source_id=ctx.caller.id,
     )
 
-    # Publish game_started if the content is a game
-    if template.type == "game":
-        game_ch = room_subject(SUBJECTS["GAME_STARTED"], room_id)
-        await publish_event(
-            channel=game_ch,
-            event_type="game.started",
-            payload={"templateId": bundle_id, "roomId": room_id},
-            source_id=ctx.caller.id,
-        )
+    # Always publish game_started
+    game_ch = room_subject(SUBJECTS["GAME_STARTED"], room_id)
+    await publish_event(
+        channel=game_ch,
+        event_type="game.started",
+        payload={"templateId": bundle_id, "roomId": room_id},
+        source_id=ctx.caller.id,
+    )
 
     return ToolResponse(call_id=ctx.call_id, success=True, data={"bundleId": bundle.sessionId})
 
@@ -217,14 +216,14 @@ async def handle_update_profile(params: dict, ctx: ToolHandlerContext) -> ToolRe
 
 
 async def handle_load_content(params: dict, ctx: ToolHandlerContext) -> ToolResponse:
-    """Load a content item (template or bundle) by ID."""
+    """Load a content item (game or bundle) by ID."""
     content_type = params["content_type"]
     content_id = params["content_id"]
 
     try:
-        if content_type == "template":
-            item = get_template(content_id)
-            return ToolResponse(call_id=ctx.call_id, success=True, data={"template": item.model_dump()})
+        if content_type == "game":
+            item = get_game(content_id)
+            return ToolResponse(call_id=ctx.call_id, success=True, data={"game": item.model_dump()})
         if content_type == "bundle":
             item = get_bundle(content_id)
             return ToolResponse(call_id=ctx.call_id, success=True, data={"bundle": item.model_dump()})

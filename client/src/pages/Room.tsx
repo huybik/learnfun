@@ -15,7 +15,6 @@ import { useRoomParticipants } from "@/modules/realtime/hooks/useRoomParticipant
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FilledBundle } from "@/types/content";
 import type { GameResults } from "@/modules/display/hooks/useGameState";
-import { hasGameComponent } from "@/modules/display/plugin-registry";
 
 // ---------------------------------------------------------------------------
 // Room Page (simplified — no direct Gemini, no useTeacher/useTeacherTools)
@@ -34,9 +33,7 @@ export default function RoomPage() {
 
   // --- Content state ---
   const [activeBundle, setActiveBundle] = useState<FilledBundle | null>(null);
-  const [contentType, setContentType] = useState<"lesson" | "game" | null>(null);
-  const [gameKind, setGameKind] = useState<string | undefined>();
-  const [currentPage, setCurrentPage] = useState(0);
+  const [gameId, setGameId] = useState<string | undefined>();
   const [isGameActive, setIsGameActive] = useState(false);
 
   // --- Screen effects state ---
@@ -99,15 +96,8 @@ export default function RoomPage() {
   const activateBundle = useCallback(
     (bundle: FilledBundle) => {
       setActiveBundle(bundle);
-      const tplId = bundle.templateId.toLowerCase();
-      if (hasGameComponent(tplId)) {
-        setContentType("game");
-        setGameKind(tplId);
-        setIsGameActive(true);
-      } else {
-        setContentType("lesson");
-      }
-      setCurrentPage(0);
+      setGameId(bundle.templateId.toLowerCase());
+      setIsGameActive(true);
       addTranscript("system", "Content loaded!");
     },
     [addTranscript],
@@ -170,8 +160,7 @@ export default function RoomPage() {
   const handleEndGame = useCallback(() => {
     setIsGameActive(false);
     setActiveBundle(null);
-    setContentType(null);
-    setGameKind(undefined);
+    setGameId(undefined);
   }, []);
 
   // --- Text chat: send to AI teacher ---
@@ -221,9 +210,7 @@ export default function RoomPage() {
           <div className="flex-1 overflow-hidden">
             <Board
               bundle={activeBundle}
-              contentType={contentType}
-              gameKind={gameKind}
-              currentPage={currentPage}
+              gameId={gameId}
               localUserId={localUserId}
               onGameEnd={handleGameEnd}
               focusPoint={focusPoint}

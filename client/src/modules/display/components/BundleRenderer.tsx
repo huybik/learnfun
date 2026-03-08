@@ -1,41 +1,30 @@
 import React from "react";
 import type { FilledBundle } from "@/types/content";
 import type { GameState, GameResults } from "../hooks/useGameState";
-import { LessonRenderer } from "./LessonRenderer";
 import { ContentRenderer } from "./ContentRenderer";
-import { GAME_COMPONENTS, LESSON_COMPONENTS } from "../plugin-registry";
+import { GAME_COMPONENTS } from "../plugin-registry";
 
 const noop = () => {};
 
 interface BundleRendererProps {
   bundle: FilledBundle | null;
-  /** "lesson" | "game" — determined from the template manifest. */
-  contentType: "lesson" | "game" | null;
-  /** For game pods: the specific game kind. */
-  gameKind?: string;
-  /** For interactive lessons: the lesson kind (e.g. "solar-system"). */
-  lessonKind?: string;
-  /** Current page for lesson bundles. */
-  currentPage?: number;
+  /** The game ID (e.g. "flashcard", "solar-system"). */
+  gameId?: string;
   /** Callbacks for game lifecycle. */
   onGameStateUpdate?: (state: GameState) => void;
   onGameEnd?: (results?: GameResults) => void;
 }
 
 /**
- * Dynamic renderer: inspects content type and delegates to
- * LessonRenderer or ContentRenderer.
+ * Dynamic renderer: looks up the game component and delegates to ContentRenderer.
  */
 export const BundleRenderer: React.FC<BundleRendererProps> = ({
   bundle,
-  contentType,
-  gameKind,
-  lessonKind,
-  currentPage = 0,
+  gameId,
   onGameStateUpdate,
   onGameEnd,
 }) => {
-  if (!bundle || !contentType) {
+  if (!bundle || !gameId) {
     return (
       <div className="flex h-full w-full items-center justify-center text-neutral-500">
         <p>No content loaded</p>
@@ -43,42 +32,14 @@ export const BundleRenderer: React.FC<BundleRendererProps> = ({
     );
   }
 
-  // Interactive lessons (e.g. solar-system) — rendered like games with GameContext
-  if (contentType === "lesson" && lessonKind) {
-    return (
-      <ContentRenderer
-        bundle={bundle}
-        contentKind={lessonKind}
-        registry={LESSON_COMPONENTS}
-        dataSlotKey="lesson_data"
-        label="Lesson"
-        onGameStateUpdate={onGameStateUpdate ?? noop}
-        onGameEnd={onGameEnd ?? noop}
-      />
-    );
-  }
-
-  if (contentType === "lesson") {
-    return <LessonRenderer bundle={bundle} currentPage={currentPage} />;
-  }
-
-  if (contentType === "game" && gameKind) {
-    return (
-      <ContentRenderer
-        bundle={bundle}
-        contentKind={gameKind}
-        registry={GAME_COMPONENTS}
-        dataSlotKey="game_data"
-        label="Game"
-        onGameStateUpdate={onGameStateUpdate ?? noop}
-        onGameEnd={onGameEnd ?? noop}
-      />
-    );
-  }
-
   return (
-    <div className="flex h-full w-full items-center justify-center text-neutral-500">
-      <p>Unknown content type: {contentType}</p>
-    </div>
+    <ContentRenderer
+      bundle={bundle}
+      contentKind={gameId}
+      registry={GAME_COMPONENTS}
+      dataSlotKey="game_data"
+      onGameStateUpdate={onGameStateUpdate ?? noop}
+      onGameEnd={onGameEnd ?? noop}
+    />
   );
 };

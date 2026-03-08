@@ -9,7 +9,7 @@ from typing import Any, Optional
 from google import genai
 from google.genai import types
 
-from server.content.models import TemplateManifest
+from server.content.models import GameMeta
 from server.logging import get_logger
 from server.run_logger import log_ta_run
 
@@ -30,11 +30,10 @@ class ContentGenerator:
     # ------------------------------------------------------------------
 
     async def generate_filled_data(self, params: GenerateParams) -> FilledData:
-        """Call Gemini with structured JSON output matching the template slots."""
-        template = params.template
-        response_schema = self._build_response_schema(template)
+        """Call Gemini to generate game data guided by skill.md."""
+        game = params.game
         prompt = self._build_prompt(
-            template,
+            game,
             params.intent,
             params.context,
             params.personalization_prompt,
@@ -43,10 +42,9 @@ class ContentGenerator:
 
         log.info(
             "Generating content",
-            template_id=template.id,
+            game_id=game.id,
             intent=params.intent,
             model=self._model,
-            slot_count=len(template.slots),
         )
 
         start = time.monotonic()
@@ -57,13 +55,12 @@ class ContentGenerator:
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
-                    response_schema=response_schema,
                     thinking_config=types.ThinkingConfig(thinking_level="low"),
                 ),
             )
 
             elapsed = int((time.monotonic() - start) * 1000)
-            log.info("Content generated", template_id=template.id, elapsed=elapsed)
+            log.info("Content generated", game_id=game.id, elapsed=elapsed)
 
             text = response.text
             if not text:
@@ -80,19 +77,19 @@ class ContentGenerator:
                         "parsed": parsed,
                         "usage_metadata": str(getattr(response, "usage_metadata", None)),
                         "model": self._model,
-                        "template_id": template.id,
+                        "game_id": game.id,
                         "elapsed_ms": elapsed,
                     },
                 )
             except Exception:
-                log.warning("Failed to write run log", template_id=template.id)
+                log.warning("Failed to write run log", game_id=game.id)
 
             return parsed
         except Exception as exc:
             elapsed = int((time.monotonic() - start) * 1000)
             log.error(
                 "Content generation failed",
-                template_id=template.id,
+                game_id=game.id,
                 elapsed=elapsed,
                 error=str(exc),
             )
@@ -102,27 +99,9 @@ class ContentGenerator:
     # Private helpers
     # ------------------------------------------------------------------
 
-    def _build_response_schema(self, template: TemplateManifest) -> dict[str, Any]:
-        properties: dict[str, Any] = {}
-        required: list[str] = []
-
-        for slot in template.slots:
-            properties[slot.id] = {
-                "type": "STRING",
-                "description": slot.label,
-            }
-            if slot.required:
-                required.append(slot.id)
-
-        return {
-            "type": "OBJECT",
-            "properties": properties,
-            "required": required,
-        }
-
     def _build_prompt(
         self,
-        template: TemplateManifest,
+        game: GameMeta,
         intent: str,
         context: dict[str, Any],
         personalization_prompt: Optional[str],
@@ -130,9 +109,7 @@ class ContentGenerator:
     ) -> str:
         lines: list[str] = [
             "You are a content generator for an educational platform aimed at children.",
-            f'Your task: fill the slots of the "{template.name}" template.',
-            f"Template description: {template.description}",
-            f"Template type: {template.type}",
+            f'Your task: generate input data for the "{game.name}" game.',
             "",
             f"Intent: {intent}",
         ]
@@ -142,25 +119,20 @@ class ContentGenerator:
             for key, value in context.items():
                 lines.append(f"  - {key}: {json.dumps(value)}")
 
-        lines.extend(["", "Slots to fill:"])
-        for slot in template.slots:
-            req_label = "(required)" if slot.required else "(optional)"
-            default_note = f" [default: {slot.defaultValue}]" if slot.defaultValue else ""
-            lines.append(f"  - {slot.id} ({slot.kind}) {req_label}: {slot.label}{default_note}")
-
         if personalization_prompt:
             lines.extend(["", "Personalization:", personalization_prompt])
 
         if difficulty_hint:
             lines.extend(["", f"Difficulty guidance: {difficulty_hint}"])
 
-        if template.aiInstructions:
-            lines.extend(["", f"Template instructions: {template.aiInstructions}"])
+        # Append the skill.md content — it contains the Input Data section
+        # that tells Gemini exactly what JSON shape to produce
+        if game.skill_text:
+            lines.extend(["", "--- Game Skill Reference ---", game.skill_text])
 
         lines.extend([
             "",
-            "Return ONLY the JSON object with the filled slot values. Use plain text and emoji only, no URLs.",
+            "Return ONLY a JSON object with a single key 'game_data' whose value is the game data JSON string. Use plain text and emoji only, no URLs.",
         ])
 
         return "\n".join(lines)
-

@@ -10,12 +10,8 @@ import { ScreenEffects } from "./ScreenEffects";
 interface BoardProps {
   /** The filled bundle to render. */
   bundle: FilledBundle | null;
-  /** "lesson" | "game" — content type from the template. */
-  contentType: "lesson" | "game" | null;
-  /** For game pods: the specific game kind. */
-  gameKind?: string;
-  /** Current page index for lesson content. */
-  currentPage?: number;
+  /** The game ID (e.g. "flashcard", "solar-system"). */
+  gameId?: string;
   /** Cursor positions from Yjs sync state. */
   cursors?: Record<string, CursorPosition>;
   /** Local user ID. */
@@ -50,9 +46,7 @@ interface BoardProps {
  */
 export const Board: React.FC<BoardProps> = ({
   bundle,
-  contentType,
-  gameKind,
-  currentPage = 0,
+  gameId,
   cursors = {},
   localUserId,
   participantNames = {},
@@ -91,9 +85,7 @@ export const Board: React.FC<BoardProps> = ({
       <div className="absolute inset-0 z-10">
         <BundleRenderer
           bundle={bundle}
-          contentType={contentType}
-          gameKind={gameKind}
-          currentPage={currentPage}
+          gameId={gameId}
           onGameStateUpdate={onGameStateUpdate}
           onGameEnd={onGameEnd}
         />

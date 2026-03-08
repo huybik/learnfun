@@ -1,6 +1,6 @@
 # LearnFun — Project Context
 
-Interactive learning platform: AI teacher + teaching assistant guide students through lessons and games in real-time rooms.
+Interactive learning platform: AI teacher + teaching assistant guide students through games in real-time rooms.
 
 ## Architecture
 
@@ -21,7 +21,7 @@ Interactive learning platform: AI teacher + teaching assistant guide students th
 - `agents/ta/` — Teaching Assistant agent (Gemini Flash)
   - `agent.py` — TAAgent lifecycle, delegates to request_handler
   - `request_handler.py` — orchestration pipeline + personalization
-  - `content_generator.py` — Gemini generation, template resolution
+  - `content_generator.py` — Gemini generation guided by skill.md
   - `models.py` — TARequest, TAResponse, GenerateParams
 - `events/` — event system
   - `redis_bridge.py` — Redis pub/sub connection
@@ -33,8 +33,10 @@ Interactive learning platform: AI teacher + teaching assistant guide students th
   - `db.py` — connection pool (singleton)
   - `models.py` — UserProfile, UserPreferences, LearningProgress, etc.
   - `queries/` — users, profiles, progress, sessions, `_helpers.py` (shared SQL builders)
-- `content/` — template registry (scans `data/`)
-  - `templates.py`, `models.py`, `bundles.py`
+- `content/` — game registry (scans `data/games/`)
+  - `templates.py` — `list_games()`, `get_game()`, parses skill.md frontmatter
+  - `models.py` — `GameMeta`, `FilledBundle`
+  - `bundles.py` — bundle storage
 - `tools/` — tool system with auth + rate limiting
   - `registry.py`, `schemas.py` (ToolName Literal as single source), `auth.py`, `rate_limit.py`
   - `handlers.py` — concrete handlers for all 8 tools (query_content, execute_filled_bundle, light_control, signal_feedback, update_profile, load_content, get_room_state; request_ta_action handled directly by TeacherAgent)
@@ -46,13 +48,14 @@ Interactive learning platform: AI teacher + teaching assistant guide students th
 - `pages/Home.tsx` — landing page
 - `modules/display/` — content rendering
   - `components/Board.tsx` — main board layout
-  - `components/ContentRenderer.tsx` — unified game/lesson renderer (parameterized by registry)
-  - `components/BundleRenderer.tsx`, `LessonRenderer.tsx`
+  - `components/ContentRenderer.tsx` — unified game renderer with GameContext
+  - `components/BundleRenderer.tsx` — delegates to ContentRenderer
   - `components/ScreenEffects.tsx` — merged overlays (focus highlight + emotes)
   - `components/SharedCursors.tsx`, `Annotations.tsx`
   - `components/ui/` — ChatInput, ControlBar, LoadingOverlay, ParticipantList, ScoreBoard
   - `hooks/useGameState.ts`, `hooks/useBundleLoader.ts`
-  - `plugin-registry.ts`, `layout/RoomLayout.tsx`
+  - `plugin-registry.ts` — unified game component registry
+  - `layout/RoomLayout.tsx`
 - `modules/realtime/` — real-time communication
   - `hooks/useRoom.ts`, `useVoice.ts`, `usePresence.ts`, `useServerEvents.ts`
   - `hooks/useSessionData.ts`, `useRoomTranscript.ts`, `useRoomParticipants.ts` — extracted from Room.tsx
@@ -65,12 +68,14 @@ Interactive learning platform: AI teacher + teaching assistant guide students th
 - `types/` — TypeScript type definitions
 - `config/` — API config, constants
 
-**Data** (`data/`) — game/lesson content bundles
-- `games/` — flashcard, sentencebuilder, spaceshooter, wordmatch
-- `lessons/` — solar-system
+**Data** (`data/`) — game content (at project root, shared by server + client)
+- `games/` — flashcard, sentencebuilder, spaceshooter, wordmatch, solar-system
+- Each game has: `skill.md` (YAML frontmatter + AI instructions) + `src/` (React component)
 
 ## Key Patterns
 
+- **Game plugin**: Each game in `data/games/<id>/` has a `skill.md` (frontmatter for metadata, body for AI context) and `src/` (React component). No manifest.json — skill.md is the single source.
+- **Skill.md structure**: YAML frontmatter (id, name, tags, maxPlayers) + markdown sections: Input Data (for TA generation), State Updates (for teacher), Teacher Guide (facilitation tips)
 - **Event envelope**: All Redis events use `publish_event()` from `events/helpers.py` (type, timestamp, sourceId, payload)
 - **Logging**: Server uses `get_logger()` from `server/logging.py` (not `logging.getLogger()`)
 - **Gemini Live receive**: Use `async for msg in session.receive()` (not `async for msg in session`) and call `receive()` repeatedly in a loop because each call yields one complete turn in google-genai ≥1.66.0

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from server.content.models import TemplateManifest
+from server.content.models import GameMeta
 
 
 def build_teacher_prompt(
@@ -13,7 +13,7 @@ def build_teacher_prompt(
     participants: list[dict[str, Any]],
     user_profiles: list[dict[str, Any]],
     tools: Optional[list[dict[str, Any]]] = None,
-    available_content: Optional[list[TemplateManifest]] = None,
+    available_games: Optional[list[GameMeta]] = None,
 ) -> str:
     """Build the system instruction for the Teacher's Gemini session."""
 
@@ -36,7 +36,7 @@ def build_teacher_prompt(
         tool_section = "  (no tools registered yet)"
 
     # Content catalog
-    content_section = _build_content_catalog(available_content)
+    content_section = _build_game_catalog(available_games)
 
     return f"""\
 You are Teacher -- a lively, encouraging, and endlessly patient AI English teacher at LearnFun.
@@ -75,9 +75,9 @@ You are currently in room "{room_id}".
 
 **TEACHING STRATEGY**
 1. Greet -- if a student is new, welcome them warmly and ask what they'd like to learn or do.
-2. Wait -- do NOT load lessons, games, or call request_ta_action until the student explicitly asks for an activity or lesson.
-3. Explore -- once the student picks something, load a unit, ask "What do you see?" or "Find the [object]".
-4. Engage -- after exploring, suggest a mini-game based on the current lesson vocabulary.
+2. Wait -- do NOT load games or call request_ta_action until the student explicitly asks for an activity.
+3. Explore -- once the student picks something, load it and ask "What do you see?" or "Find the [object]".
+4. Engage -- after exploring, suggest a mini-game based on the current vocabulary.
 5. Personalize -- use each student's profile notes to tailor difficulty and topics.
 
 **AVAILABLE TOOLS**
@@ -86,30 +86,21 @@ You are currently in room "{room_id}".
 {content_section}
 
 Use tools to control the experience. Do not hallucinate tools not listed above.
-When you want to start a game or lesson, use **request_ta_action** with both the **templateId** from the catalog below and an **intent** describing the topic (e.g. templateId="flashcard", intent="vocabulary flashcards about animals").
-The Teaching Assistant will fill the template with appropriate content and push it to the room."""
+When you want to start a game, use **request_ta_action** with both the **templateId** from the catalog below and an **intent** describing the topic (e.g. templateId="flashcard", intent="vocabulary flashcards about animals").
+The Teaching Assistant will fill the game with appropriate content and push it to the room."""
 
 
-def _build_content_catalog(content: Optional[list[TemplateManifest]]) -> str:
-    """Build a human-readable catalog of available games and lessons."""
-    if not content:
-        return "**AVAILABLE CONTENT**\n  (no games or lessons installed yet)"
+def _build_game_catalog(games: Optional[list[GameMeta]]) -> str:
+    """Build a human-readable catalog of available games."""
+    if not games:
+        return "**AVAILABLE GAMES**\n  (no games installed yet)"
 
-    games = [c for c in content if c.type == "game"]
-    lessons = [c for c in content if c.type == "lesson"]
-
-    lines: list[str] = ["**AVAILABLE CONTENT**"]
-    lines.append("Use the templateId when calling request_ta_action:")
-    lines.append("")
-
-    if games:
-        lines.append("Games:")
-        for g in games:
-            lines.append(f"  - templateId=\"{g.id}\" — **{g.name}**: {g.description}")
-
-    if lessons:
-        lines.append("Lessons:")
-        for le in lessons:
-            lines.append(f"  - templateId=\"{le.id}\" — **{le.name}**: {le.description}")
+    lines: list[str] = [
+        "**AVAILABLE GAMES**",
+        "Use the templateId when calling request_ta_action:",
+        "",
+    ]
+    for g in games:
+        lines.append(f"  - templateId=\"{g.id}\" — **{g.name}** (tags: {', '.join(g.tags)})")
 
     return "\n".join(lines)

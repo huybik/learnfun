@@ -18,7 +18,6 @@ export interface ContentReadyPayload {
       templateId: string;
       sessionId: string;
       filledSlots: Record<string, string>;
-      bundlePath: string;
       createdAt: string;
     };
     metadata?: Record<string, unknown>;
