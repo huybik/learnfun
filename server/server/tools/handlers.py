@@ -242,7 +242,14 @@ async def handle_game_action(params: dict, ctx: ToolHandlerContext) -> ToolRespo
     """Forward a game action to the client via Redis/SSE."""
     room_id = ctx.caller.session_id
     action = params["action"]
-    action_params = params.get("params", {})
+    action_params = dict(params.get("params", {}))
+
+    # Merge top-level keys into action_params — Gemini sometimes flattens
+    # e.g. game_action(action="submitAnswer", answer="cat") instead of
+    #      game_action(action="submitAnswer", params={answer: "cat"})
+    for key, val in params.items():
+        if key not in ("action", "params"):
+            action_params.setdefault(key, val)
 
     channel = room_subject(SUBJECTS["GAME_ACTION"], room_id)
     await publish_event(
@@ -252,7 +259,7 @@ async def handle_game_action(params: dict, ctx: ToolHandlerContext) -> ToolRespo
         source_id=ctx.caller.id,
     )
 
-    log.info("Game action dispatched", room_id=room_id, action=action)
+    log.info("Game action dispatched", room_id=room_id, action=action, params=action_params)
     return ToolResponse(call_id=ctx.call_id, success=True, data={"dispatched": True})
 
 
