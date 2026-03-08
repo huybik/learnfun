@@ -1,0 +1,37 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="basketWeave" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#D4A056" />
+      <stop offset="100%" style="stop-color:#A0754A" />
+    </linearGradient>
+    <linearGradient id="basketRim" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#C49A4A" />
+      <stop offset="100%" style="stop-color:#8B6914" />
+    </linearGradient>
+    <linearGradient id="basketHandle" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#B8863C" />
+      <stop offset="100%" style="stop-color:#8B5E3C" />
+    </linearGradient>
+  </defs>
+  <!-- Handle -->
+  <path d="M34,52 C34,20 94,20 94,52" fill="none" stroke="url(#basketHandle)" stroke-width="7" stroke-linecap="round" />
+  <path d="M34,52 C34,24 94,24 94,52" fill="none" stroke="#C49A4A" stroke-width="3" stroke-linecap="round" opacity="0.4" />
+  <!-- Basket body -->
+  <path d="M18,56 L28,108 C30,114 36,118 42,118 L86,118 C92,118 98,114 100,108 L110,56 Z" fill="url(#basketWeave)" />
+  <!-- Weave pattern horizontal -->
+  <line x1="22" y1="68" x2="106" y2="68" stroke="#8B5E3C" stroke-width="1.5" opacity="0.3" />
+  <line x1="24" y1="80" x2="104" y2="80" stroke="#8B5E3C" stroke-width="1.5" opacity="0.3" />
+  <line x1="26" y1="92" x2="102" y2="92" stroke="#8B5E3C" stroke-width="1.5" opacity="0.3" />
+  <line x1="28" y1="104" x2="100" y2="104" stroke="#8B5E3C" stroke-width="1.5" opacity="0.3" />
+  <!-- Weave pattern vertical -->
+  <line x1="40" y1="56" x2="36" y2="118" stroke="#8B5E3C" stroke-width="1.5" opacity="0.25" />
+  <line x1="56" y1="56" x2="52" y2="118" stroke="#8B5E3C" stroke-width="1.5" opacity="0.25" />
+  <line x1="72" y1="56" x2="72" y2="118" stroke="#8B5E3C" stroke-width="1.5" opacity="0.25" />
+  <line x1="88" y1="56" x2="88" y2="118" stroke="#8B5E3C" stroke-width="1.5" opacity="0.25" />
+  <!-- Rim -->
+  <rect x="16" y="52" width="96" height="10" rx="5" fill="url(#basketRim)" />
+  <!-- Rim highlight -->
+  <rect x="20" y="53" width="88" height="3" rx="1.5" fill="#E8C86A" opacity="0.5" />
+  <!-- Shadow inside -->
+  <path d="M22,62 L110,62 L108,66 L20,66 Z" fill="#8B5E3C" opacity="0.15" />
+</svg>
