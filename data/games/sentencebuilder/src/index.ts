@@ -1,1 +1,0 @@
-export { SentenceBuilderGame } from "./SentenceBuilderGame";

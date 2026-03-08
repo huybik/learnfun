@@ -34,12 +34,18 @@ export interface UIControlPayload {
   payload: Record<string, unknown>;
 }
 
+export interface GameActionPayload {
+  action: string;
+  params: Record<string, unknown>;
+}
+
 export interface ServerEventHandlers {
   onContentReady?: (data: ContentReadyPayload) => void;
   onTranscript?: (data: TranscriptPayload) => void;
   onUIControl?: (data: UIControlPayload) => void;
   onGameStarted?: (data: unknown) => void;
   onGameEnded?: (data: unknown) => void;
+  onGameAction?: (data: GameActionPayload) => void;
 }
 
 export interface UseServerEventsResult {
@@ -148,6 +154,16 @@ export function useServerEvents(
           handlersRef.current.onGameEnded?.(JSON.parse(e.data));
         } catch (err) {
           console.error("[SSE] Failed to parse game_ended", err);
+        }
+      });
+
+      es.addEventListener("game_action", (e) => {
+        try {
+          const envelope = JSON.parse(e.data);
+          const payload = (envelope.payload ?? envelope) as GameActionPayload;
+          handlersRef.current.onGameAction?.(payload);
+        } catch (err) {
+          console.error("[SSE] Failed to parse game_action", err);
         }
       });
 

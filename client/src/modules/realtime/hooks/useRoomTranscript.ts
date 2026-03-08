@@ -8,7 +8,7 @@ export interface TranscriptEntry {
 
 export interface UseRoomTranscriptResult {
   transcript: TranscriptEntry[];
-  addTranscript: (source: TranscriptEntry["source"], text: string) => void;
+  addTranscript: (source: TranscriptEntry["source"], text: string, forceNew?: boolean) => void;
   transcriptEndRef: React.RefObject<HTMLDivElement | null>;
 }
 

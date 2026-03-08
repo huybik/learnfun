@@ -36,6 +36,8 @@
     "../data/**/*.tsx"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "../data/games/_sdk",
+    "../data/games/flashcard"
   ]
 }

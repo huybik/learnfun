@@ -97,10 +97,14 @@ def _build_game_catalog(games: Optional[list[GameMeta]]) -> str:
 
     lines: list[str] = [
         "**AVAILABLE GAMES**",
-        "Use the templateId when calling request_ta_action:",
+        "Use the templateId when calling request_ta_action.",
+        "Use **game_action** to interact with the active game (see each game's Actions section).",
         "",
     ]
     for g in games:
-        lines.append(f"  - templateId=\"{g.id}\" — **{g.name}** (tags: {', '.join(g.tags)})")
+        lines.append(f"### templateId=\"{g.id}\" — **{g.name}** (tags: {', '.join(g.tags)})")
+        if g.skill_text:
+            lines.append(g.skill_text)
+        lines.append("")
 
     return "\n".join(lines)

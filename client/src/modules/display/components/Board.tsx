@@ -1,17 +1,15 @@
-import React, { useCallback, useRef } from "react";
-import type { FilledBundle } from "@/types/content";
+import React, { useCallback, useMemo, useRef } from "react";
 import type { CursorPosition, Annotation } from "@/types/room";
-import type { GameState, GameResults } from "../hooks/useGameState";
-import { BundleRenderer } from "./BundleRenderer";
+import { GameHost, type GameHostHandle } from "./GameHost";
 import { SharedCursors } from "./SharedCursors";
 import { Annotations } from "./Annotations";
 import { ScreenEffects } from "./ScreenEffects";
 
 interface BoardProps {
-  /** The filled bundle to render. */
-  bundle: FilledBundle | null;
   /** The game ID (e.g. "flashcard", "solar-system"). */
   gameId?: string;
+  /** Parsed initial data for the game (from filled bundle). */
+  gameInitData?: Record<string, unknown>;
   /** Cursor positions from Yjs sync state. */
   cursors?: Record<string, CursorPosition>;
   /** Local user ID. */
@@ -31,22 +29,25 @@ interface BoardProps {
   /** Confetti mode active. */
   confetti?: boolean;
   /** Game lifecycle callbacks. */
-  onGameStateUpdate?: (state: GameState) => void;
-  onGameEnd?: (results?: GameResults) => void;
+  onGameStateUpdate?: (state: Record<string, unknown>) => void;
+  onGameEvent?: (name: string, data: Record<string, unknown>) => void;
+  onGameEnd?: (results: Record<string, unknown>) => void;
   /** Called when the user's cursor moves over the board. */
   onCursorMove?: (position: { x: number; y: number }) => void;
+  /** Ref to control the game iframe (e.g. send teacher actions). */
+  gameHostRef?: React.Ref<GameHostHandle>;
 }
 
 /**
  * Main shared display surface. Layered rendering:
- *   1. Content layer (BundleRenderer)
+ *   1. Content layer (GameHost iframe)
  *   2. Cursor layer (SharedCursors)
  *   3. Annotation layer (Annotations)
  *   4. Screen effects layer (ScreenEffects: focus highlight + emotes)
  */
 export const Board: React.FC<BoardProps> = ({
-  bundle,
   gameId,
+  gameInitData,
   cursors = {},
   localUserId,
   participantNames = {},
@@ -57,8 +58,10 @@ export const Board: React.FC<BoardProps> = ({
   emoteTrigger = null,
   confetti = false,
   onGameStateUpdate,
+  onGameEvent,
   onGameEnd,
   onCursorMove,
+  gameHostRef,
 }) => {
   const boardRef = useRef<HTMLDivElement>(null);
 
@@ -83,12 +86,20 @@ export const Board: React.FC<BoardProps> = ({
     >
       {/* Layer 1: Content */}
       <div className="absolute inset-0 z-10">
-        <BundleRenderer
-          bundle={bundle}
-          gameId={gameId}
-          onGameStateUpdate={onGameStateUpdate}
-          onGameEnd={onGameEnd}
-        />
+        {gameId && gameInitData ? (
+          <GameHost
+            ref={gameHostRef}
+            gameId={gameId}
+            initData={gameInitData}
+            onStateUpdate={onGameStateUpdate}
+            onEvent={onGameEvent}
+            onEnd={onGameEnd}
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-neutral-500">
+            <p>No content loaded</p>
+          </div>
+        )}
       </div>
 
       {/* Layer 2: Annotations */}

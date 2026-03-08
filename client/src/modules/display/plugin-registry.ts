@@ -10,9 +10,7 @@ import { lazy, type ComponentType } from "react";
 const WordMatchGame = lazy(() =>
   import("@data/games/wordmatch/src").then((m) => ({ default: m.WordMatchGame }))
 );
-const FlashcardGame = lazy(() =>
-  import("@data/games/flashcard/src").then((m) => ({ default: m.FlashcardGame }))
-);
+// flashcard has been migrated to iframe-based game (served via GameHost)
 const SentenceBuilderGame = lazy(() =>
   import("@data/games/sentencebuilder/src").then((m) => ({ default: m.SentenceBuilderGame }))
 );
@@ -26,7 +24,6 @@ const SolarSystemGame = lazy(() =>
 /** All registered game components, keyed by game ID. */
 export const GAME_COMPONENTS: Record<string, ComponentType> = {
   wordmatch: WordMatchGame,
-  flashcard: FlashcardGame,
   sentencebuilder: SentenceBuilderGame,
   spaceshooter: SpaceShooterGame,
   "solar-system": SolarSystemGame,

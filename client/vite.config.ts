@@ -15,6 +15,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": `http://localhost:${serverPort}`,
+      "/games": `http://localhost:${serverPort}`,
       "/yjs": {
         target: `ws://localhost:${serverPort}`,
         ws: true,

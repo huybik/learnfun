@@ -24,6 +24,7 @@ _ROOM_CHANNELS = [
     (SUBJECTS["TRANSCRIPT"], "transcript"),
     (SUBJECTS["GAME_STARTED"], "game_started"),
     (SUBJECTS["GAME_ENDED"], "game_ended"),
+    (SUBJECTS["GAME_ACTION"], "game_action"),
 ]
 
 

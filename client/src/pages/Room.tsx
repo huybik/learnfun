@@ -1,24 +1,35 @@
 import { useParams, useSearchParams } from "react-router-dom";
 import { RoomLayout } from "@/modules/display/layout/RoomLayout";
 import { Board } from "@/modules/display/components/Board";
+import type { GameHostHandle } from "@/modules/display/components/GameHost";
 import { ControlBar } from "@/modules/display/components/ui/ControlBar";
 import { ParticipantList } from "@/modules/display/components/ui/ParticipantList";
 import { LoadingOverlay } from "@/modules/display/components/ui/LoadingOverlay";
 import { ChatInput } from "@/modules/display/components/ui/ChatInput";
 import { useRoom } from "@/modules/realtime/hooks/useRoom";
 import { useVoice } from "@/modules/realtime/hooks/useVoice";
-import { useServerEvents, type ContentReadyPayload, type UIControlPayload } from "@/modules/realtime/hooks/useServerEvents";
+import { useServerEvents, type ContentReadyPayload, type UIControlPayload, type GameActionPayload } from "@/modules/realtime/hooks/useServerEvents";
 import { useSessionData } from "@/modules/realtime/hooks/useSessionData";
 import { useRoomTranscript } from "@/modules/realtime/hooks/useRoomTranscript";
 import { useRoomParticipants } from "@/modules/realtime/hooks/useRoomParticipants";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FilledBundle } from "@/types/content";
-import type { GameResults } from "@/modules/display/hooks/useGameState";
 
 // ---------------------------------------------------------------------------
-// Room Page (simplified — no direct Gemini, no useTeacher/useTeacherTools)
+// Room Page
 // ---------------------------------------------------------------------------
+
+/** Parse game init data from a filled bundle. */
+function parseInitData(bundle: FilledBundle): Record<string, unknown> {
+  const raw = bundle.filledSlots["game_data"];
+  if (!raw) return bundle.filledSlots;
+  try {
+    return typeof raw === "string" ? JSON.parse(raw) : raw;
+  } catch {
+    return bundle.filledSlots;
+  }
+}
 
 export default function RoomPage() {
   const { roomId = "" } = useParams<{ roomId: string }>();
@@ -32,14 +43,17 @@ export default function RoomPage() {
   const [isCameraOn, setIsCameraOn] = useState(false);
 
   // --- Content state ---
-  const [activeBundle, setActiveBundle] = useState<FilledBundle | null>(null);
   const [gameId, setGameId] = useState<string | undefined>();
+  const [gameInitData, setGameInitData] = useState<Record<string, unknown> | undefined>();
   const [isGameActive, setIsGameActive] = useState(false);
 
   // --- Screen effects state ---
   const [focusPoint, setFocusPoint] = useState<{ x: number; y: number } | null>(null);
   const [emoteTrigger, setEmoteTrigger] = useState<{ emoji: string; key: number } | null>(null);
   const [confetti, setConfetti] = useState(false);
+
+  // --- Game host ref (to send teacher actions to iframe) ---
+  const gameHostRef = useRef<GameHostHandle>(null);
 
   // --- Custom hooks ---
   const sessionData = useSessionData();
@@ -95,8 +109,8 @@ export default function RoomPage() {
   // --- Content activation ---
   const activateBundle = useCallback(
     (bundle: FilledBundle) => {
-      setActiveBundle(bundle);
       setGameId(bundle.templateId.toLowerCase());
+      setGameInitData(parseInitData(bundle));
       setIsGameActive(true);
       addTranscript("system", "Content loaded!");
     },
@@ -146,34 +160,71 @@ export default function RoomPage() {
     [addTranscript],
   );
 
+  // Teacher sends a game_action → forward to iframe
+  const handleGameAction = useCallback(
+    (data: GameActionPayload) => {
+      console.log("[RoomPage] SSE game_action", data);
+      gameHostRef.current?.sendAction(data.action, data.params);
+    },
+    [],
+  );
+
   const sse = useServerEvents(roomId || null, {
     onContentReady: handleContentReady,
     onTranscript: handleTranscript,
     onUIControl: handleUIControl,
+    onGameAction: handleGameAction,
   });
 
-  // --- Game & navigation handlers ---
-  const handleGameEnd = useCallback((_results?: GameResults) => {
-    setIsGameActive(false);
-  }, []);
-
-  const handleEndGame = useCallback(() => {
-    setIsGameActive(false);
-    setActiveBundle(null);
-    setGameId(undefined);
-  }, []);
-
-  // --- Text chat: send to AI teacher ---
-  const handleSendText = useCallback(
+  // --- Game → Teacher: forward state updates and events ---
+  const sendToTeacher = useCallback(
     (text: string) => {
-      addTranscript("user", text, true);
       fetch("/api/teacher/message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ roomId, text }),
       }).catch((err) => console.error("[RoomPage] Teacher message error", err));
     },
-    [roomId, addTranscript],
+    [roomId],
+  );
+
+  const handleGameStateUpdate = useCallback(
+    (state: Record<string, unknown>) => {
+      sendToTeacher(`[game_state_update] ${JSON.stringify(state)}`);
+    },
+    [sendToTeacher],
+  );
+
+  const handleGameEvent = useCallback(
+    (name: string, data: Record<string, unknown>) => {
+      sendToTeacher(`[game_event:${name}] ${JSON.stringify(data)}`);
+    },
+    [sendToTeacher],
+  );
+
+  const handleGameEnd = useCallback(
+    (results?: Record<string, unknown>) => {
+      setIsGameActive(false);
+      if (results) {
+        sendToTeacher(`[game_event:gameEnd] ${JSON.stringify(results)}`);
+      }
+    },
+    [sendToTeacher],
+  );
+
+  const handleEndGame = useCallback(() => {
+    setIsGameActive(false);
+    setGameId(undefined);
+    setGameInitData(undefined);
+  }, []);
+
+  // --- Text chat: send to AI teacher ---
+  const handleSendText = useCallback(
+    (text: string) => {
+      addTranscript("user", text, true);
+      sendToTeacher(text);
+    },
+    [addTranscript, sendToTeacher],
   );
 
   // Connection state for ControlBar
@@ -209,9 +260,12 @@ export default function RoomPage() {
           {/* Main content board */}
           <div className="flex-1 overflow-hidden">
             <Board
-              bundle={activeBundle}
               gameId={gameId}
+              gameInitData={gameInitData}
+              gameHostRef={gameHostRef}
               localUserId={localUserId}
+              onGameStateUpdate={handleGameStateUpdate}
+              onGameEvent={handleGameEvent}
               onGameEnd={handleGameEnd}
               focusPoint={focusPoint}
               emoteTrigger={emoteTrigger}

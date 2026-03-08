@@ -19,6 +19,7 @@ SUBJECTS = {
     # Game events
     "GAME_STARTED": "room.{room_id}.game.started",
     "GAME_ENDED": "room.{room_id}.game.ended",
+    "GAME_ACTION": "room.{room_id}.game.action",
     # System
     "HEALTH": "system.health",
     "METRICS": "system.metrics",

@@ -33,6 +33,7 @@ ToolName = Literal[
     "update_profile",
     "load_content",
     "get_room_state",
+    "game_action",
 ]
 
 TOOL_NAMES: list[str] = list(get_args(ToolName))
@@ -94,6 +95,11 @@ class GetRoomStateParams(BaseModel):
     include: Optional[list[Literal["participants", "content", "annotations", "cursors"]]] = None
 
     model_config = {"populate_by_name": True}
+
+
+class GameActionParams(BaseModel):
+    action: str = Field(min_length=1, description="The action name declared in the game's skill.md Actions section")
+    params: dict[str, Any] = Field(default_factory=dict, description="Action parameters")
 
 
 # ---------------------------------------------------------------------------
@@ -214,5 +220,16 @@ TOOL_DEFINITIONS: list[ToolRegistration] = [
         ),
         schema_cls=GetRoomStateParams,
         allowed_callers=["teacher", "ta"],
+    ),
+    ToolRegistration(
+        name="game_action",
+        description=(
+            "Invoke an action on the currently active game. Actions are declared "
+            "in the game's skill.md Actions section. Both Player and Teacher "
+            "actions are available. Use this to interact with the game directly "
+            "(e.g. select a planet, reveal an answer, skip to a phase)."
+        ),
+        schema_cls=GameActionParams,
+        allowed_callers=["teacher"],
     ),
 ]

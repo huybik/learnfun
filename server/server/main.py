@@ -64,5 +64,7 @@ app.add_middleware(
 mount_yjs(app)
 
 from server.api.router import api_router  # noqa: E402
+from server.api.games import router as games_router  # noqa: E402
 
 app.include_router(api_router)
+app.include_router(games_router)

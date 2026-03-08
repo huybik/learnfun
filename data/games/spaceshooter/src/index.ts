@@ -1,1 +1,0 @@
-export { SpaceShooterGame } from "./SpaceShooterGame";

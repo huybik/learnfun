@@ -31,6 +31,7 @@ def register_all(registry: ToolRegistry) -> None:
     registry.register("update_profile", handle_update_profile)
     registry.register("load_content", handle_load_content)
     registry.register("get_room_state", handle_get_room_state)
+    registry.register("game_action", handle_game_action)
 
     # request_ta_action is dispatched directly by TeacherAgent;
     # registry stub exists only as a fallback.
@@ -230,6 +231,29 @@ async def handle_load_content(params: dict, ctx: ToolHandlerContext) -> ToolResp
         return ToolResponse(call_id=ctx.call_id, success=False, error=f"Unsupported content type: {content_type}")
     except FileNotFoundError as exc:
         return ToolResponse(call_id=ctx.call_id, success=False, error=str(exc))
+
+
+# ------------------------------------------------------------------
+# get_room_state
+# ------------------------------------------------------------------
+
+
+async def handle_game_action(params: dict, ctx: ToolHandlerContext) -> ToolResponse:
+    """Forward a game action to the client via Redis/SSE."""
+    room_id = ctx.caller.session_id
+    action = params["action"]
+    action_params = params.get("params", {})
+
+    channel = room_subject(SUBJECTS["GAME_ACTION"], room_id)
+    await publish_event(
+        channel=channel,
+        event_type="game_action",
+        payload={"action": action, "params": action_params},
+        source_id=ctx.caller.id,
+    )
+
+    log.info("Game action dispatched", room_id=room_id, action=action)
+    return ToolResponse(call_id=ctx.call_id, success=True, data={"dispatched": True})
 
 
 # ------------------------------------------------------------------

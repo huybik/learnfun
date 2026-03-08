@@ -1,1 +1,0 @@
-export { WordMatchGame } from "./WordMatchGame";

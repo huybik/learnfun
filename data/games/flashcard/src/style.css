@@ -1,0 +1,136 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #111;
+  color: #eee;
+  font-family: system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#game {
+  width: 100%;
+  max-width: 480px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Header */
+.header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  color: #888;
+}
+.score { color: #7c8aff; }
+
+/* Card */
+.card {
+  width: 100%;
+  min-height: 200px;
+  background: #1a1a2e;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  overflow: hidden;
+}
+.card img {
+  max-width: 100%;
+  max-height: 200px;
+  border-radius: 8px;
+  object-fit: contain;
+}
+.sentence {
+  font-size: 20px;
+  line-height: 1.6;
+  text-align: center;
+}
+.blank {
+  color: #7c8aff;
+  border-bottom: 2px dashed #7c8aff;
+  padding: 0 4px;
+}
+.filled {
+  color: #4caf50;
+  font-weight: 600;
+}
+
+/* Options */
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+.option-btn {
+  background: #2a2a4a;
+  color: #eee;
+  border: 1px solid #444;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.option-btn:hover { background: #3a3a5a; }
+
+/* Text input */
+.input-area {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+.answer-input {
+  flex: 1;
+  background: #1a1a2e;
+  color: #eee;
+  border: 1px solid #333;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 15px;
+  outline: none;
+}
+.answer-input:focus { border-color: #7c8aff; }
+
+/* Buttons */
+.submit-btn, .next-btn {
+  background: #3d5afe;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 15px;
+  cursor: pointer;
+}
+.submit-btn:hover, .next-btn:hover { background: #536dfe; }
+
+/* Feedback */
+.feedback {
+  font-size: 16px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 8px;
+}
+.feedback.correct { color: #4caf50; }
+.feedback.incorrect { color: #f44336; }
+.feedback.reveal { color: #ff9800; }
+
+/* Completion */
+.completion {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  padding: 40px;
+}
+.completion h2 { font-size: 28px; }
+.final-score { font-size: 22px; color: #7c8aff; }
