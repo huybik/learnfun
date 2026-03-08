@@ -46,6 +46,7 @@ export default function RoomPage() {
   const [loadingMsg, setLoadingMsg] = useState("Connecting...");
   const [error, setError] = useState<string | null>(null);
   const [isCameraOn, setIsCameraOn] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
 
   // --- Content state ---
@@ -261,11 +262,24 @@ export default function RoomPage() {
 
   // Connection state for ControlBar
   const controlBarConnectionState = useMemo(() => {
+    if (isPaused) return "paused" as const;
     if (sse.connected && (room.connectionState === "connected" || !hasLiveKit)) {
       return "connected" as const;
     }
     return "disconnected" as const;
-  }, [sse.connected, room.connectionState, hasLiveKit]);
+  }, [sse.connected, room.connectionState, hasLiveKit, isPaused]);
+
+  const handlePause = useCallback(() => {
+    setIsPaused(true);
+    voice.setMicEnabled(false);
+    if (voice.isSpeakerEnabled) voice.toggleSpeaker();
+  }, [voice]);
+
+  const handleResume = useCallback(() => {
+    setIsPaused(false);
+    voice.setMicEnabled(true);
+    if (!voice.isSpeakerEnabled) voice.toggleSpeaker();
+  }, [voice]);
 
   // --- Error / no-token screens ---
   if (!token) {
@@ -355,6 +369,9 @@ export default function RoomPage() {
           isGameActive={isGameActive}
           onEndGame={handleEndGame}
           connectionState={controlBarConnectionState}
+          onConnect={() => room.connect()}
+          onPause={handlePause}
+          onResume={handleResume}
         />
       }
       overlay={
