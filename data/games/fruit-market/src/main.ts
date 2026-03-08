@@ -14,6 +14,11 @@ const bridge = new GameBridge({
     { name: 'set', params: { field: 'string', value: 'string' }, description: 'Override a game field', godMode: true },
   ],
   defaultInitData: {
+    intro: [
+      { fruit: 'apple', title: 'Meet the Apple!', fact: 'Apples are crunchy and come in red, green, and yellow!' },
+      { fruit: 'banana', title: 'Meet the Banana!', fact: 'Bananas are curved, yellow, and full of energy!' },
+      { fruit: 'watermelon', title: 'Meet the Watermelon!', fact: 'Watermelons are huge, green outside, and red inside!' },
+    ],
     challenges: [
       { id: 1, fruit: 'apple', hint: '🍎 Find the crunchy red fruit that keeps the doctor away!', pool: ['apple', 'cherry', 'strawberry', 'peach', 'pear', 'orange'] },
       { id: 2, fruit: 'banana', hint: '🐒 Find the yellow curved fruit that monkeys love!', pool: ['banana', 'lemon', 'mango', 'pineapple', 'pear', 'kiwi'] },

@@ -3,6 +3,12 @@ import { GameBridge } from '@learnfun/game-sdk'
 import { getFruitSvg } from './fruits'
 import { sfxPop, sfxCorrect, sfxWrong, sfxCoin, sfxComplete, sfxWhoosh } from './audio'
 
+interface IntroItem {
+  fruit: string
+  title?: string
+  fact?: string
+}
+
 interface Challenge {
   id: number | string
   fruit: string
@@ -10,9 +16,14 @@ interface Challenge {
   pool: string[]
 }
 
+type Phase = 'learn' | 'play'
+
 export class FruitMarketGame implements GameAPI {
   private bridge: GameBridge
   private root: HTMLElement
+  private phase: Phase = 'play'
+  private intro: IntroItem[] = []
+  private introIdx = 0
   private challenges: Challenge[] = []
   private idx = 0
   private score = 0
@@ -29,22 +40,27 @@ export class FruitMarketGame implements GameAPI {
   init(data: unknown) {
     const d = data as Record<string, unknown>
     this.challenges = (d.challenges as Challenge[]) || []
+    this.intro = (d.intro as IntroItem[]) || []
+    this.introIdx = 0
     this.idx = 0
     this.score = 0
     this.streak = 0
     this.answered = false
     this.wrongAttempts = 0
     clearTimeout(this.advanceTimer)
+
+    // If intro items exist, start in learn phase
+    this.phase = this.intro.length > 0 ? 'learn' : 'play'
     this.render()
     this.sync()
-    this.bridge.emitEvent('gameStarted', { total: this.challenges.length })
+    this.bridge.emitEvent('gameStarted', { total: this.challenges.length, phase: this.phase })
   }
 
   handleAction(name: string, params: Record<string, unknown>) {
     const actions: Record<string, () => void> = {
       submit: () => {
+        if (this.phase !== 'play') return
         const val = String(params.value ?? '')
-        // Simulate clicking the right fruit card
         const cards = this.root.querySelectorAll<HTMLElement>('.fruit-card')
         const c = this.challenges[this.idx]
         if (!c) return
@@ -55,16 +71,30 @@ export class FruitMarketGame implements GameAPI {
       next: () => this.advance(),
       reveal: () => this.doReveal(),
       jump: () => {
-        this.idx = clamp(Number(params.to), 0, this.challenges.length - 1)
-        this.answered = false
-        this.wrongAttempts = 0
-        clearTimeout(this.advanceTimer)
-        this.render()
+        if (this.phase === 'learn') {
+          this.introIdx = clamp(Number(params.to), 0, this.intro.length - 1)
+          this.render()
+        } else {
+          this.idx = clamp(Number(params.to), 0, this.challenges.length - 1)
+          this.answered = false
+          this.wrongAttempts = 0
+          clearTimeout(this.advanceTimer)
+          this.render()
+        }
       },
       end: () => this.finish(),
       set: () => {
         const field = String(params.field)
         if (field === 'score') { this.score = Number(params.value); this.updateHUD() }
+        if (field === 'phase') {
+          const val = String(params.value)
+          if (val === 'play' || val === 'learn') {
+            this.phase = val
+            if (val === 'play') { this.idx = 0; this.answered = false; this.wrongAttempts = 0 }
+            if (val === 'learn') this.introIdx = 0
+            this.render()
+          }
+        }
       },
     }
     actions[name]?.()
@@ -72,8 +102,18 @@ export class FruitMarketGame implements GameAPI {
   }
 
   getState() {
+    if (this.phase === 'learn') {
+      const item = this.intro[this.introIdx]
+      return {
+        phase: 'learn' as const,
+        introIndex: this.introIdx,
+        introTotal: this.intro.length,
+        currentFruit: item?.fruit ?? '',
+      }
+    }
     const c = this.challenges[this.idx]
     return {
+      phase: 'play' as const,
       challengeIndex: this.idx,
       score: this.score,
       total: this.challenges.length,
@@ -92,6 +132,42 @@ export class FruitMarketGame implements GameAPI {
   // ===================== Rendering =====================
 
   private render() {
+    if (this.phase === 'learn') {
+      this.renderIntro()
+    } else {
+      this.renderChallenge()
+    }
+  }
+
+  private renderIntro() {
+    const item = this.intro[this.introIdx]
+    if (!item) return
+    this.root.innerHTML = ''
+
+    // Phase label
+    const phaseLabel = el('div', 'phase-label')
+    phaseLabel.textContent = `Let's learn! ${this.introIdx + 1} / ${this.intro.length}`
+    this.root.appendChild(phaseLabel)
+
+    // Intro card — big centered fruit
+    const card = el('div', 'intro-card')
+    card.innerHTML = `
+      <div class="intro-svg">${getFruitSvg(item.fruit)}</div>
+      <h2 class="intro-title">${item.title || item.fruit}</h2>
+      ${item.fact ? `<p class="intro-fact">${item.fact}</p>` : ''}
+    `
+    this.root.appendChild(card)
+
+    // Progress dots
+    const dots = el('div', 'progress-dots')
+    for (let i = 0; i < this.intro.length; i++) {
+      const dot = el('div', i < this.introIdx ? 'dot done' : i === this.introIdx ? 'dot active' : 'dot')
+      dots.appendChild(dot)
+    }
+    this.root.appendChild(dots)
+  }
+
+  private renderChallenge() {
     const c = this.challenges[this.idx]
     if (!c) return
     this.root.innerHTML = ''
@@ -227,6 +303,28 @@ export class FruitMarketGame implements GameAPI {
 
   private advance() {
     clearTimeout(this.advanceTimer)
+
+    if (this.phase === 'learn') {
+      if (this.introIdx < this.intro.length - 1) {
+        this.introIdx++
+        sfxPop()
+        this.render()
+        this.sync()
+        this.bridge.emitEvent('introAdvance', { index: this.introIdx, fruit: this.intro[this.introIdx]?.fruit })
+      } else {
+        // Done with intros → transition to play
+        this.phase = 'play'
+        this.idx = 0
+        this.answered = false
+        this.wrongAttempts = 0
+        sfxWhoosh()
+        this.render()
+        this.sync()
+        this.bridge.emitEvent('phaseChange', { phase: 'play' })
+      }
+      return
+    }
+
     if (this.idx < this.challenges.length - 1) {
       this.idx++
       this.answered = false

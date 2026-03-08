@@ -13,10 +13,20 @@ Available fruits (built-in SVG assets): apple, banana, orange, strawberry, grape
 
 ## Input Data (for TA content generation)
 
-Generate a JSON object with key `game_data` containing a string of JSON with a `challenges` array.
+Generate a JSON object with key `game_data` containing a string of JSON with an optional `intro` array and a `challenges` array.
+
+The game has two phases:
+1. **Learn phase** (optional) — Teacher introduces each fruit one by one with fun facts. The teacher talks about each fruit while the student sees a big illustration. Teacher calls `next()` to advance.
+2. **Play phase** — Quiz where students pick the correct fruit from a grid.
+
+If `intro` is provided, the game starts in learn phase and auto-transitions to play after all intros.
 
 ```json
 {
+  "intro": [
+    { "fruit": "apple", "title": "Meet the Apple!", "fact": "Apples are crunchy and come in red, green, and yellow!" },
+    { "fruit": "banana", "title": "Meet the Banana!", "fact": "Bananas are curved, yellow, and full of energy!" }
+  ],
   "challenges": [
     {
       "id": 1,
@@ -30,6 +40,8 @@ Generate a JSON object with key `game_data` containing a string of JSON with a `
 
 Rules:
 - Use only the 16 available fruit names listed above
+- Include `intro` items for each fruit that appears as a target in challenges
+- Each intro has `fruit` (required), `title`, and `fact` (fun age-appropriate fact)
 - Create 5-8 challenges
 - Each challenge has a `pool` of 4-8 fruits (one is the target `fruit`)
 - Hints should be fun, descriptive, and age-appropriate — use emojis!
@@ -52,23 +64,40 @@ Rules:
 - set(field: string, value: unknown) — override a game field (e.g. field="score", value=50)
 
 ## State
+
+Learn phase:
 ```json
-{ "challengeIndex": 0, "score": 10, "total": 6, "streak": 3, "answered": false, "isComplete": false, "currentFruit": "apple" }
+{ "phase": "learn", "introIndex": 0, "introTotal": 3, "currentFruit": "apple" }
+```
+
+Play phase:
+```json
+{ "phase": "play", "challengeIndex": 0, "score": 10, "total": 6, "streak": 3, "answered": false, "isComplete": false, "currentFruit": "apple" }
 ```
 
 ## Events
-- gameStarted(total)
+- gameStarted(total, phase)
+- introAdvance(index, fruit) — fired when advancing through learn phase
+- phaseChange(phase) — fired when transitioning from learn to play
 - correctAnswer(challengeIndex, expected, given, score)
 - incorrectAnswer(challengeIndex, expected, given, score)
 - gameCompleted(score, total)
 
 ## Teacher Guide
 
-- Use a fun market vendor persona ("Welcome to my fruit stand!")
+### Learn Phase
+- Introduce each fruit with enthusiasm: "Look at this beautiful apple!"
+- Share the fun fact shown on screen, then add your own details
+- Ask the student questions: "Have you ever tried this fruit? What color is it?"
+- Call `next()` to advance when you feel the student has learned enough about the current fruit
+- Don't rush — let the student absorb each fruit before moving on
+
+### Play Phase
+- Use a fun market vendor persona ("Now let's see what you remember!")
 - Read the hint aloud with enthusiasm before the student clicks
 - React to correctAnswer events ("Amazing! You really know your fruits!")
 - On incorrectAnswer, give an extra verbal hint ("Hmm, look for something rounder...")
 - Use reveal() if student is stuck after ~15 seconds
 - Celebrate streaks ("Wow, 3 in a row! You're on fire!")
 - At game end, praise the final score enthusiastically
-- For younger students, describe the fruit in detail before they search
+- Reference what they learned in the intro: "Remember when we talked about this one?"
