@@ -48,6 +48,7 @@ export default function RoomPage() {
   const [isCameraOn, setIsCameraOn] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
+  const [chatExpanded, setChatExpanded] = useState(false);
 
   // --- Content state ---
   const [gameId, setGameId] = useState<string | undefined>();
@@ -338,17 +339,24 @@ export default function RoomPage() {
           </div>
 
           {/* Chat overlay (bottom of board) — auto-fading messages */}
+          {chatExpanded && <div className="absolute inset-0 z-30" onClick={() => setChatExpanded(false)} />}
           <div className="pointer-events-none absolute bottom-16 left-0 right-0 z-40 flex justify-center">
-            <div className="pointer-events-auto w-full max-w-2xl px-4 py-3">
-              {transcript.slice(-6).map((entry, i) => {
+            <div
+              className={cn(
+                "pointer-events-none w-full max-w-2xl px-4 py-3",
+                chatExpanded && "pointer-events-auto max-h-[60vh] overflow-y-auto rounded-xl bg-neutral-900/70 backdrop-blur-md",
+              )}
+              onClick={() => !chatExpanded && setChatExpanded(true)}
+            >
+              {(chatExpanded ? transcript : transcript.slice(-6)).map((entry, i) => {
                 const age = now - entry.timestamp;
-                const faded = age > MSG_FADE_MS;
+                const faded = !chatExpanded && age > MSG_FADE_MS;
                 return (
                   <div
                     key={entry.timestamp + i}
                     className={cn(
-                      "mb-1.5 rounded-lg px-3 py-1.5 text-sm backdrop-blur-sm transition-opacity",
-                      faded ? "opacity-0" : "opacity-100",
+                      "pointer-events-auto mb-1.5 rounded-lg px-3 py-1.5 text-sm backdrop-blur-sm transition-opacity",
+                      faded ? "pointer-events-none opacity-0" : "opacity-100",
                       entry.source === "ai"
                         ? "bg-emerald-900/30 text-emerald-100"
                         : entry.source === "user"
@@ -367,10 +375,10 @@ export default function RoomPage() {
                 );
               })}
               <div ref={transcriptEndRef} />
-              <ChatInput
+              <div className="pointer-events-auto"><ChatInput
                 onSend={handleSendText}
                 disabled={!sse.connected}
-              />
+              /></div>
             </div>
           </div>
         </div>

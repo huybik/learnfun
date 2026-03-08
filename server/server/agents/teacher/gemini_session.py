@@ -272,6 +272,7 @@ class GeminiSession:
             turns=types.Content(role="user", parts=[types.Part(text=text)]),
             turn_complete=True,
         )
+        self._log_msg("send_text", {"text": text})
         log.debug("Sent text", text=text[:120])
 
     async def send_image(
@@ -288,6 +289,7 @@ class GeminiSession:
             turns=types.Content(role="user", parts=parts),
             turn_complete=True,
         )
+        self._log_msg("send_image", {"mime_type": mime_type, "size_kb": len(image_bytes) // 1024, "caption": caption})
         log.debug("Sent image", mime_type=mime_type, size_kb=len(image_bytes) // 1024)
 
     async def send_tool_response(
@@ -319,6 +321,7 @@ class GeminiSession:
                 )
             ]
         )
+        self._log_msg("send_tool_response", {"call_id": call_id, "name": name, "response": response, "scheduling": scheduling})
         log.info("Sent tool response", call_id=call_id, name=name, scheduling=scheduling)
 
     # ------------------------------------------------------------------
