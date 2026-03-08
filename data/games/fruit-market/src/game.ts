@@ -165,6 +165,10 @@ export class FruitMarketGame implements GameAPI {
       dots.appendChild(dot)
     }
     this.root.appendChild(dots)
+
+    // Tap anywhere to advance
+    card.style.cursor = 'pointer'
+    card.addEventListener('click', () => this.advance())
   }
 
   private renderChallenge() {
