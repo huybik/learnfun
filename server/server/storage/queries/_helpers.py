@@ -34,8 +34,3 @@ def build_update_sql(
     set_clause = ", ".join(parts)
     sql = f"UPDATE {table} SET {set_clause} WHERE {where_column} = ${idx}"
     return sql, values
-
-
-def format_vector(embedding: list[float]) -> str:
-    """Format a list of floats as a pgvector literal string, e.g. ``'[0.1,0.2,...]'``."""
-    return f"[{','.join(str(v) for v in embedding)}]"

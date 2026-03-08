@@ -7,7 +7,7 @@ import { LoadingOverlay } from "@/modules/display/components/ui/LoadingOverlay";
 import { ChatInput } from "@/modules/display/components/ui/ChatInput";
 import { useRoom } from "@/modules/realtime/hooks/useRoom";
 import { useVoice } from "@/modules/realtime/hooks/useVoice";
-import { useServerEvents, type ContentReadyPayload } from "@/modules/realtime/hooks/useServerEvents";
+import { useServerEvents, type ContentReadyPayload, type UIControlPayload } from "@/modules/realtime/hooks/useServerEvents";
 import { useSessionData } from "@/modules/realtime/hooks/useSessionData";
 import { useRoomTranscript } from "@/modules/realtime/hooks/useRoomTranscript";
 import { useRoomParticipants } from "@/modules/realtime/hooks/useRoomParticipants";
@@ -36,9 +36,13 @@ export default function RoomPage() {
   const [activeBundle, setActiveBundle] = useState<FilledBundle | null>(null);
   const [contentType, setContentType] = useState<"lesson" | "game" | null>(null);
   const [gameKind, setGameKind] = useState<string | undefined>();
-  const [lessonKind, setLessonKind] = useState<string | undefined>();
   const [currentPage, setCurrentPage] = useState(0);
   const [isGameActive, setIsGameActive] = useState(false);
+
+  // --- Screen effects state ---
+  const [focusPoint, setFocusPoint] = useState<{ x: number; y: number } | null>(null);
+  const [emoteTrigger, setEmoteTrigger] = useState<{ emoji: string; key: number } | null>(null);
+  const [confetti, setConfetti] = useState(false);
 
   // --- Custom hooks ---
   const sessionData = useSessionData();
@@ -102,7 +106,6 @@ export default function RoomPage() {
         setIsGameActive(true);
       } else {
         setContentType("lesson");
-        setLessonKind(tplId);
       }
       setCurrentPage(0);
       addTranscript("system", "Content loaded!");
@@ -127,9 +130,36 @@ export default function RoomPage() {
     [addTranscript],
   );
 
+  const handleUIControl = useCallback(
+    (data: UIControlPayload) => {
+      const { type, payload } = data;
+
+      if (type === "light_control") {
+        const action = payload.action as string;
+        const p = (payload.params ?? {}) as Record<string, unknown>;
+        if (action === "highlight" || action === "focus") {
+          setFocusPoint({ x: p.x as number, y: p.y as number });
+        } else if (action === "emote") {
+          setEmoteTrigger({ emoji: (p.emoji as string) ?? "✨", key: Date.now() });
+        }
+      } else if (type === "signal_feedback") {
+        const ft = payload.feedbackType as string;
+        if (ft === "correct") {
+          setConfetti(true);
+          setTimeout(() => setConfetti(false), 100);
+        }
+        if (payload.message) {
+          addTranscript("system", payload.message as string);
+        }
+      }
+    },
+    [addTranscript],
+  );
+
   const sse = useServerEvents(roomId || null, {
     onContentReady: handleContentReady,
     onTranscript: handleTranscript,
+    onUIControl: handleUIControl,
   });
 
   // --- Game & navigation handlers ---
@@ -193,10 +223,12 @@ export default function RoomPage() {
               bundle={activeBundle}
               contentType={contentType}
               gameKind={gameKind}
-              lessonKind={lessonKind}
               currentPage={currentPage}
               localUserId={localUserId}
               onGameEnd={handleGameEnd}
+              focusPoint={focusPoint}
+              emoteTrigger={emoteTrigger}
+              confetti={confetti}
             />
           </div>
 

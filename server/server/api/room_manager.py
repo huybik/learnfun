@@ -196,3 +196,11 @@ async def end_session(session_id: str) -> None:
 
 def get_session(session_id: str) -> StoredSession | None:
     return _sessions.get(session_id)
+
+
+def get_session_by_room(room_id: str) -> StoredSession | None:
+    """Find an active session by room_id."""
+    for s in _sessions.values():
+        if s.room_id == room_id and s.ended_at is None:
+            return s
+    return None

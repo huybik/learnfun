@@ -1,8 +1,7 @@
 -- LearnFun database schema
--- Requires PostgreSQL 15+ with pgvector extension
+-- Requires PostgreSQL 15+
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-CREATE EXTENSION IF NOT EXISTS "vector";
 
 -- Users
 CREATE TABLE IF NOT EXISTS users (
@@ -14,7 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE INDEX IF NOT EXISTS idx_users_name ON users (name);
 
--- User profiles (learning preferences + embedding for semantic search)
+-- User profiles (learning preferences)
 CREATE TABLE IF NOT EXISTS user_profiles (
   user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   voice_preference VARCHAR(20) NOT NULL DEFAULT 'Puck',
@@ -22,14 +21,9 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   show_avatar BOOLEAN NOT NULL DEFAULT TRUE,
   observations TEXT[] NOT NULL DEFAULT '{}',
   difficulty_level VARCHAR(20) NOT NULL DEFAULT 'beginner',
-  embedding VECTOR(768),
   profile_data JSONB NOT NULL DEFAULT '{}',
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
-CREATE INDEX IF NOT EXISTS idx_user_profiles_embedding
-  ON user_profiles USING ivfflat (embedding vector_cosine_ops)
-  WITH (lists = 100);
 
 -- Learning progress
 CREATE TABLE IF NOT EXISTS learning_progress (

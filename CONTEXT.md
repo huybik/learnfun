@@ -29,7 +29,7 @@ Interactive learning platform: AI teacher + teaching assistant guide students th
   - `helpers.py` — `publish_event()` + `serialize_event()` (shared envelope)
   - `models.py` — Participant, Room (event-only, not persisted)
   - `subjects.py` — event channel definitions
-- `storage/` — PostgreSQL + pgvector
+- `storage/` — PostgreSQL
   - `db.py` — connection pool (singleton)
   - `models.py` — UserProfile, UserPreferences, LearningProgress, etc.
   - `queries/` — users, profiles, progress, sessions, `_helpers.py` (shared SQL builders)
@@ -37,6 +37,7 @@ Interactive learning platform: AI teacher + teaching assistant guide students th
   - `templates.py`, `models.py`, `bundles.py`
 - `tools/` — tool system with auth + rate limiting
   - `registry.py`, `schemas.py` (ToolName Literal as single source), `auth.py`, `rate_limit.py`
+  - `handlers.py` — concrete handlers for all 8 tools (query_content, execute_filled_bundle, light_control, signal_feedback, update_profile, load_content, get_room_state; request_ta_action handled directly by TeacherAgent)
 - `sync/yjs_server.py` — Yjs via pycrdt-websocket
 - `config.py`, `logging.py` (structured `get_logger()`)
 
@@ -76,11 +77,12 @@ Interactive learning platform: AI teacher + teaching assistant guide students th
 - **TA singleton**: Single instance on `app.state.ta_agent` (set in main.py lifespan)
 - **Tool names**: `ToolName` Literal is the single source of truth; `TOOL_NAMES` derived via `get_args()`
 - **Rate limiting**: `RateLimitResult(allowed, retry_after_ms)` — simple dataclass
-- **SQL helpers**: `_helpers.py` provides `build_update_sql()` and `format_vector()`
+- **SQL helpers**: `_helpers.py` provides `build_update_sql()`
+- **Tool flow**: Gemini → tool call → TeacherAgent → ToolRegistry.execute() → handler → publish_event() → SSE → client. `light_control` and `signal_feedback` publish to UI_CONTROL channel; Room.tsx handles via `onUIControl` → ScreenEffects
 
 ## Infrastructure
 
-- Docker Compose: PostgreSQL + pgvector, Redis, LiveKit server
+- Docker Compose: PostgreSQL, Redis, LiveKit server
 - LiveKit Agents SDK for teacher voice
 - Gemini Live API for teacher, Gemini Flash for TA
 - Yjs for collaborative state sync
