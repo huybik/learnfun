@@ -1,17 +1,71 @@
 <svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="peachGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#ffdb58;stop-opacity:1" />
-      <stop offset="50%" style="stop-color:#ff8a50;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#ff5252;stop-opacity:1" />
+    <radialGradient id="peach_skin_grad" cx="45%" cy="35%" r="65%">
+      <stop offset="0%" style="stop-color:#ffdb4d;stop-opacity:1" />
+      <stop offset="40%" style="stop-color:#ff8c00;stop-opacity:1" />
+      <stop offset="85%" style="stop-color:#d43f00;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#a32a00;stop-opacity:1" />
+    </radialGradient>
+    <radialGradient id="peach_flesh_grad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#8b0000;stop-opacity:1" />
+      <stop offset="20%" style="stop-color:#ff4500;stop-opacity:1" />
+      <stop offset="60%" style="stop-color:#ffcc33;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ffe066;stop-opacity:1" />
+    </radialGradient>
+    <linearGradient id="peach_leaf_grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#99cc33;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#4d661a;stop-opacity:1" />
     </linearGradient>
+    <filter id="peach_fuzz" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.6" numOctaves="3" result="noise" />
+      <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.15 0" />
+      <feComposite operator="in" in2="SourceGraphic" />
+    </filter>
+    <filter id="peach_shadow">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2" />
+      <feOffset dx="1" dy="2" result="offsetblur" />
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.3" />
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
   </defs>
-  <!-- Stem -->
-  <path d="M64,45 L64,24" stroke="#795548" stroke-width="6" stroke-linecap="round" fill="none" />
-  <!-- Leaf -->
-  <path d="M64,32 C64,32 88,10 102,30 C102,30 85,45 64,32" fill="#66bb6a" />
-  <!-- Peach Body -->
-  <path d="M64,45 C86,25 115,35 115,70 C115,102 92,120 64,120 C36,120 13,102 13,70 C13,35 42,25 64,45 Z" fill="url(#peachGradient)" />
-  <!-- Subtle Highlight -->
-  <ellipse cx="42" cy="65" rx="10" ry="18" fill="#ffffff" fill-opacity="0.2" transform="rotate(-15 42 65)" />
+  
+  <!-- Ground Shadow -->
+  <ellipse cx="64" cy="110" rx="45" ry="8" style="fill:#000;fill-opacity:0.1" />
+
+  <!-- Main Peach -->
+  <g filter="url(#peach_shadow)">
+    <!-- Shape of the whole peach with cleft -->
+    <path d="M68,32 C55,32 40,38 32,55 C25,75 30,105 55,112 C75,118 95,110 105,85 C115,60 100,38 80,32 C75,30 72,32 68,32" style="fill:url(#peach_skin_grad);" />
+    <!-- Texture overlay -->
+    <path d="M68,32 C55,32 40,38 32,55 C25,75 30,105 55,112 C75,118 95,110 105,85 C115,60 100,38 80,32 C75,30 72,32 68,32" filter="url(#peach_fuzz)" style="fill:#fff;fill-opacity:0.1" />
+    <!-- Cleft line -->
+    <path d="M68,32 C62,45 62,100 60,111" style="fill:none;stroke:#8b0000;stroke-width:1.5;stroke-opacity:0.2;stroke-linecap:round" />
+  </g>
+
+  <!-- Peach Slice -->
+  <g transform="translate(10, 5) rotate(15, 95, 95)">
+    <!-- Slice Skin -->
+    <path d="M85,110 C105,115 120,105 125,85 L85,85 Z" style="fill:#a32a00" />
+    <!-- Slice Flesh -->
+    <path d="M125,85 C120,65 100,60 85,85 C75,95 80,110 85,110 C95,100 115,100 125,85" style="fill:url(#peach_flesh_grad)" />
+    <!-- Pit texture area in slice -->
+    <path d="M85,85 C88,88 92,88 95,85 C92,82 88,82 85,85" style="fill:#5c2a00;fill-opacity:0.6" />
+    <!-- Inner flesh streaks -->
+    <path d="M90,88 L92,95 M95,85 L102,88 M87,83 L82,78" style="stroke:#d43f00;stroke-width:0.5;stroke-opacity:0.5" />
+  </g>
+
+  <!-- Stem and Leaf -->
+  <g>
+    <!-- Stem -->
+    <path d="M68,35 C68,25 70,22 72,20" style="fill:none;stroke:#5d3a1a;stroke-width:3;stroke-linecap:round" />
+    <!-- Leaf -->
+    <path d="M70,25 C85,25 105,10 110,5 C105,25 85,45 70,25" style="fill:url(#peach_leaf_grad);stroke:#3d5215;stroke-width:0.5" />
+    <!-- Leaf Vein -->
+    <path d="M70,25 C85,23 100,12 110,5" style="fill:none;stroke:#3d5215;stroke-width:0.5;stroke-opacity:0.5" />
+  </g>
 </svg>

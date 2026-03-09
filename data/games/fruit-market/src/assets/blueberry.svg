@@ -1,17 +1,73 @@
 <svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <radialGradient id="berryGrad" cx="45%" cy="40%" r="50%">
-      <stop offset="0%" style="stop-color:#6584FF" />
-      <stop offset="100%" style="stop-color:#3549BA" />
+    <!-- Skin of the whole berry -->
+    <radialGradient id="blueberry_skin" cx="40%" cy="40%" r="60%">
+      <stop offset="0%" style="stop-color:#4b5a94" />
+      <stop offset="60%" style="stop-color:#2a2e5d" />
+      <stop offset="100%" style="stop-color:#161935" />
     </radialGradient>
-    <linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#81C784" />
-      <stop offset="100%" style="stop-color:#2E7D32" />
-    </linearGradient>
+    <!-- The "bloom" (dusty wax coating) -->
+    <radialGradient id="blueberry_bloom" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#8e9edb; stop-opacity:0.4" />
+      <stop offset="100%" style="stop-color:#8e9edb; stop-opacity:0" />
+    </radialGradient>
+    <!-- Internal pulp color -->
+    <radialGradient id="blueberry_pulp" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#eef5c1" />
+      <stop offset="70%" style="stop-color:#d4e09b" />
+      <stop offset="100%" style="stop-color:#b8c77d" />
+    </radialGradient>
+    <!-- Shadow for depth -->
+    <radialGradient id="blueberry_shadow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#000; stop-opacity:0.3" />
+      <stop offset="100%" style="stop-color:#000; stop-opacity:0" />
+    </radialGradient>
   </defs>
-  <path d="M68 32 C 85 10, 115 15, 110 45 C 105 60, 80 50, 68 35 Z" fill="url(#leafGrad)" />
-  <path d="M68 32 Q 72 40 64 42" stroke="#1B2668" stroke-width="3" fill="none" stroke-linecap="round" />
-  <circle cx="64" cy="74" r="46" fill="url(#berryGrad)" />
-  <path d="M64 28 L 68 36 L 76 34 L 72 42 L 80 46 L 72 50 L 76 58 L 68 54 L 64 62 L 60 54 L 52 58 L 56 50 L 48 46 L 56 42 L 52 34 L 60 36 Z" fill="#1B2668" />
-  <ellipse cx="45" cy="58" rx="14" ry="8" transform="rotate(-30 45 58)" fill="white" fill-opacity="0.25" />
+
+  <!-- Ground Shadow -->
+  <ellipse cx="64" cy="105" rx="45" ry="10" fill="url(#blueberry_shadow)" />
+
+  <!-- Whole Blueberry -->
+  <g transform="translate(45, 60)">
+    <!-- Main Body -->
+    <circle cx="0" cy="0" r="38" fill="url(#blueberry_skin)" />
+    <!-- Dusty Bloom overlay -->
+    <circle cx="-5" cy="-5" r="32" fill="url(#blueberry_bloom)" />
+    
+    <!-- Calyx (the crown at the top) -->
+    <g transform="translate(0, -34) scale(0.8)">
+      <path d="M-10,0 C-12,-5 -5,-8 0,-8 C5,-8 12,-5 10,0 C12,5 5,8 0,8 C-5,8 -12,5 -10,0 Z" fill="#1d1f3d" />
+      <path d="M-12,-2 Q-15,-10 -5,-7 Q0,-15 5,-7 Q15,-10 12,-2 Q15,8 5,5 Q0,12 -5,5 Q-15,8 -12,-2" fill="#2a2e5d" stroke="#161935" stroke-width="0.5" />
+      <circle cx="0" cy="0" r="3" fill="#161935" />
+    </g>
+    
+    <!-- Subtle Shine -->
+    <ellipse cx="-15" cy="-15" rx="8" ry="5" fill="white" fill-opacity="0.1" transform="rotate(-30, -15, -15)" />
+  </g>
+
+  <!-- Sliced Blueberry Piece -->
+  <g transform="translate(85, 75) rotate(15)">
+    <!-- Outer Skin of the slice -->
+    <path d="M-30,0 A30,30 0 1,0 30,0 L0,0 Z" fill="#161935" />
+    <!-- Inner Pulp -->
+    <path d="M-27,-2 A27,27 0 1,0 27,-2 Z" fill="url(#blueberry_pulp)" />
+    
+    <!-- Pulp Texture (radial fibers) -->
+    <g opacity="0.4">
+      <line x1="0" y1="5" x2="0" y2="20" stroke="#8ca34b" stroke-width="0.5" />
+      <line x1="0" y1="5" x2="10" y2="18" stroke="#8ca34b" stroke-width="0.5" />
+      <line x1="0" y1="5" x2="-10" y2="18" stroke="#8ca34b" stroke-width="0.5" />
+      <line x1="0" y1="5" x2="18" y2="10" stroke="#8ca34b" stroke-width="0.5" />
+      <line x1="0" y1="5" x2="-18" y2="10" stroke="#8ca34b" stroke-width="0.5" />
+    </g>
+
+    <!-- Tiny Seeds -->
+    <circle cx="2" cy="12" r="1.2" fill="#6b4c1e" opacity="0.7" />
+    <circle cx="-5" cy="18" r="1" fill="#6b4c1e" opacity="0.7" />
+    <circle cx="8" cy="16" r="1.1" fill="#6b4c1e" opacity="0.7" />
+    <circle cx="-3" cy="8" r="0.9" fill="#6b4c1e" opacity="0.7" />
+    
+    <!-- Edge Highlight on the cut -->
+    <path d="M-27,-2 L27,-2" stroke="#ffffff" stroke-width="0.5" stroke-opacity="0.3" />
+  </g>
 </svg>

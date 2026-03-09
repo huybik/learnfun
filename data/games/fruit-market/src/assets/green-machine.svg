@@ -1,0 +1,75 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="green-machine_juice-fill" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#92d050;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#76ba1b;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#4e9605;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="green-machine_glass-glare" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.4" />
+      <stop offset="20%" style="stop-color:#ffffff;stop-opacity:0.1" />
+      <stop offset="80%" style="stop-color:#ffffff;stop-opacity:0.1" />
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0.5" />
+    </linearGradient>
+    <radialGradient id="green-machine_kiwi-inner" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#eef8c5;stop-opacity:1" />
+      <stop offset="60%" style="stop-color:#a2d149;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#76ba1b;stop-opacity:1" />
+    </radialGradient>
+    <linearGradient id="green-machine_straw-pattern" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#ff9800;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#ffeb3b;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ff9800;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Glass Shadow -->
+  <ellipse cx="64" cy="115" rx="30" ry="8" style="fill:#000000;fill-opacity:0.1" />
+
+  <!-- Straw (Back Part) -->
+  <rect x="52" y="15" width="8" height="40" rx="4" transform="rotate(-10 52 15)" style="fill:url(#green-machine_straw-pattern)" />
+  <path d="M54,20 L61,18 M55,28 L62,26 M56,36 L63,34" style="stroke:#ffffff;stroke-width:2;stroke-linecap:round;opacity:0.6" />
+
+  <!-- Main Glass Body -->
+  <path d="M38,25 L90,25 C92,25 94,105 64,112 C34,105 36,25 38,25 Z" style="fill:#ffffff;fill-opacity:0.15;stroke:#e0e0e0;stroke-width:1" />
+
+  <!-- Juice Content -->
+  <path d="M41,38 L87,38 C89,38 91,102 64,108 C37,102 39,38 41,38 Z" style="fill:url(#green-machine_juice-fill)" />
+
+  <!-- Juice Surface Detail -->
+  <ellipse cx="64" cy="38" rx="23" ry="4" style="fill:#b7e17d;fill-opacity:0.6" />
+
+  <!-- Bubbles for Freshness -->
+  <circle cx="55" cy="85" r="2" style="fill:#ffffff;fill-opacity:0.4" />
+  <circle cx="72" cy="70" r="1.5" style="fill:#ffffff;fill-opacity:0.3" />
+  <circle cx="64" cy="95" r="2.5" style="fill:#ffffff;fill-opacity:0.2" />
+  <circle cx="48" cy="60" r="1.2" style="fill:#ffffff;fill-opacity:0.4" />
+  <circle cx="78" cy="50" r="1.8" style="fill:#ffffff;fill-opacity:0.3" />
+
+  <!-- Kiwi Slice Garnish -->
+  <g transform="translate(88, 35) rotate(15)">
+    <circle r="16" style="fill:#5d4037" /> <!-- Skin -->
+    <circle r="14" style="fill:url(#green-machine_kiwi-inner)" />
+    <!-- Kiwi Seeds -->
+    <g style="fill:#212121">
+      <ellipse cx="0" cy="-7" rx="1" ry="1.5" transform="rotate(0)" />
+      <ellipse cx="0" cy="-7" rx="1" ry="1.5" transform="rotate(45)" />
+      <ellipse cx="0" cy="-7" rx="1" ry="1.5" transform="rotate(90)" />
+      <ellipse cx="0" cy="-7" rx="1" ry="1.5" transform="rotate(135)" />
+      <ellipse cx="0" cy="-7" rx="1" ry="1.5" transform="rotate(180)" />
+      <ellipse cx="0" cy="-7" rx="1" ry="1.5" transform="rotate(225)" />
+      <ellipse cx="0" cy="-7" rx="1" ry="1.5" transform="rotate(270)" />
+      <ellipse cx="0" cy="-7" rx="1" ry="1.5" transform="rotate(315)" />
+    </g>
+    <!-- Kiwi Center -->
+    <path d="M-3,-2 Q0,0 3,-2 Q2,3 0,4 Q-2,3 -3,-2" style="fill:#ffffff;fill-opacity:0.5" />
+  </g>
+
+  <!-- Glass Highlights/Reflections -->
+  <path d="M45,30 L43,95 C43,95 50,105 64,105" style="fill:none;stroke:#ffffff;stroke-width:2;stroke-linecap:round;opacity:0.3" />
+  <rect x="38" y="25" width="52" height="87" rx="26" style="fill:url(#green-machine_glass-glare);pointer-events:none" />
+  
+  <!-- Rim Shine -->
+  <ellipse cx="64" cy="25" rx="26" ry="3" style="fill:none;stroke:#ffffff;stroke-width:1;opacity:0.5" />
+
+</svg>

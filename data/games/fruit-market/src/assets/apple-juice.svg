@@ -1,0 +1,69 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="apple-juice_liquid-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffe57e;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#ffcc33;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e67e22;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="apple-juice_glass-shine" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.6" />
+      <stop offset="20%" style="stop-color:#ffffff;stop-opacity:0.1" />
+      <stop offset="80%" style="stop-color:#ffffff;stop-opacity:0.1" />
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0.4" />
+    </linearGradient>
+    <radialGradient id="apple-juice_ice-grad" cx="30%" cy="30%" r="50%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.8" />
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0.2" />
+    </radialGradient>
+    <linearGradient id="apple-juice_apple-skin" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ff4d4d;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#b30000;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Shadow -->
+  <ellipse cx="64" cy="115" rx="35" ry="8" style="fill:#000000;fill-opacity:0.1;" />
+
+  <!-- Glass Back Rim -->
+  <ellipse cx="64" cy="25" rx="32" ry="8" style="fill:none;stroke:#ffffff;stroke-width:1.5;stroke-opacity:0.3;" />
+
+  <!-- Straw Back -->
+  <path d="M78,10 L78,25" style="stroke:#3498db;stroke-width:6;stroke-linecap:round;" />
+  <path d="M78,10 L78,25" style="stroke:#ffffff;stroke-width:6;stroke-dasharray:4,4;stroke-linecap:round;" />
+
+  <!-- Juice Volume -->
+  <path d="M34,35 L40,105 Q41,112 48,112 L80,112 Q87,112 88,105 L94,35 Z" style="fill:url(#apple-juice_liquid-grad);" />
+  
+  <!-- Ice Cubes -->
+  <rect x="45" y="60" width="18" height="18" rx="4" transform="rotate(-15 54 69)" style="fill:url(#apple-juice_ice-grad);" />
+  <rect x="65" y="45" width="16" height="16" rx="4" transform="rotate(10 73 53)" style="fill:url(#apple-juice_ice-grad);" />
+
+  <!-- Liquid Surface -->
+  <ellipse cx="64" cy="35" rx="30" ry="6" style="fill:#fff1b0;fill-opacity:0.6;stroke:#ffcc33;stroke-width:0.5;" />
+
+  <!-- Bubbles -->
+  <circle cx="50" cy="50" r="1.5" style="fill:#ffffff;fill-opacity:0.6;" />
+  <circle cx="75" cy="70" r="2" style="fill:#ffffff;fill-opacity:0.4;" />
+  <circle cx="58" cy="85" r="1" style="fill:#ffffff;fill-opacity:0.5;" />
+  <circle cx="70" cy="40" r="1.2" style="fill:#ffffff;fill-opacity:0.7;" />
+
+  <!-- Straw Front -->
+  <path d="M78,25 L86,100" style="stroke:#3498db;stroke-width:6;stroke-linecap:round;stroke-opacity:0.8;" />
+  <path d="M78,25 L86,100" style="stroke:#ffffff;stroke-width:6;stroke-dasharray:4,4;stroke-linecap:round;stroke-opacity:0.5;" />
+
+  <!-- Glass Body -->
+  <path d="M32,25 L39,106 Q40,115 48,115 L80,115 Q88,115 89,106 L96,25" style="fill:url(#apple-juice_glass-shine);stroke:#ffffff;stroke-width:1.5;stroke-opacity:0.5;" />
+  <ellipse cx="64" cy="25" rx="32" ry="8" style="fill:none;stroke:#ffffff;stroke-width:2;stroke-opacity:0.6;" />
+
+  <!-- Highlights -->
+  <path d="M38,40 L42,100" style="stroke:#ffffff;stroke-width:2;stroke-linecap:round;stroke-opacity:0.4;" />
+  <path d="M88,35 L91,80" style="stroke:#ffffff;stroke-width:1.5;stroke-linecap:round;stroke-opacity:0.3;" />
+
+  <!-- Apple Slice on Rim -->
+  <g transform="translate(25, 20) rotate(-20)">
+    <path d="M0,0 A20,20 0 0,1 25,15 L12,12 Z" style="fill:#fff9e6;stroke:url(#apple-juice_apple-skin);stroke-width:3;" />
+    <circle cx="12" cy="8" r="1" style="fill:#4d2600;" />
+    <path d="M12,12 L14,14" style="stroke:#4d2600;stroke-width:0.5;" />
+  </g>
+  
+</svg>

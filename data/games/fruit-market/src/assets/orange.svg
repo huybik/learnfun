@@ -1,22 +1,79 @@
 <svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <radialGradient id="orangeBody" cx="40%" cy="40%" r="60%">
-      <stop offset="0%" style="stop-color:#FFB74D" />
-      <stop offset="100%" style="stop-color:#F57C00" />
+    <radialGradient id="orange_grad_whole" cx="40%" cy="40%" r="60%">
+      <stop offset="0%" style="stop-color:#ffb347;stop-opacity:1" />
+      <stop offset="70%" style="stop-color:#ff8c00;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#cc5500;stop-opacity:1" />
     </radialGradient>
-    <linearGradient id="leafGreen" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#81C784" />
-      <stop offset="100%" style="stop-color:#2E7D32" />
-    </linearGradient>
+    <radialGradient id="orange_grad_slice" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#ffcc33;stop-opacity:1" />
+      <stop offset="85%" style="stop-color:#ff8c00;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e67e22;stop-opacity:1" />
+    </radialGradient>
+    <filter id="orange_filter_texture" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.6" numOctaves="3" result="noise" />
+      <feDiffuseLighting in="noise" lighting-color="#ffffff" surfaceScale="0.5">
+        <feDistantLight azimuth="45" elevation="55" />
+      </feDiffuseLighting>
+      <feComposite operator="in" in2="SourceGraphic" />
+    </filter>
+    <filter id="orange_shadow">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2" />
+      <feOffset dx="2" dy="2" result="offsetblur" />
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.4" />
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
   </defs>
-  <!-- Stem -->
-  <path d="M64 35 L64 18" style="stroke:#5D4037; stroke-width:8; stroke-linecap:round;" />
-  <!-- Leaf -->
-  <path d="M64 28 C 85 10 110 30 110 30 C 110 30 85 55 64 28" style="fill:url(#leafGreen); stroke:#1B5E20; stroke-width:1; stroke-linejoin:round;" />
-  <!-- Orange Body -->
-  <circle cx="64" cy="74" r="48" style="fill:url(#orangeBody); stroke:#E65100; stroke-width:2;" />
-  <!-- Simple Highlight -->
-  <circle cx="48" cy="58" r="12" style="fill:#FFFFFF; fill-opacity:0.25;" />
-  <!-- Dimple at stem base -->
-  <path d="M58 35 Q64 42 70 35" style="fill:none; stroke:#E65100; stroke-width:3; stroke-linecap:round;" />
+  <g filter="url(#orange_shadow)">
+    <!-- Whole Orange -->
+    <circle cx="48" cy="72" r="38" style="fill:url(#orange_grad_whole)" />
+    <circle cx="48" cy="72" r="38" style="fill:#ffffff;filter:url(#orange_filter_texture);opacity:0.15;mix-blend-mode:overlay" />
+    <!-- Stem spot -->
+    <path d="M45 36 Q48 34 51 36 Q48 38 45 36" style="fill:#4d2600;opacity:0.6" />
+    
+    <!-- Cut Slice -->
+    <g transform="translate(86, 82) rotate(15)">
+      <!-- Rind -->
+      <circle cx="0" cy="0" r="30" style="fill:#ff8c00" />
+      <!-- Pith (White) -->
+      <circle cx="0" cy="0" r="28" style="fill:#ffffeb" />
+      <!-- Pulp Base -->
+      <circle cx="0" cy="0" r="25" style="fill:url(#orange_grad_slice)" />
+      
+      <!-- Segments -->
+      <g style="fill:#ffa500;stroke:#ffffeb;stroke-width:0.8;stroke-linecap:round">
+        <path d="M0,0 L0,-24 A24,24 0 0,1 14,-19 Z" />
+        <path d="M0,0 L14,-19 A24,24 0 0,1 23,-7 Z" />
+        <path d="M0,0 L23,-7 A24,24 0 0,1 23,7 Z" />
+        <path d="M0,0 L23,7 A24,24 0 0,1 14,19 Z" />
+        <path d="M0,0 L14,19 A24,24 0 0,1 0,24 Z" />
+        <path d="M0,0 L0,24 A24,24 0 0,1 -14,19 Z" />
+        <path d="M0,0 L-14,19 A24,24 0 0,1 -23,7 Z" />
+        <path d="M0,0 L-23,7 A24,24 0 0,1 -23,-7 Z" />
+        <path d="M0,0 L-23,-7 A24,24 0 0,1 -14,-19 Z" />
+        <path d="M0,0 L-14,-19 A24,24 0 0,1 0,-24 Z" />
+      </g>
+      
+      <!-- Pulp Texture (Vesicles) -->
+      <g style="stroke:#ffffff;stroke-width:0.3;opacity:0.4">
+        <line x1="2" y1="-5" x2="18" y2="-15" />
+        <line x1="5" y1="2" x2="20" y2="5" />
+        <line x1="-2" y1="5" x2="-18" y2="15" />
+        <line x1="-5" y1="-2" x2="-20" y2="-5" />
+        <line x1="0" y1="8" x2="0" y2="20" />
+        <line x1="0" y1="-8" x2="0" y2="-20" />
+      </g>
+      
+      <!-- Center Core -->
+      <circle cx="0" cy="0" r="3" style="fill:#ffffeb" />
+    </g>
+    
+    <!-- Highlights -->
+    <ellipse cx="35" cy="55" rx="12" ry="8" transform="rotate(-30, 35, 55)" style="fill:#ffffff;opacity:0.25;filter:blur(4px)" />
+  </g>
 </svg>

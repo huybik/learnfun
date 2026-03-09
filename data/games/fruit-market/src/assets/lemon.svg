@@ -1,20 +1,77 @@
 <svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <radialGradient id="lemonGrad" cx="45%" cy="45%" r="50%">
-      <stop offset="0%" style="stop-color:#FFF59D" />
-      <stop offset="100%" style="stop-color:#FBC02D" />
+    <radialGradient id="lemon_grad_skin" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" style="stop-color:#fff68f" />
+      <stop offset="60%" style="stop-color:#fcd116" />
+      <stop offset="100%" style="stop-color:#d4a017" />
     </radialGradient>
-    <linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#81C784" />
-      <stop offset="100%" style="stop-color:#2E7D32" />
-    </linearGradient>
+    <radialGradient id="lemon_grad_pulp" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#fffde7" />
+      <stop offset="70%" style="stop-color:#fde14d" />
+      <stop offset="100%" style="stop-color:#f9a825" />
+    </radialGradient>
+    <radialGradient id="lemon_grad_shine" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#ffffff; stop-opacity:0.8" />
+      <stop offset="100%" style="stop-color:#ffffff; stop-opacity:0" />
+    </radialGradient>
+    <filter id="lemon_filter_bump">
+      <feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="2" result="noise" />
+      <feDiffuseLighting in="noise" lighting-color="#fff" surfaceScale="0.8" result="diffuse">
+        <feDistantLight azimuth="45" elevation="60" />
+      </feDiffuseLighting>
+      <feComposite operator="in" in="diffuse" in2="SourceGraphic" />
+    </filter>
   </defs>
-  <!-- Stem -->
-  <path d="M60,36 L68,36 L66,28 C66,28 64,25 62,28 Z" fill="#5D4037" />
-  <!-- Leaf -->
-  <path d="M64,34 C64,34 60,12 88,12 C88,12 92,32 68,38 Z" fill="url(#leafGrad)" />
-  <!-- Lemon Body -->
-  <path d="M112,64 C112,58 106,56 102,54 C95,36 82,26 64,26 C46,26 33,36 26,54 C22,56 16,58 16,64 C16,70 22,72 26,74 C33,92 46,102 64,102 C82,102 95,92 102,74 C106,72 112,70 112,64 Z" fill="url(#lemonGrad)" />
-  <!-- Subtle Highlight -->
-  <path d="M40,45 C50,35 70,35 80,45" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" opacity="0.3" />
+
+  <!-- Ground Shadow -->
+  <ellipse cx="64" cy="112" rx="45" ry="8" style="fill:#000000; fill-opacity:0.1" />
+
+  <!-- Whole Lemon -->
+  <g transform="translate(68, 58) rotate(-20)">
+    <!-- Main Body -->
+    <path d="M-40,0 C-40,-30 -15,-40 5,-40 C25,-40 45,-25 45,0 C45,25 25,40 5,40 C-15,40 -40,30 -40,0" style="fill:url(#lemon_grad_skin);" />
+    <!-- Tips -->
+    <path d="M-40,0 Q-45,-5 -43,-10 Q-38,-5 -40,0" style="fill:#c5a010;" />
+    <path d="M45,0 Q50,5 48,10 Q43,5 45,0" style="fill:#c5a010;" />
+    <!-- Skin Texture Overlay -->
+    <path d="M-40,0 C-40,-30 -15,-40 5,-40 C25,-40 45,-25 45,0 C45,25 25,40 5,40 C-15,40 -40,30 -40,0" style="filter:url(#lemon_filter_bump); opacity:0.15;" />
+    <!-- Top Highlight -->
+    <ellipse cx="-5" cy="-15" rx="15" ry="8" transform="rotate(10, -5, -15)" style="fill:url(#lemon_grad_shine);" />
+  </g>
+
+  <!-- Cut Slice -->
+  <g transform="translate(45, 88)">
+    <!-- Rind -->
+    <circle r="30" style="fill:#fcd116;" />
+    <!-- Pith -->
+    <circle r="27.5" style="fill:#fffde7;" />
+    
+    <!-- Segments -->
+    <g id="lemon_segments">
+      <!-- 8 wedges with small gaps -->
+      <path d="M2,2 L24.5,4 A25,25 0 0,1 18,18 L2,2" style="fill:url(#lemon_grad_pulp);" transform="rotate(0)" />
+      <path d="M2,2 L24.5,4 A25,25 0 0,1 18,18 L2,2" style="fill:url(#lemon_grad_pulp);" transform="rotate(45)" />
+      <path d="M2,2 L24.5,4 A25,25 0 0,1 18,18 L2,2" style="fill:url(#lemon_grad_pulp);" transform="rotate(90)" />
+      <path d="M2,2 L24.5,4 A25,25 0 0,1 18,18 L2,2" style="fill:url(#lemon_grad_pulp);" transform="rotate(135)" />
+      <path d="M2,2 L24.5,4 A25,25 0 0,1 18,18 L2,2" style="fill:url(#lemon_grad_pulp);" transform="rotate(180)" />
+      <path d="M2,2 L24.5,4 A25,25 0 0,1 18,18 L2,2" style="fill:url(#lemon_grad_pulp);" transform="rotate(225)" />
+      <path d="M2,2 L24.5,4 A25,25 0 0,1 18,18 L2,2" style="fill:url(#lemon_grad_pulp);" transform="rotate(270)" />
+      <path d="M2,2 L24.5,4 A25,25 0 0,1 18,18 L2,2" style="fill:url(#lemon_grad_pulp);" transform="rotate(315)" />
+    </g>
+
+    <!-- Juice Sac Details (Tiny highlights) -->
+    <g opacity="0.6" style="stroke:#ffffff; stroke-width:0.5; fill:none;">
+      <path d="M10,5 L12,8 M15,15 L17,17 M5,10 L8,12" transform="rotate(10)" />
+      <path d="M10,5 L12,8 M15,15 L17,17 M5,10 L8,12" transform="rotate(100)" />
+      <path d="M10,5 L12,8 M15,15 L17,17 M5,10 L8,12" transform="rotate(190)" />
+      <path d="M10,5 L12,8 M15,15 L17,17 M5,10 L8,12" transform="rotate(280)" />
+    </g>
+
+    <!-- Center Pith -->
+    <circle r="2.5" style="fill:#fffde7;" />
+    
+    <!-- Wetness/Reflection -->
+    <path d="M-15,-15 Q-20,-5 -15,5" style="stroke:#ffffff; stroke-width:1; stroke-linecap:round; fill:none; opacity:0.4" />
+    <circle cx="10" cy="-10" r="4" style="fill:url(#lemon_grad_shine); opacity:0.5" />
+  </g>
 </svg>

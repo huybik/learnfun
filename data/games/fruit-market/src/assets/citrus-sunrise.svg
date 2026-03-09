@@ -1,0 +1,56 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="citrus-sunrise_juice-grad" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" style="stop-color:#ff2e00;stop-opacity:1" />
+      <stop offset="40%" style="stop-color:#ff8c00;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ffd700;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="citrus-sunrise_glass-shine" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.4" />
+      <stop offset="20%" style="stop-color:#ffffff;stop-opacity:0.1" />
+      <stop offset="80%" style="stop-color:#ffffff;stop-opacity:0.1" />
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0.5" />
+    </linearGradient>
+    <radialGradient id="citrus-sunrise_orange-grad" cx="50%" cy="50%" r="50%">
+      <stop offset="70%" style="stop-color:#ffb347;stop-opacity:1" />
+      <stop offset="95%" style="stop-color:#ffcc33;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ffa500;stop-opacity:1" />
+    </radialGradient>
+    <pattern id="citrus-sunrise_straw-pattern" x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="5" height="10" fill="#ffffff" />
+      <rect x="5" width="5" height="10" fill="#ff4d4d" />
+    </pattern>
+    <filter id="citrus-sunrise_glow">
+      <feGaussianBlur stdDeviation="1" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+  
+  <path d="M42 25 L48 112 Q48 118 55 118 L73 118 Q80 118 80 112 L86 25 Z" fill="url(#citrus-sunrise_juice-grad)" />
+  
+  <rect x="55" y="45" width="12" height="12" rx="2" fill="#ffffff" fill-opacity="0.3" transform="rotate(15 61 51)" />
+  <rect x="68" y="70" width="10" height="10" rx="2" fill="#ffffff" fill-opacity="0.2" transform="rotate(-10 73 75)" />
+  
+  <rect x="75" y="10" width="6" height="100" rx="3" fill="url(#citrus-sunrise_straw-pattern)" transform="rotate(-5 78 60)" />
+  
+  <path d="M40 22 L47 112 Q47 120 55 120 L73 120 Q81 120 81 112 L88 22 Z" fill="url(#citrus-sunrise_glass-shine)" stroke="#ffffff" stroke-width="0.5" stroke-opacity="0.6" />
+  
+  <circle cx="38" cy="35" r="16" fill="url(#citrus-sunrise_orange-grad)" stroke="#ffa500" stroke-width="1.5" />
+  <path d="M38 35 L38 19 M38 35 L51.8 27 M38 35 L51.8 43 M38 35 L38 51 M38 35 L24.2 43 M38 35 L24.2 27" stroke="#ffffff" stroke-width="1" stroke-linecap="round" />
+  <path d="M38 35 L44 35" stroke="#ffffff" stroke-width="2" stroke-linecap="round" opacity="0.4" />
+
+  <ellipse cx="64" cy="22" rx="24" ry="4" fill="none" stroke="#ffffff" stroke-width="0.5" stroke-opacity="0.7" />
+  
+  <path d="M45 40 Q43 60 49 105" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-opacity="0.4" />
+  <path d="M83 35 Q85 55 80 95" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-opacity="0.3" />
+  
+  <circle cx="52" cy="55" r="1" fill="#ffffff" fill-opacity="0.6" />
+  <circle cx="55" cy="85" r="1.2" fill="#ffffff" fill-opacity="0.5" />
+  <circle cx="78" cy="62" r="0.8" fill="#ffffff" fill-opacity="0.6" />
+  <circle cx="75" cy="98" r="1" fill="#ffffff" fill-opacity="0.4" />
+  <circle cx="60" cy="110" r="0.7" fill="#ffffff" fill-opacity="0.5" />
+
+  <circle cx="55" cy="40" r="1.5" fill="#ffffff" fill-opacity="0.8" />
+  <circle cx="70" cy="32" r="1" fill="#ffffff" fill-opacity="0.8" />
+  <circle cx="62" cy="48" r="1.2" fill="#ffffff" fill-opacity="0.6" />
+</svg>

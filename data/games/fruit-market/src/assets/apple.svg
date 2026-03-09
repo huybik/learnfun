@@ -1,20 +1,67 @@
 <svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <radialGradient id="appleBody" cx="40%" cy="40%" r="60%">
-      <stop offset="0%" style="stop-color:#FF5E5E" />
-      <stop offset="100%" style="stop-color:#D32F2F" />
+    <radialGradient id="apple_skin" cx="40%" cy="40%" r="60%" fx="30%" fy="30%">
+      <stop offset="0%" style="stop-color:#ff5f5f" />
+      <stop offset="60%" style="stop-color:#e60000" />
+      <stop offset="100%" style="stop-color:#8b0000" />
     </radialGradient>
-    <linearGradient id="leafGreen" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#A3D977" />
-      <stop offset="100%" style="stop-color:#4CAF50" />
+    <radialGradient id="apple_inside" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#ffffff" />
+      <stop offset="80%" style="stop-color:#fffde0" />
+      <stop offset="100%" style="stop-color:#f0e68c" />
+    </radialGradient>
+    <linearGradient id="apple_stem_grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#5d4037" />
+      <stop offset="100%" style="stop-color:#3e2723" />
     </linearGradient>
+    <linearGradient id="apple_leaf_grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#81c784" />
+      <stop offset="100%" style="stop-color:#2e7d32" />
+    </linearGradient>
+    <filter id="apple_shadow_blur">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2" />
+      <feOffset dx="0" dy="2" result="offsetblur" />
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.3" />
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
   </defs>
+  
+  <!-- Ground Shadow -->
+  <ellipse cx="64" cy="115" rx="45" ry="8" style="fill:#000000;fill-opacity:0.1" />
+
+  <!-- Main Apple Body -->
+  <path d="M60,32 C40,32 20,45 20,75 C20,105 45,118 62,118 C75,118 85,110 95,95 C98,80 100,60 95,45 C88,32 75,32 60,32 Z" style="fill:url(#apple_skin)" />
+  
+  <!-- Stem Bowl (Top Indent) -->
+  <path d="M45,40 Q60,50 75,40" style="fill:none;stroke:#8b0000;stroke-width:2;stroke-linecap:round;opacity:0.4" />
+
   <!-- Stem -->
-  <path d="M60,15 C60,15 62,8 70,10 C70,10 68,18 68,18 L66,45 L62,45 Z" fill="#795548" />
+  <path d="M62,35 C62,20 68,15 75,12" style="fill:none;stroke:url(#apple_stem_grad);stroke-width:3;stroke-linecap:round" />
+
   <!-- Leaf -->
-  <path d="M66,30 C85,15 105,35 95,50 C80,60 66,45 66,30" fill="url(#leafGreen)" />
-  <!-- Apple Body -->
-  <path d="M64,45 C45,45 25,55 25,82 C25,110 45,122 64,118 C83,122 103,110 103,82 C103,55 83,45 64,45" fill="url(#appleBody)" />
-  <!-- Glossy Shine -->
-  <ellipse cx="48" cy="70" rx="10" ry="15" transform="rotate(25, 48, 70)" fill="#FFFFFF" fill-opacity="0.3" />
+  <path d="M75,12 C85,10 95,15 98,25 C90,28 80,25 75,12" style="fill:url(#apple_leaf_grad);stroke:#1b5e20;stroke-width:0.5" />
+  <path d="M75,12 Q88,20 98,25" style="fill:none;stroke:#1b5e20;stroke-width:0.3;opacity:0.5" />
+
+  <!-- Highlight on Skin -->
+  <ellipse cx="40" cy="55" rx="8" ry="12" transform="rotate(20, 40, 55)" style="fill:#ffffff;fill-opacity:0.2" />
+
+  <!-- Apple Slice -->
+  <g transform="translate(15, 10) rotate(10, 85, 95)">
+    <!-- Slice Skin -->
+    <path d="M80,105 C95,108 110,100 115,85 L85,75 Z" style="fill:#8b0000" />
+    <!-- Slice Flesh -->
+    <path d="M82,102 C93,104 105,98 110,87 L85,78 Z" style="fill:url(#apple_inside)" />
+    <!-- Seed -->
+    <path d="M92,90 C94,88 96,90 95,93 C94,95 92,93 92,90" style="fill:#3e2723" />
+    <!-- Core Detail -->
+    <path d="M85,78 L95,88" style="fill:none;stroke:#d4e157;stroke-width:0.5;opacity:0.4" />
+  </g>
+
+  <!-- Final Glossy Shine -->
+  <path d="M35,45 Q30,60 32,75" style="fill:none;stroke:#ffffff;stroke-width:1.5;stroke-linecap:round;opacity:0.3" />
 </svg>

@@ -1,0 +1,59 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="coconut-paradise_glass-shine" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.6" />
+      <stop offset="50%" style="stop-color:#ffffff;stop-opacity:0.1" />
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0.4" />
+    </linearGradient>
+    <linearGradient id="coconut-paradise_juice-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#fff9f0;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f5e6d3;stop-opacity:1" />
+    </linearGradient>
+    <radialGradient id="coconut-paradise_rim-shadow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#e0d0b0;stop-opacity:0.3" />
+      <stop offset="100%" style="stop-color:#e0d0b0;stop-opacity:0" />
+    </radialGradient>
+    <linearGradient id="coconut-paradise_straw-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#ff4d4d" />
+      <stop offset="50%" style="stop-color:#ff9999" />
+      <stop offset="100%" style="stop-color:#ff4d4d" />
+    </linearGradient>
+    <linearGradient id="coconut-paradise_umbrella-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#00d2ff" />
+      <stop offset="100%" style="stop-color:#3a7bd5" />
+    </linearGradient>
+    <filter id="coconut-paradise_shadow-filter">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000000" flood-opacity="0.1"/>
+    </filter>
+  </defs>
+  
+  <ellipse cx="64" cy="115" rx="25" ry="5" style="fill:#000000;fill-opacity:0.05" />
+  
+  <path d="M42,25 L86,25 L78,110 C78,115 50,115 50,110 Z" style="fill:#ffffff;fill-opacity:0.1;stroke:#ffffff;stroke-width:0.5" />
+  
+  <path d="M43.5,35 L82.5,35 L76.5,108 C76.5,112 51.5,112 51.5,108 Z" style="fill:url(#coconut-paradise_juice-grad)" />
+  
+  <ellipse cx="63" cy="35" rx="19.5" ry="4" style="fill:#ffffff;fill-opacity:0.5" />
+  <ellipse cx="63" cy="35" rx="15" ry="2.5" style="fill:url(#coconut-paradise_rim-shadow)" />
+
+  <path d="M72,15 L74,40 M74,40 L70,110" style="stroke:url(#coconut-paradise_straw-grad);stroke-width:3.5;stroke-linecap:round;fill:none" />
+  <path d="M72,15 L74,40" style="stroke:#ffffff;stroke-width:1;stroke-opacity:0.3;fill:none" />
+
+  <path d="M40,35 L20,25 C25,20 45,20 60,30 Z" style="fill:url(#coconut-paradise_umbrella-grad);filter:url(#coconut-paradise_shadow-filter)" />
+  <path d="M40,35 L25,23 M40,35 L35,21 M40,35 L48,22" style="stroke:#ffffff;stroke-width:0.5;stroke-opacity:0.4;fill:none" />
+  <path d="M41,36 L38,45" style="stroke:#8b4513;stroke-width:1" />
+
+  <path d="M80,25 Q90,20 95,35 L82,45 Z" style="fill:#ffd700;stroke:#ffa500;stroke-width:0.5" />
+  <circle cx="88" cy="35" r="1" style="fill:#ffa500;fill-opacity:0.5" />
+  <circle cx="91" cy="28" r="0.8" style="fill:#ffa500;fill-opacity:0.5" />
+  <circle cx="85" cy="40" r="1.2" style="fill:#ffa500;fill-opacity:0.5" />
+
+  <path d="M46,30 Q44,60 52,105" style="fill:none;stroke:url(#coconut-paradise_glass-shine);stroke-width:2.5;stroke-linecap:round;opacity:0.6" />
+  <path d="M80,35 Q82,60 76,100" style="fill:none;stroke:#ffffff;stroke-width:1.5;stroke-linecap:round;opacity:0.3" />
+  
+  <circle cx="58" cy="60" r="1.5" style="fill:#ffffff;fill-opacity:0.6" />
+  <circle cx="68" cy="85" r="1" style="fill:#ffffff;fill-opacity:0.5" />
+  <circle cx="62" cy="45" r="2" style="fill:#ffffff;fill-opacity:0.4" />
+  
+  <path d="M42,25 Q64,20 86,25" style="fill:none;stroke:#ffffff;stroke-width:0.8;stroke-opacity:0.5" />
+</svg>

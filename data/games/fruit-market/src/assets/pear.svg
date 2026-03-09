@@ -1,18 +1,68 @@
 <svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <radialGradient id="pearGradient" cx="45%" cy="40%" r="60%" fx="35%" fy="30%">
+    <radialGradient id="pear_grad_skin" cx="60%" cy="40%" r="70%">
       <stop offset="0%" style="stop-color:#dce775" />
-      <stop offset="100%" style="stop-color:#afb42b" />
+      <stop offset="60%" style="stop-color:#afb42b" />
+      <stop offset="100%" style="stop-color:#827717" />
     </radialGradient>
+    <radialGradient id="pear_grad_flesh" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" style="stop-color:#ffffff" />
+      <stop offset="70%" style="stop-color:#fffde7" />
+      <stop offset="100%" style="stop-color:#f0f4c3" />
+    </radialGradient>
+    <linearGradient id="pear_grad_stem" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#5d4037" />
+      <stop offset="100%" style="stop-color:#3e2723" />
+    </linearGradient>
+    <radialGradient id="pear_grad_leaf" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#81c784" />
+      <stop offset="100%" style="stop-color:#2e7d32" />
+    </radialGradient>
+    <pattern id="pear_pattern_dots" x="0" y="0" width="4" height="4" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="0.4" fill="#6d4c41" opacity="0.3" />
+    </pattern>
+    <filter id="pear_shadow">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2" />
+      <feOffset dx="1" dy="2" result="offsetblur" />
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.3" />
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
   </defs>
-  <!-- Stem -->
-  <path d="M64,30 C64,20 68,12 72,10" style="fill:none;stroke:#5d4037;stroke-width:6;stroke-linecap:round" />
-  <!-- Leaf -->
-  <path d="M66,22 C82,22 92,8 92,8 C92,8 94,26 78,30 C66,30 66,22 66,22 Z" style="fill:#43a047" />
-  <!-- Pear Body -->
-  <path d="M64,30 C48,30 42,52 38,78 C34,108 48,118 64,118 C80,118 94,108 90,78 C86,52 80,30 64,30 Z" style="fill:url(#pearGradient)" />
-  <!-- Shine Detail -->
-  <ellipse cx="54" cy="58" rx="7" ry="12" transform="rotate(15, 54, 58)" style="fill:#ffffff;fill-opacity:0.3" />
-  <!-- Bottom shadow/dimple -->
-  <path d="M58,118 Q64,114 70,118" style="fill:none;stroke:#827717;stroke-width:3;stroke-linecap:round;opacity:0.5" />
+
+  <!-- Ground Shadow -->
+  <ellipse cx="75" cy="115" rx="35" ry="6" style="fill:#000000; fill-opacity:0.15;" />
+
+  <!-- Main Pear -->
+  <g filter="url(#pear_shadow)">
+    <path d="M92 28 C80 28 68 45 68 75 C68 105 78 118 95 118 C112 118 122 105 122 75 C122 45 105 28 92 28" style="fill:url(#pear_grad_skin);" />
+    <path d="M92 28 C80 28 68 45 68 75 C68 105 78 118 95 118 C112 118 122 105 122 75 C122 45 105 28 92 28" style="fill:url(#pear_pattern_dots);" />
+    
+    <!-- Stem -->
+    <path d="M92 28 Q92 12 98 10 Q100 10 99 13 Q94 15 94 28" style="fill:url(#pear_grad_stem);" />
+    
+    <!-- Leaf -->
+    <path d="M94 18 C105 15 115 18 118 25 C115 32 105 32 94 18" style="fill:url(#pear_grad_leaf); stroke:#1b5e20; stroke-width:0.5;" />
+    <path d="M94 18 Q106 24 118 25" style="fill:none; stroke:#1b5e20; stroke-width:0.3;" />
+  </g>
+
+  <!-- Pear Slice -->
+  <g transform="translate(-10, 2)">
+    <!-- Slice Outer Skin -->
+    <path d="M48 35 C35 35 25 55 25 85 C25 115 35 125 48 125 L48 80 Z" style="fill:#827717;" />
+    
+    <!-- Slice Flesh Face -->
+    <ellipse cx="48" cy="80" rx="18" ry="45" style="fill:url(#pear_grad_flesh); stroke:#c5e1a5; stroke-width:0.5;" />
+    
+    <!-- Core Details -->
+    <path d="M48 65 Q50 80 48 95" style="fill:none; stroke:#dce775; stroke-width:0.8; stroke-linecap:round; opacity:0.6;" />
+    
+    <!-- Seeds -->
+    <path d="M48 76 C50 76 51 78 50 80 C49 82 47 82 46 80 C45 78 46 76 48 76" style="fill:#3e2723;" />
+    <path d="M48 84 C50 84 51 86 50 88 C49 90 47 90 46 88 C45 86 46 84 48 84" style="fill:#3e2723;" />
+  </g>
 </svg>

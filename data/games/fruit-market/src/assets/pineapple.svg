@@ -1,31 +1,53 @@
 <svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="bodyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#FFEB3B;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#FB8C00;stop-opacity:1" />
+    <radialGradient id="pineapple_body_grad" cx="50%" cy="50%" r="50%" fx="50%" fy="30%">
+      <stop offset="0%" style="stop-color:#f9d71c" />
+      <stop offset="60%" style="stop-color:#e6a100" />
+      <stop offset="100%" style="stop-color:#8b4513" />
+    </radialGradient>
+    <linearGradient id="pineapple_leaf_grad" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" style="stop-color:#2d5a27" />
+      <stop offset="50%" style="stop-color:#4b7d30" />
+      <stop offset="100%" style="stop-color:#6aa84f" />
     </linearGradient>
-    <linearGradient id="leafGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#8BC34A;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#2E7D32;stop-opacity:1" />
-    </linearGradient>
+    <radialGradient id="pineapple_inside_grad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#ffffd0" />
+      <stop offset="70%" style="stop-color:#fff48f" />
+      <stop offset="100%" style="stop-color:#f9d71c" />
+    </radialGradient>
+    <filter id="pineapple_shadow">
+      <feDropShadow dx="1" dy="1" stdDeviation="1" flood-opacity="0.3" />
+    </filter>
   </defs>
-  <!-- Crown/Leaves -->
-  <path d="M64,50 Q30,10 25,40 Q45,55 64,55 Z" fill="url(#leafGrad)" />
-  <path d="M64,50 Q98,10 103,40 Q83,55 64,55 Z" fill="url(#leafGrad)" />
-  <path d="M64,50 Q45,5 40,40 Q55,50 64,55 Z" fill="url(#leafGrad)" opacity="0.9" />
-  <path d="M64,50 Q83,5 88,40 Q73,50 64,55 Z" fill="url(#leafGrad)" opacity="0.9" />
-  <path d="M64,5 Q72,30 64,55 Q56,30 64,5 Z" fill="url(#leafGrad)" />
-  <!-- Main Body -->
-  <path d="M64,42 C40,42 32,58 32,88 C32,112 44,124 64,124 C84,124 96,112 96,88 C96,58 88,42 64,42 Z" fill="url(#bodyGrad)" />
-  <!-- Pattern/Texture -->
-  <g stroke="#BF360C" stroke-width="2" stroke-linecap="round" opacity="0.2">
-    <path d="M45,50 L83,115" fill="none" />
-    <path d="M35,70 L75,123" fill="none" />
-    <path d="M60,43 L95,100" fill="none" />
-    <path d="M83,50 L45,115" fill="none" />
-    <path d="M93,70 L53,123" fill="none" />
-    <path d="M68,43 L33,100" fill="none" />
+  
+  <g id="pineapple_crown" style="filter:url(#pineapple_shadow)">
+    <path d="M52,48 Q55,15 65,10 Q58,35 55,48 Z" style="fill:url(#pineapple_leaf_grad); stroke:#1a3316; stroke-width:0.5;" />
+    <path d="M48,48 Q40,15 35,12 Q45,35 48,48 Z" style="fill:url(#pineapple_leaf_grad); stroke:#1a3316; stroke-width:0.5;" />
+    <path d="M50,50 Q25,25 20,30 Q40,45 50,50 Z" style="fill:url(#pineapple_leaf_grad); stroke:#1a3316; stroke-width:0.5;" />
+    <path d="M55,50 Q80,25 85,30 Q65,45 55,50 Z" style="fill:url(#pineapple_leaf_grad); stroke:#1a3316; stroke-width:0.5;" />
+    <path d="M52,52 Q52,20 45,15 Q48,40 52,52 Z" style="fill:url(#pineapple_leaf_grad); stroke:#1a3316; stroke-width:0.5;" />
+    <path d="M53,52 Q53,20 60,15 Q57,40 53,52 Z" style="fill:url(#pineapple_leaf_grad); stroke:#1a3316; stroke-width:0.5;" />
   </g>
-  <!-- Highlights -->
-  <path d="M45,65 C40,75 40,95 45,105" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" opacity="0.3" />
+
+  <ellipse cx="52" cy="85" rx="28" ry="35" style="fill:url(#pineapple_body_grad); filter:url(#pineapple_shadow);" />
+  
+  <g id="pineapple_texture" style="opacity:0.6; fill:none; stroke:#633500; stroke-width:0.4;">
+    <path d="M30,65 L74,105 M25,75 L68,115 M25,85 L60,118 M40,55 L80,95" />
+    <path d="M74,65 L30,105 M79,75 L36,115 M79,85 L44,118 M64,55 L24,95" />
+    <g style="fill:#5c3a00; stroke:none;">
+      <circle cx="52" cy="60" r="1.5" /><circle cx="40" cy="70" r="1.5" /><circle cx="64" cy="70" r="1.5" />
+      <circle cx="30" cy="85" r="1.5" /><circle cx="52" cy="85" r="1.5" /><circle cx="74" cy="85" r="1.5" />
+      <circle cx="40" cy="100" r="1.5" /><circle cx="64" cy="100" r="1.5" /><circle cx="52" cy="110" r="1.5" />
+    </g>
+  </g>
+
+  <g id="pineapple_slice" transform="translate(85, 95) rotate(15)" style="filter:url(#pineapple_shadow)">
+    <path d="M0,0 L25,-15 A30,30 0 0,1 25,15 Z" style="fill:url(#pineapple_inside_grad); stroke:#d4a017; stroke-width:1;" />
+    <path d="M24,-14 A30,30 0 0,1 24,14" style="fill:none; stroke:#8b4513; stroke-width:2.5; stroke-linecap:round;" />
+    <path d="M23,-13 A28,28 0 0,1 23,13" style="fill:none; stroke:#e6a100; stroke-width:1; stroke-dasharray:1,1;" />
+    <circle cx="5" cy="0" r="4" style="fill:#ffffea; opacity:0.8;" />
+    <g style="stroke:#e6a100; stroke-width:0.3; opacity:0.5;">
+      <line x1="8" y1="0" x2="20" y2="0" /><line x1="7" y1="4" x2="18" y2="10" /><line x1="7" y1="-4" x2="18" y2="-10" />
+    </g>
+  </g>
 </svg>

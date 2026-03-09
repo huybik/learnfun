@@ -1,18 +1,72 @@
 <svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <radialGradient id="g" cx="35%" cy="35%" r="65%">
-      <stop offset="0%" style="stop-color:#af7ac5;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#76448a;stop-opacity:1" />
+    <radialGradient id="grape_shadow_grad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#000;stop-opacity:0.3" />
+      <stop offset="100%" style="stop-color:#000;stop-opacity:0" />
     </radialGradient>
+    <radialGradient id="grape_skin_grad" cx="40%" cy="35%" r="70%">
+      <stop offset="0%" style="stop-color:#9b59b6" />
+      <stop offset="70%" style="stop-color:#6c3483" />
+      <stop offset="100%" style="stop-color:#4a235a" />
+    </radialGradient>
+    <radialGradient id="grape_bloom_grad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#fff;stop-opacity:0.2" />
+      <stop offset="100%" style="stop-color:#fff;stop-opacity:0" />
+    </radialGradient>
+    <radialGradient id="grape_flesh_grad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#ecf9cf" />
+      <stop offset="60%" style="stop-color:#d4efb0" />
+      <stop offset="95%" style="stop-color:#b7d98d" />
+      <stop offset="100%" style="stop-color:#6c3483" />
+    </radialGradient>
+    <linearGradient id="grape_stem_grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#4d3319" />
+      <stop offset="100%" style="stop-color:#7d5a2e" />
+    </linearGradient>
+    <filter id="grape_blur">
+      <feGaussianBlur stdDeviation="0.8" />
+    </filter>
   </defs>
-  <path d="M64,45 Q64,15 82,15" style="fill:none;stroke:#1e8449;stroke-width:6;stroke-linecap:round" />
-  <path d="M64,32 C45,32 35,42 35,55 C35,65 50,60 64,45 Z" style="fill:#27ae60" />
-  <circle cx="50" cy="48" r="16" style="fill:url(#g)" />
-  <circle cx="78" cy="48" r="16" style="fill:url(#g)" />
-  <circle cx="38" cy="68" r="16" style="fill:url(#g)" />
-  <circle cx="64" cy="68" r="16" style="fill:url(#g)" />
-  <circle cx="90" cy="68" r="16" style="fill:url(#g)" />
-  <circle cx="51" cy="88" r="16" style="fill:url(#g)" />
-  <circle cx="77" cy="88" r="16" style="fill:url(#g)" />
-  <circle cx="64" cy="106" r="16" style="fill:url(#g)" />
+  
+  <!-- Ground Shadow -->
+  <ellipse cx="64" cy="105" rx="45" ry="8" style="fill:url(#grape_shadow_grad)" />
+  
+  <!-- Whole Grape -->
+  <g>
+    <ellipse cx="48" cy="62" rx="34" ry="40" style="fill:url(#grape_skin_grad)" />
+    <!-- Bloom/Dusty texture effect -->
+    <ellipse cx="48" cy="62" rx="34" ry="40" style="fill:url(#grape_bloom_grad);filter:url(#grape_blur)" />
+    <!-- Highlight -->
+    <ellipse cx="36" cy="45" rx="12" ry="18" style="fill:#ffffff;fill-opacity:0.15;filter:url(#grape_blur)" transform="rotate(-15, 36, 45)" />
+    
+    <!-- Stem -->
+    <path d="M48,22 Q48,10 58,8" style="fill:none;stroke:url(#grape_stem_grad);stroke-width:3;stroke-linecap:round" />
+    <path d="M45,22 Q48,25 51,22 L48,28 Z" style="fill:#4d3319" />
+  </g>
+  
+  <!-- Cut Slice -->
+  <g transform="translate(85, 80) rotate(-10)">
+    <!-- Slice Skin Rim -->
+    <circle cx="0" cy="0" r="28" style="fill:#4a235a" />
+    <!-- Slice Flesh -->
+    <circle cx="0" cy="0" r="25" style="fill:url(#grape_flesh_grad)" />
+    
+    <!-- Internal Flesh Texture -->
+    <g style="opacity:0.4">
+      <line x1="0" y1="0" x2="0" y2="-20" style="stroke:#ffffff;stroke-width:0.5" />
+      <line x1="0" y1="0" x2="17" y2="-10" style="stroke:#ffffff;stroke-width:0.5" />
+      <line x1="0" y1="0" x2="17" y2="10" style="stroke:#ffffff;stroke-width:0.5" />
+      <line x1="0" y1="0" x2="0" y2="20" style="stroke:#ffffff;stroke-width:0.5" />
+      <line x1="0" y1="0" x2="-17" y2="10" style="stroke:#ffffff;stroke-width:0.5" />
+      <line x1="0" y1="0" x2="-17" y2="-10" style="stroke:#ffffff;stroke-width:0.5" />
+    </g>
+    
+    <!-- Core/Seeds -->
+    <circle cx="0" cy="0" r="4" style="fill:#ecf9cf;filter:url(#grape_blur)" />
+    <path d="M-2,-2 Q0,0 2,-2 L0,3 Z" style="fill:#7d5a2e;opacity:0.6" />
+    <path d="M-1,1 Q1,1 1,4 L-1,4 Z" style="fill:#7d5a2e;opacity:0.4" transform="rotate(120)" />
+    
+    <!-- Gloss on slice -->
+    <path d="M-18,-10 Q-20,0 -15,15" style="fill:none;stroke:#ffffff;stroke-width:1.5;stroke-linecap:round;opacity:0.3;filter:url(#grape_blur)" />
+  </g>
 </svg>

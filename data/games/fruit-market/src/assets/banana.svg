@@ -1,13 +1,54 @@
 <svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="bananaGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#FFEB3B;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#FBC02D;stop-opacity:1" />
+    <linearGradient id="banana_skin_grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#fceb71;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#f9d71c;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e6b800;stop-opacity:1" />
     </linearGradient>
+    <linearGradient id="banana_stem_grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#4e3b11;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2a1f08;stop-opacity:1" />
+    </linearGradient>
+    <radialGradient id="banana_flesh_grad" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+      <stop offset="0%" style="stop-color:#fffdf0;stop-opacity:1" />
+      <stop offset="70%" style="stop-color:#fff9c4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f2e9bc;stop-opacity:1" />
+    </radialGradient>
+    <radialGradient id="banana_shadow_grad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#000000;stop-opacity:0.3" />
+      <stop offset="100%" style="stop-color:#000000;stop-opacity:0" />
+    </radialGradient>
   </defs>
-  <path d="M32,30 C25,75 55,115 105,108 C115,106 118,98 110,92 C80,98 50,88 45,35 L32,30 Z" fill="url(#bananaGrad)" />
-  <path d="M45,45 C42,75 62,98 95,95" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" style="opacity:0.5" />
-  <path d="M32,30 L24,18 C21,14 28,10 33,14 L38,26 L32,30 Z" fill="#5D4037" />
-  <path d="M105,108 C109,109 113,107 114,103 L108,100 Z" fill="#3E2723" />
-  <path d="M40,38 C38,70 55,90 80,95" fill="none" stroke="#E65100" stroke-width="1.5" stroke-linecap="round" style="opacity:0.2" />
+  <!-- Ground Shadow -->
+  <ellipse cx="64" cy="110" rx="45" ry="8" style="fill:url(#banana_shadow_grad);" />
+  <!-- Main Banana Body -->
+  <path d="M108,35 C115,45 120,65 105,85 C85,110 40,115 20,95 C10,85 5,70 12,55 C18,45 40,40 65,42 C85,45 100,30 108,35" style="fill:url(#banana_skin_grad);stroke:#d4a017;stroke-width:0.5;" />
+  <!-- Banana Ridge Lines -->
+  <path d="M110,48 C105,70 80,95 30,102" style="fill:none;stroke:#cc9900;stroke-width:0.8;stroke-linecap:round;opacity:0.6;" />
+  <path d="M102,40 C95,60 70,85 25,90" style="fill:none;stroke:#cc9900;stroke-width:0.4;stroke-linecap:round;opacity:0.4;" />
+  <!-- Stem -->
+  <path d="M108,35 L118,25 C120,23 122,25 120,28 L114,38 Z" style="fill:url(#banana_stem_grad);" />
+  <!-- Bottom Tip -->
+  <path d="M12,55 C10,56 8,62 11,64 C13,65 15,60 12,55" style="fill:#2a1f08;" />
+  <!-- Brown Spots -->
+  <circle cx="45" cy="102" r="1.2" style="fill:#6b541e;opacity:0.4;" />
+  <circle cx="85" cy="75" r="0.8" style="fill:#6b541e;opacity:0.3;" />
+  <circle cx="65" cy="98" r="1" style="fill:#6b541e;opacity:0.4;" />
+  <!-- Slice Shadow -->
+  <ellipse cx="40" cy="112" rx="15" ry="4" style="fill:url(#banana_shadow_grad);" />
+  <!-- Slice Skin -->
+  <path d="M55,95 C55,103 48,110 40,110 C32,110 25,103 25,95 C25,87 32,80 40,80 C48,80 55,87 55,95" style="fill:#f9d71c;stroke:#d4a017;stroke-width:0.5;" />
+  <!-- Slice Flesh -->
+  <ellipse cx="40" cy="95" rx="13" ry="13.5" style="fill:url(#banana_flesh_grad);" />
+  <!-- Slice Core and Seeds -->
+  <path d="M40,92 C42,92 43,95 40,98 C37,95 38,92 40,92" style="fill:#e6e0b0;" />
+  <circle cx="40" cy="94" r="0.6" style="fill:#4b3621;opacity:0.7;" />
+  <circle cx="38" cy="96" r="0.5" style="fill:#4b3621;opacity:0.7;" />
+  <circle cx="42" cy="96" r="0.5" style="fill:#4b3621;opacity:0.7;" />
+  <circle cx="40" cy="98" r="0.4" style="fill:#4b3621;opacity:0.7;" />
+  <!-- Slice Texture Lines -->
+  <line x1="40" y1="83" x2="40" y2="88" style="stroke:#e6e0b0;stroke-width:0.5;opacity:0.5;" />
+  <line x1="40" y1="102" x2="40" y2="107" style="stroke:#e6e0b0;stroke-width:0.5;opacity:0.5;" />
+  <line x1="28" y1="95" x2="33" y2="95" style="stroke:#e6e0b0;stroke-width:0.5;opacity:0.5;" />
+  <line x1="47" y1="95" x2="52" y2="95" style="stroke:#e6e0b0;stroke-width:0.5;opacity:0.5;" />
 </svg>
