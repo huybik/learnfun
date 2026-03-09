@@ -797,6 +797,29 @@ body {
   box-shadow: 0 0 10px rgba(255, 143, 0, 0.2);
 }
 
+/* ============ Juice Phase ============ */
+
+.juice-card {
+  text-align: center;
+  padding: 10px 24px;
+  animation: hint-bounce 0.4s ease;
+}
+
+.juice-drink {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 6px;
+  animation: fruit-idle 3s ease-in-out infinite;
+}
+.juice-drink svg { width: 100%; height: 100%; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.15)); }
+
+.juice-name {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
 /* ============ Responsive ============ */
 
 @media (max-width: 480px) {

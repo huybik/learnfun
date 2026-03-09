@@ -14,79 +14,24 @@ const bridge = new GameBridge({
     { name: 'set', params: { field: 'string', value: 'string' }, description: 'Override a game field', godMode: true },
   ],
   defaultInitData: {
-    intro: [
-      // Wave 1
-      { fruit: 'apple', title: 'Meet the Apple!', fact: 'Apples are crunchy and come in red, green, and yellow!' },
-      { fruit: 'banana', title: 'Meet the Banana!', fact: 'Bananas are curved, yellow, and full of energy!' },
-      { fruit: 'watermelon', title: 'Meet the Watermelon!', fact: 'Watermelons are huge, green outside, and red inside!' },
-      { fruit: 'grape', title: 'Meet the Grape!', fact: 'Grapes are tiny and grow in bunches on vines!' },
-      // Wave 2
-      { fruit: 'pineapple', title: 'Meet the Pineapple!', fact: 'Pineapples are spiky on the outside and sweet on the inside!' },
-      { fruit: 'strawberry', title: 'Meet the Strawberry!', fact: 'Strawberries are the only fruit with seeds on the outside!' },
-      { fruit: 'mango', title: 'Meet the Mango!', fact: 'Mangoes are called the king of fruits!' },
-      { fruit: 'cherry', title: 'Meet the Cherry!', fact: 'Cherries always grow in pairs on a stem!' },
-    ],
-    challenges: [
-      // Wave 1
-      { id: 1, fruit: 'apple', hint: '🍎 Find the crunchy red fruit that keeps the doctor away!', pool: ['apple', 'cherry', 'strawberry', 'peach', 'pear', 'orange'] },
-      { id: 2, fruit: 'banana', hint: '🐒 Find the yellow curved fruit that monkeys love!', pool: ['banana', 'lemon', 'mango', 'pineapple', 'pear', 'kiwi'] },
-      { id: 3, fruit: 'watermelon', hint: '🏖️ Find the BIG green fruit that is red and juicy inside!', pool: ['watermelon', 'coconut', 'avocado', 'kiwi', 'grape', 'pineapple'] },
-      { id: 4, fruit: 'grape', hint: '🍇 Find the tiny fruit that grows in bunches on vines!', pool: ['grape', 'blueberry', 'cherry', 'pear', 'strawberry', 'orange'] },
-      // Wave 2
-      { id: 5, fruit: 'pineapple', hint: '🏝️ Find the spiky tropical fruit with a crown on top!', pool: ['pineapple', 'coconut', 'mango', 'lemon', 'avocado', 'kiwi'] },
-      { id: 6, fruit: 'strawberry', hint: '❤️ Find the small red heart-shaped fruit with tiny seeds!', pool: ['strawberry', 'cherry', 'apple', 'peach', 'blueberry', 'grape'] },
-      { id: 7, fruit: 'mango', hint: '👑 Find the tropical fruit that is called the king of fruits!', pool: ['mango', 'pineapple', 'peach', 'orange', 'pear', 'kiwi'] },
-      { id: 8, fruit: 'cherry', hint: '🍒 Find the tiny red fruit that grows in pairs!', pool: ['cherry', 'strawberry', 'grape', 'blueberry', 'apple', 'cranberry'] },
-    ],
-    sort: [
-      {
-        fruits: ['apple', 'cherry', 'banana', 'lemon', 'grape', 'blueberry'],
-        categories: [
-          { name: 'Red Fruits', emoji: '🔴', fruits: ['apple', 'cherry'] },
-          { name: 'Yellow Fruits', emoji: '🟡', fruits: ['banana', 'lemon'] },
-          { name: 'Blue & Purple', emoji: '🟣', fruits: ['grape', 'blueberry'] },
-        ],
-      },
-    ],
-    memory: [
-      { fruits: ['apple', 'banana', 'grape', 'cherry'] },
-    ],
-    oddoneout: [
-      { fruits: ['apple', 'cherry', 'strawberry', 'banana'], odd: 'banana', trait: 'red fruit', explanation: 'Banana is yellow — the rest are red!' },
-      { fruits: ['watermelon', 'pineapple', 'grape', 'coconut'], odd: 'grape', trait: 'big fruit', explanation: 'Grapes are tiny — the rest are big!' },
-    ],
-    pattern: [
-      { sequence: ['apple', 'banana', 'apple', 'banana'], answer: 'apple', options: ['apple', 'grape', 'banana', 'cherry'] },
-      { sequence: ['cherry', 'cherry', 'grape', 'cherry', 'cherry'], answer: 'grape', options: ['cherry', 'grape', 'apple', 'lemon'] },
-    ],
-    shop: {
-      budget: 100,
-      goal: 'Buy fruits for a delicious smoothie! 🥤',
-      items: [
-        { fruit: 'strawberry', price: 15 },
-        { fruit: 'banana', price: 10 },
-        { fruit: 'mango', price: 20 },
-        { fruit: 'blueberry', price: 12 },
-        { fruit: 'coconut', price: 25 },
-        { fruit: 'pineapple', price: 18 },
-      ],
+    fruits: {
+      apple: { title: 'Meet the Apple!', fact: 'Apples are crunchy and come in red, green, and yellow!', hint: '🍎 Find the crunchy red fruit that keeps the doctor away!' },
+      banana: { title: 'Meet the Banana!', fact: 'Bananas are curved, yellow, and full of energy!', hint: '🐒 Find the yellow curved fruit that monkeys love!' },
+      orange: { title: 'Meet the Orange!', fact: 'Oranges are round, orange, and full of vitamin C!', hint: '🍊 Find the round orange fruit full of vitamin C!' },
+      strawberry: { title: 'Meet the Strawberry!', fact: 'Strawberries are the only fruit with seeds on the outside!', hint: '❤️ Find the small red heart-shaped fruit with tiny seeds!' },
+      grape: { title: 'Meet the Grape!', fact: 'Grapes are tiny and grow in bunches on vines!', hint: '🍇 Find the tiny fruit that grows in bunches on vines!' },
+      watermelon: { title: 'Meet the Watermelon!', fact: 'Watermelons are huge, green outside, and red inside!', hint: '🏖️ Find the BIG green fruit that is red and juicy inside!' },
+      pineapple: { title: 'Meet the Pineapple!', fact: 'Pineapples are spiky on the outside and sweet on the inside!', hint: '🏝️ Find the spiky tropical fruit with a crown on top!' },
+      mango: { title: 'Meet the Mango!', fact: 'Mangoes are called the king of fruits!', hint: '👑 Find the tropical fruit that is called the king of fruits!' },
+      cherry: { title: 'Meet the Cherry!', fact: 'Cherries always grow in pairs on a stem!', hint: '🍒 Find the tiny red fruit that grows in pairs!' },
+      lemon: { title: 'Meet the Lemon!', fact: 'Lemons are super sour and bright yellow!', hint: '🍋 Find the sour yellow fruit that makes you pucker!' },
+      peach: { title: 'Meet the Peach!', fact: 'Peaches have fuzzy skin and a big pit inside!', hint: '🍑 Find the fuzzy fruit that is soft and sweet!' },
+      pear: { title: 'Meet the Pear!', fact: 'Pears are shaped like a bell and very juicy!', hint: '🍐 Find the bell-shaped green fruit!' },
+      kiwi: { title: 'Meet the Kiwi!', fact: 'Kiwis are fuzzy brown outside and bright green inside!', hint: '🥝 Find the small fuzzy fruit that is green inside!' },
+      coconut: { title: 'Meet the Coconut!', fact: 'Coconuts are hard on the outside and have sweet water inside!', hint: '🥥 Find the big brown fruit with water inside!' },
+      blueberry: { title: 'Meet the Blueberry!', fact: 'Blueberries are tiny, round, and packed with vitamins!', hint: '💙 Find the tiny round blue fruit!' },
+      avocado: { title: 'Meet the Avocado!', fact: 'Avocados are creamy inside and great on toast!', hint: '🥑 Find the green fruit that is creamy inside!' },
     },
-    recipes: [
-      {
-        name: 'Tropical Smoothie',
-        emoji: '🥤',
-        required: ['mango', 'pineapple', 'banana'],
-        budget: 80,
-        available: [
-          { fruit: 'mango', price: 20 },
-          { fruit: 'pineapple', price: 18 },
-          { fruit: 'banana', price: 10 },
-          { fruit: 'apple', price: 12 },
-          { fruit: 'grape', price: 8 },
-          { fruit: 'coconut', price: 25 },
-        ],
-      },
-    ],
   },
 })
 
