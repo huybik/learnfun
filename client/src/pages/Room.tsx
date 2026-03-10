@@ -399,10 +399,10 @@ export default function RoomPage() {
 
           {/* Chat overlay (bottom of board) — auto-fading messages */}
           {chatExpanded && <div className="absolute inset-0 z-30" onClick={() => setChatExpanded(false)} />}
-          <div className="pointer-events-none absolute bottom-16 left-0 right-0 z-40 flex justify-center">
+          <div className="pointer-events-none absolute bottom-16 right-4 z-40">
             <div
               className={cn(
-                "pointer-events-none w-full max-w-2xl px-4 py-3",
+                "pointer-events-none w-80 px-4 py-3",
                 chatExpanded && "pointer-events-auto max-h-[60vh] overflow-y-auto rounded-xl bg-neutral-900/70 backdrop-blur-md",
               )}
               onClick={() => !chatExpanded && setChatExpanded(true)}
