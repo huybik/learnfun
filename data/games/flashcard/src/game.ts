@@ -90,6 +90,17 @@ export class FlashcardGame implements GameAPI {
           this.sync()
         }
       },
+      _sync: () => {
+        const incoming = params.state as Partial<GameState>
+        // Preserve local timer IDs and per-player assets (score/streak)
+        const { speedTimerId, advanceTimer, score, streak, bestStreak, totalCorrect, totalAnswered, ...rest } = incoming as GameState
+        Object.assign(this.state, rest)
+        this.render()
+        // Followers don't sync back to avoid loops
+      },
+      _getFullState: () => {
+        this.bridge.emitEvent('_fullState', { state: this.getFullState() })
+      },
     }
     actions[name]?.()
   }
@@ -151,6 +162,7 @@ export class FlashcardGame implements GameAPI {
 
   private checkAnswer(value: string): boolean {
     const s = this.state
+    this.bridge.emitEvent('_relay', { name: 'submit', params: { value } })
     if (s.answered || !value.trim()) return false
     if (s.phase !== 'quiz' && s.phase !== 'speed') return false
 
@@ -197,11 +209,17 @@ export class FlashcardGame implements GameAPI {
     renderers[this.state.phase](this.ctx)
   }
 
+  getFullState(): GameState {
+    return { ...this.state }
+  }
+
   private sync() {
     this.bridge.updateState(this.getState())
+    this.bridge.emitEvent('_fullState', { state: this.getFullState() })
   }
 
   private advanceInPhase() {
+    this.bridge.emitEvent('_relay', { name: 'next', params: {} })
     const s = this.state
     clearTimeout(s.advanceTimer)
     s.advanceTimer = 0

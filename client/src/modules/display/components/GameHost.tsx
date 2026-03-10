@@ -23,6 +23,8 @@ interface GameHostProps {
   initData: Record<string, unknown>;
   /** Peer players for multiplayer (sent as _peers action). */
   peers?: { id: string; name: string; score: number; phase: string | null }[];
+  /** If true, skip sending init data — follower waits for _sync from leader. */
+  isFollower?: boolean;
   /** Called when the game sends a state update. */
   onStateUpdate?: (state: Record<string, unknown>) => void;
   /** Called when the game emits a named event. */
@@ -32,7 +34,7 @@ interface GameHostProps {
 }
 
 export const GameHost = forwardRef<GameHostHandle, GameHostProps>(
-  ({ gameId, initData, peers, onStateUpdate, onEvent, onEnd }, ref) => {
+  ({ gameId, initData, peers, isFollower, onStateUpdate, onEvent, onEnd }, ref) => {
     const iframeRef = useRef<HTMLIFrameElement>(null);
     const initDataRef = useRef(initData);
     initDataRef.current = initData;
@@ -72,11 +74,13 @@ export const GameHost = forwardRef<GameHostHandle, GameHostProps>(
 
         switch (msg.type) {
           case "ready":
-            // Game loaded — send init data
-            iframeRef.current?.contentWindow?.postMessage(
-              { type: "init", data: initDataRef.current },
-              window.location.origin,
-            );
+            // Game loaded — send init data (leader only; follower waits for _sync)
+            if (!isFollower) {
+              iframeRef.current?.contentWindow?.postMessage(
+                { type: "init", data: initDataRef.current },
+                window.location.origin,
+              );
+            }
             break;
           case "state":
             onStateUpdate?.(msg.state);

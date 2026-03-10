@@ -36,6 +36,8 @@ interface BoardProps {
   onCursorMove?: (position: { x: number; y: number }) => void;
   /** Peer players for multiplayer scoreboard inside game. */
   peers?: { id: string; name: string; score: number; phase: string | null }[];
+  /** If true, this player is a follower (skip game init, wait for _sync). */
+  isFollower?: boolean;
   /** Ref to control the game iframe (e.g. send teacher actions). */
   gameHostRef?: React.Ref<GameHostHandle>;
 }
@@ -64,6 +66,7 @@ export const Board: React.FC<BoardProps> = ({
   onGameEnd,
   onCursorMove,
   peers,
+  isFollower,
   gameHostRef,
 }) => {
   const boardRef = useRef<HTMLDivElement>(null);
@@ -95,6 +98,7 @@ export const Board: React.FC<BoardProps> = ({
             gameId={gameId}
             initData={gameInitData}
             peers={peers}
+            isFollower={isFollower}
             onStateUpdate={onGameStateUpdate}
             onEvent={onGameEvent}
             onEnd={onGameEnd}

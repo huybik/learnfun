@@ -1,22 +1,23 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 
 export default function JoinPage() {
   const { sessionId = "" } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
-  const [name, setName] = useState("");
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleJoin = async () => {
-    if (!name.trim() || !sessionId) return;
+    if (!user || !sessionId) return;
     setLoading(true);
     setError(null);
     try {
       const res = await fetch("/api/join", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, userName: name.trim() }),
+        body: JSON.stringify({ sessionId, userName: user.displayName }),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -26,7 +27,7 @@ export default function JoinPage() {
       localStorage.setItem(
         "learnfun-session",
         JSON.stringify({
-          userName: name.trim(),
+          userName: user.displayName,
           sessionId,
           livekitToken: session.livekitToken,
           livekitUrl: session.livekitUrl,
@@ -46,27 +47,17 @@ export default function JoinPage() {
         <div className="space-y-2 text-center">
           <h1 className="text-2xl font-bold tracking-tight">Join Session</h1>
           <p className="text-sm text-neutral-400">
-            Enter your name to join the learning session
+            Joining as {user?.displayName}
           </p>
         </div>
 
         <div className="space-y-4">
-          <input
-            type="text"
-            placeholder="Your name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleJoin()}
-            autoFocus
-            className="w-full rounded-md border border-white/10 bg-neutral-800 px-3 py-2 text-sm outline-none placeholder:text-neutral-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
-          />
-
           <button
             onClick={handleJoin}
-            disabled={!name.trim() || loading}
+            disabled={loading}
             className="w-full rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-emerald-500 disabled:opacity-50"
           >
-            {loading ? "Joining..." : "Join"}
+            {loading ? "Joining..." : "Join Session"}
           </button>
           {error && (
             <p className="text-center text-xs text-red-400">{error}</p>

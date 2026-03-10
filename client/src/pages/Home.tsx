@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 import { DEFAULT_VOICES, SUPPORTED_LANGUAGES } from "@/config/constants";
 import type { VoiceName, LanguageCode } from "@/config/constants";
 
@@ -8,14 +9,14 @@ const selectClass =
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const [name, setName] = useState("");
+  const { user, logout } = useAuth();
   const [voice, setVoice] = useState<VoiceName>(DEFAULT_VOICES[0].value);
   const [language, setLanguage] = useState<LanguageCode>(SUPPORTED_LANGUAGES[0].value);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleJoin = async () => {
-    if (!name.trim()) return;
+    if (!user) return;
     setLoading(true);
     setError(null);
     try {
@@ -23,7 +24,7 @@ export default function HomePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userName: name.trim(),
+          userName: user.displayName,
           voicePreference: voice,
           languageCode: language,
         }),
@@ -37,7 +38,7 @@ export default function HomePage() {
       localStorage.setItem(
         "learnfun-session",
         JSON.stringify({
-          userName: name.trim(),
+          userName: user.displayName,
           voicePreference: voice,
           languageCode: language,
           sessionId: session.sessionId,
@@ -60,20 +61,11 @@ export default function HomePage() {
         <div className="space-y-2 text-center">
           <h1 className="text-2xl font-bold tracking-tight">LearnFun</h1>
           <p className="text-sm text-neutral-400">
-            Real-time AI collaborative learning
+            Welcome, {user?.displayName}
           </p>
         </div>
 
         <div className="space-y-4">
-          <input
-            type="text"
-            placeholder="Your name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleJoin()}
-            autoFocus
-            className="w-full rounded-md border border-white/10 bg-neutral-800 px-3 py-2 text-sm outline-none placeholder:text-neutral-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
-          />
 
           <div className="space-y-1">
             <label htmlFor="voice" className="text-xs text-neutral-400">
@@ -113,7 +105,7 @@ export default function HomePage() {
 
           <button
             onClick={handleJoin}
-            disabled={!name.trim() || loading}
+            disabled={loading}
             className="w-full rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-emerald-500 disabled:opacity-50"
           >
             {loading ? "Creating session..." : "Start Learning"}
@@ -121,6 +113,12 @@ export default function HomePage() {
           {error && (
             <p className="text-center text-xs text-red-400">{error}</p>
           )}
+          <button
+            onClick={logout}
+            className="w-full rounded-md border border-white/10 px-3 py-2 text-sm text-neutral-400 transition hover:text-white"
+          >
+            Sign Out
+          </button>
         </div>
       </div>
     </div>

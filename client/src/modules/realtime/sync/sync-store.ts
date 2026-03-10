@@ -15,12 +15,22 @@ export interface BoardSyncState {
   currentPage: number;
 }
 
+export interface PendingAction {
+  from: string;
+  name: string;
+  params: Record<string, unknown>;
+  ts: number;
+}
+
 export interface GameSyncState {
   active: boolean;
   type: string | null;
-  data: Record<string, unknown>;
+  leader: string | null;
+  fullState: Record<string, unknown> | null;
   scores: Record<string, number>;
+  pendingAction: PendingAction | null;
   turnOrder: string[];
+  data: Record<string, unknown>;
 }
 
 export interface ChatMessage {
@@ -90,18 +100,57 @@ export class SyncStore {
     return {
       active: (this.gameMap.get("active") as boolean) ?? false,
       type: (this.gameMap.get("type") as string) ?? null,
-      data: (this.gameMap.get("data") as Record<string, unknown>) ?? {},
-      scores: (this.gameMap.get("scores") as Record<string, number>) ?? {},
+      leader: (this.gameMap.get("leader") as string) ?? null,
+      fullState: (this.gameMap.get("fullState") as Record<string, unknown>) ?? null,
+      scores: this.collectScores(),
+      pendingAction: (this.gameMap.get("pendingAction") as PendingAction) ?? null,
       turnOrder: (this.gameMap.get("turnOrder") as string[]) ?? [],
+      data: (this.gameMap.get("data") as Record<string, unknown>) ?? {},
     };
   }
 
   updateGameState(partial: Partial<GameSyncState>): void {
     this.doc.transact(() => {
       for (const [key, value] of Object.entries(partial)) {
+        // scores are stored as individual score_<userId> keys — skip the aggregated field
+        if (key === "scores") continue;
         this.gameMap.set(key, value);
       }
     });
+  }
+
+  setPlayerScore(userId: string, score: number): void {
+    this.doc.transact(() => {
+      this.gameMap.set(`score_${userId}`, score);
+    });
+  }
+
+  setPlayerPhase(userId: string, phase: string | null): void {
+    this.doc.transact(() => {
+      this.gameMap.set(`phase_${userId}`, phase);
+    });
+  }
+
+  setPendingAction(action: PendingAction | null): void {
+    this.doc.transact(() => {
+      this.gameMap.set("pendingAction", action);
+    });
+  }
+
+  clearPendingAction(): void {
+    this.doc.transact(() => {
+      this.gameMap.set("pendingAction", null);
+    });
+  }
+
+  private collectScores(): Record<string, number> {
+    const scores: Record<string, number> = {};
+    this.gameMap.forEach((value, key) => {
+      if (key.startsWith("score_") && typeof value === "number") {
+        scores[key.slice(6)] = value;
+      }
+    });
+    return scores;
   }
 
   // -- Cursors --

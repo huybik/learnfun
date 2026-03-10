@@ -97,8 +97,9 @@ export default function RoomPage() {
     autoConnect: hasLiveKit,
   });
 
-  const { gameState: syncedGame, updateGameState } = useSync(room.syncStore);
+  const { gameState: syncedGame, updateGameState, setPlayerScore, setPlayerPhase, setPendingAction, clearPendingAction } = useSync(room.syncStore);
   const voice = useVoice(room.livekitConnection);
+  const pendingActionFromRef = useRef<string | null>(null);
 
   // Transcript via LiveKit data channel (lower latency than SSE)
   useEffect(() => {
@@ -133,6 +134,10 @@ export default function RoomPage() {
     room.localParticipant,
     sessionData?.userName ?? "You",
   );
+
+  // --- Leader / Follower ---
+  const isLeader = !!(localUserId && syncedGame.leader === localUserId);
+  const isFollower = !!(localUserId && syncedGame.leader && syncedGame.leader !== localUserId);
 
   // Set Yjs awareness (presence)
   useEffect(() => {
@@ -197,9 +202,11 @@ export default function RoomPage() {
       setFeedback(null);
       setHasOwnHUD(false);
       addTranscript("system", "Content loaded!");
-      updateGameState({ active: true, type: bundle.templateId.toLowerCase(), scores: {}, data: {}, turnOrder: [] });
+      // First player to activate claims leader (host connects first)
+      const leader = syncedGame.leader || localUserId || null;
+      updateGameState({ active: true, type: bundle.templateId.toLowerCase(), leader, data: {}, turnOrder: [] });
     },
-    [addTranscript, updateGameState],
+    [addTranscript, updateGameState, syncedGame.leader, localUserId],
   );
 
   // --- Pause / Resume (used by both ControlBar and light_control) ---
@@ -214,6 +221,21 @@ export default function RoomPage() {
     voice.setMicEnabled(true);
     if (!voice.isSpeakerEnabled) voice.toggleSpeaker();
   }, [voice]);
+
+  // --- Leader: watch pendingAction → forward to game iframe ---
+  useEffect(() => {
+    if (!isLeader || !syncedGame.pendingAction) return;
+    const { from, name, params } = syncedGame.pendingAction;
+    pendingActionFromRef.current = from;
+    gameHostRef.current?.sendAction(name, params);
+    clearPendingAction();
+  }, [isLeader, syncedGame.pendingAction, clearPendingAction]);
+
+  // --- Follower: watch fullState → send _sync to game iframe ---
+  useEffect(() => {
+    if (!isFollower || !syncedGame.fullState) return;
+    gameHostRef.current?.sendAction("_sync", { state: syncedGame.fullState });
+  }, [isFollower, syncedGame.fullState]);
 
   // --- SSE event handlers ---
   const handleContentReady = useCallback(
@@ -289,22 +311,44 @@ export default function RoomPage() {
 
   const handleGameStateUpdate = useCallback(
     (state: Record<string, unknown>) => {
+      // Local HUD always updates for the local player
       if (typeof state.score === "number") setScore(state.score);
       if (state.hasOwnHUD) setHasOwnHUD(true);
-      sendToTeacher(`[game_state_update from ${userName}] ${JSON.stringify(state)}`);
-      // Sync score to Yjs for multiplayer scoreboard
+      // Sync per-player score/phase to Yjs
       if (typeof state.score === "number" && localUserId) {
-        updateGameState({
-          scores: { ...syncedGame.scores, [localUserId]: state.score },
-          data: { ...syncedGame.data, [`${localUserId}_phase`]: state.phase ?? null },
-        });
+        setPlayerScore(localUserId, state.score);
+        setPlayerPhase(localUserId, (state.phase as string) ?? null);
+      }
+      // Only leader sends state updates to teacher
+      if (isLeader) {
+        sendToTeacher(`[game_state_update] ${JSON.stringify(state)}`);
       }
     },
-    [sendToTeacher, userName, localUserId, updateGameState, syncedGame.scores, syncedGame.data],
+    [sendToTeacher, localUserId, setPlayerScore, setPlayerPhase, isLeader],
   );
 
   const handleGameEvent = useCallback(
     (name: string, data: Record<string, unknown>) => {
+      // --- Leader: handle _fullState from game → broadcast via Yjs ---
+      if (name === "_fullState") {
+        if (isLeader) {
+          updateGameState({ fullState: data.state as Record<string, unknown> });
+        }
+        return; // Internal event, don't send to teacher
+      }
+
+      // --- Follower: relay actions to leader via Yjs pendingAction ---
+      if (name === "_relay" && isFollower && localUserId) {
+        setPendingAction({
+          from: localUserId,
+          name: data.name as string,
+          params: (data.params as Record<string, unknown>) ?? {},
+          ts: Date.now(),
+        });
+        return; // Internal event
+      }
+
+      // --- Local feedback for all players ---
       if (name === "correctAnswer") {
         setStreak((s) => s + 1);
         setFeedback({ type: "correct", key: Date.now(), points: 10 });
@@ -313,36 +357,61 @@ export default function RoomPage() {
         setFeedback({ type: "incorrect", key: Date.now() });
       }
 
-      // Send screenshot on game start so teacher sees the visual
-      if (name === "gameStarted") {
-        if (screenshotTimerRef.current) clearTimeout(screenshotTimerRef.current);
-        screenshotTimerRef.current = setTimeout(async () => {
-          screenshotTimerRef.current = null;
-          const dataUrl = await gameHostRef.current?.captureScreenshot();
-          if (dataUrl) {
-            fetch("/api/teacher/image", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ roomId, imageBase64: dataUrl }),
-            }).catch((err) => console.error("[RoomPage] Screenshot send error", err));
-          }
-        }, 500);
+      // --- Leader: credit the player who answered ---
+      if (isLeader && (name === "correctAnswer" || name === "incorrectAnswer")) {
+        const answeredBy = pendingActionFromRef.current || localUserId;
+        pendingActionFromRef.current = null;
+        if (name === "correctAnswer" && answeredBy) {
+          setPlayerScore(answeredBy, (syncedGame.scores[answeredBy] || 0) + 10);
+        }
       }
 
-      sendToTeacher(`[game_event:${name} from ${userName}] ${JSON.stringify(data)}`);
+      // --- Leader only: send events to teacher + screenshot ---
+      if (isLeader) {
+        if (name === "gameStarted") {
+          if (screenshotTimerRef.current) clearTimeout(screenshotTimerRef.current);
+          screenshotTimerRef.current = setTimeout(async () => {
+            screenshotTimerRef.current = null;
+            const dataUrl = await gameHostRef.current?.captureScreenshot();
+            if (dataUrl) {
+              fetch("/api/teacher/image", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ roomId, imageBase64: dataUrl }),
+              }).catch((err) => console.error("[RoomPage] Screenshot send error", err));
+            }
+          }, 500);
+        }
+        sendToTeacher(`[game_event:${name}] ${JSON.stringify(data)}`);
+      }
     },
-    [sendToTeacher, userName, roomId],
+    [sendToTeacher, roomId, isLeader, isFollower, localUserId, updateGameState, setPendingAction, setPlayerScore, syncedGame.scores],
   );
 
   const handleGameEnd = useCallback(
     (results?: Record<string, unknown>) => {
       setIsGameActive(false);
-      if (results) {
-        sendToTeacher(`[game_event:gameEnd from ${userName}] ${JSON.stringify(results)}`);
+      if (isLeader) {
+        if (results) {
+          sendToTeacher(`[game_event:gameEnd] ${JSON.stringify(results)}`);
+        }
+        // Persist scores to DB
+        if (Object.keys(syncedGame.scores).length > 0) {
+          fetch("/api/game/end", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              roomId,
+              gameType: syncedGame.type ?? "unknown",
+              scores: syncedGame.scores,
+              details: results ?? {},
+            }),
+          }).catch((err) => console.error("[RoomPage] Score persist error", err));
+        }
       }
       updateGameState({ active: false });
     },
-    [sendToTeacher, userName, updateGameState],
+    [sendToTeacher, updateGameState, isLeader, roomId, syncedGame.scores, syncedGame.type],
   );
 
   const handleEndGame = useCallback(() => {
@@ -350,12 +419,26 @@ export default function RoomPage() {
       clearTimeout(screenshotTimerRef.current);
       screenshotTimerRef.current = null;
     }
-    sendToTeacher(`[game_event:gameEnd from ${userName}] ${JSON.stringify({ outcome: "closed_by_user" })}`);
+    if (isLeader) {
+      sendToTeacher(`[game_event:gameEnd] ${JSON.stringify({ outcome: "closed_by_user" })}`);
+      // Persist scores to DB
+      if (Object.keys(syncedGame.scores).length > 0) {
+        fetch("/api/game/end", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            roomId,
+            gameType: syncedGame.type ?? "unknown",
+            scores: syncedGame.scores,
+          }),
+        }).catch((err) => console.error("[RoomPage] Score persist error", err));
+      }
+    }
     setIsGameActive(false);
     setGameId(undefined);
     setGameInitData(undefined);
     updateGameState({ active: false });
-  }, [sendToTeacher, userName, updateGameState]);
+  }, [sendToTeacher, updateGameState, isLeader, roomId, syncedGame.scores, syncedGame.type]);
 
   // --- Text chat: send to AI teacher ---
   const handleSendText = useCallback(
@@ -474,6 +557,7 @@ export default function RoomPage() {
               gameHostRef={gameHostRef}
               localUserId={localUserId}
               peers={gamePeers}
+              isFollower={isFollower}
               onGameStateUpdate={handleGameStateUpdate}
               onGameEvent={handleGameEvent}
               onGameEnd={handleGameEnd}

@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import type { SyncStore, BoardSyncState, GameSyncState } from "../sync/sync-store";
+import type { SyncStore, BoardSyncState, GameSyncState, PendingAction } from "../sync/sync-store";
 
 export interface UseSyncResult {
   boardState: BoardSyncState;
@@ -13,15 +13,22 @@ export interface UseSyncResult {
   setCurrentPage: (page: number) => void;
   setFocusPoint: (point: { x: number; y: number } | null) => void;
   updateGameState: (partial: Partial<GameSyncState>) => void;
+  setPlayerScore: (userId: string, score: number) => void;
+  setPlayerPhase: (userId: string, phase: string | null) => void;
+  setPendingAction: (action: PendingAction | null) => void;
+  clearPendingAction: () => void;
 }
 
 const defaultBoard: BoardSyncState = { currentBundle: null, focusPoint: null, currentPage: 0 };
 const defaultGame: GameSyncState = {
   active: false,
   type: null,
-  data: {},
+  leader: null,
+  fullState: null,
   scores: {},
+  pendingAction: null,
   turnOrder: [],
+  data: {},
 };
 
 /**
@@ -82,6 +89,31 @@ export function useSync(syncStore: SyncStore | null): UseSyncResult {
     [syncStore],
   );
 
+  const setPlayerScore = useCallback(
+    (userId: string, score: number) => {
+      syncStore?.setPlayerScore(userId, score);
+    },
+    [syncStore],
+  );
+
+  const setPlayerPhase = useCallback(
+    (userId: string, phase: string | null) => {
+      syncStore?.setPlayerPhase(userId, phase);
+    },
+    [syncStore],
+  );
+
+  const setPendingAction = useCallback(
+    (action: PendingAction | null) => {
+      syncStore?.setPendingAction(action);
+    },
+    [syncStore],
+  );
+
+  const clearPendingAction = useCallback(() => {
+    syncStore?.clearPendingAction();
+  }, [syncStore]);
+
   return {
     boardState,
     gameState,
@@ -89,5 +121,9 @@ export function useSync(syncStore: SyncStore | null): UseSyncResult {
     setCurrentPage,
     setFocusPoint,
     updateGameState,
+    setPlayerScore,
+    setPlayerPhase,
+    setPendingAction,
+    clearPendingAction,
   };
 }

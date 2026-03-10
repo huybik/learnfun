@@ -103,6 +103,32 @@ export class FruitMarketGame implements GameAPI, GameCtx {
         this.s.peers = (params.players as typeof this.s.peers) || []
         this.renderPeers()
       },
+      _sync: () => {
+        const incoming = params.state as Record<string, unknown>
+        // Preserve local per-player assets, peers and timer
+        const localPeers = this.s.peers
+        const localTimer = this.s.advanceTimer
+        const localCoins = this.s.coins
+        const localScore = this.s.score
+        const localStreak = this.s.streak
+        // Deserialize memoryMatched from array back to Set
+        if (Array.isArray(incoming.memoryMatched)) {
+          incoming.memoryMatched = new Set(incoming.memoryMatched as number[])
+        }
+        Object.assign(this.s, incoming)
+        this.s.peers = localPeers
+        this.s.advanceTimer = localTimer
+        this.s.coins = localCoins
+        this.s.score = localScore
+        this.s.streak = localStreak
+        this.render()
+        // Followers don't sync back to avoid loops
+        return
+      },
+      _getFullState: () => {
+        this.bridge.emitEvent('_fullState', { state: this.getFullState() })
+        return
+      },
       end: () => this.finish(),
       set: () => {
         const field = String(params.field)
@@ -115,6 +141,11 @@ export class FruitMarketGame implements GameAPI, GameCtx {
           }
         }
       },
+    }
+    // Internal actions handle their own sync (or skip it)
+    if (name === '_sync' || name === '_getFullState' || name === '_peers') {
+      actions[name]?.()
+      return
     }
     actions[name]?.()
     this.sync()
@@ -173,6 +204,7 @@ export class FruitMarketGame implements GameAPI, GameCtx {
   }
 
   advance() {
+    this.bridge.emitEvent('_relay', { name: 'next', params: {} })
     clearTimeout(this.s.advanceTimer)
     const s = this.s
 
@@ -259,7 +291,16 @@ export class FruitMarketGame implements GameAPI, GameCtx {
 
   finish() { renderEnd(this) }
 
-  sync() { this.bridge.updateState(this.getState()); this.renderPeers() }
+  getFullState(): Record<string, unknown> {
+    // Serialize Set to Array for JSON-safe transport
+    return { ...this.s, memoryMatched: [...this.s.memoryMatched] }
+  }
+
+  sync() {
+    this.bridge.updateState(this.getState())
+    this.bridge.emitEvent('_fullState', { state: this.getFullState() })
+    this.renderPeers()
+  }
 
   // ---- Internal ----
 

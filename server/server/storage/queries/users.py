@@ -131,3 +131,66 @@ async def update_user(
         await pool.execute(sql, *values)
 
     log.debug("User updated id=%s", user_id)
+
+
+# ---------------------------------------------------------------------------
+# Auth queries
+# ---------------------------------------------------------------------------
+
+
+async def create_user_with_auth(
+    username: str,
+    password_hash: str,
+    display_name: str,
+) -> dict:
+    """Create a user with auth credentials + profile + progress. Returns dict with id and name."""
+    pool = get_pool()
+
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "INSERT INTO users (name, username, password_hash) VALUES ($1, $2, $3) RETURNING *",
+            display_name,
+            username,
+            password_hash,
+        )
+
+        await conn.execute(
+            """INSERT INTO user_profiles (user_id, voice_preference, language_code, show_avatar)
+               VALUES ($1, $2, $3, $4)""",
+            row["id"],
+            "Puck",
+            "en-US",
+            True,
+        )
+
+        await conn.execute(
+            "INSERT INTO learning_progress (user_id) VALUES ($1)",
+            row["id"],
+        )
+
+    log.info("Auth user created id=%s username=%s", row["id"], username)
+    return {"id": str(row["id"]), "name": row["name"]}
+
+
+async def get_user_by_username(username: str) -> dict | None:
+    """Get a user by username. Returns row dict with password_hash, or None."""
+    pool = get_pool()
+    row = await pool.fetchrow(
+        "SELECT id, name, username, password_hash, created_at, updated_at FROM users WHERE username = $1",
+        username,
+    )
+    if row is None:
+        return None
+    return dict(row)
+
+
+async def get_user_by_id(user_id: str) -> dict | None:
+    """Get a user by ID. Returns row dict without password_hash, or None."""
+    pool = get_pool()
+    row = await pool.fetchrow(
+        "SELECT id, name, username, created_at, updated_at FROM users WHERE id = $1",
+        user_id,
+    )
+    if row is None:
+        return None
+    return dict(row)

@@ -91,6 +91,23 @@ Interactive learning platform: AI teacher + teaching assistant guide students th
 - **Audio forwarding**: `_forward_audio_to_gemini` uses a decoupled asyncio.Queue (reader task + sender loop) to prevent backpressure on LiveKit audio reads
 - **Prompt optimization**: `_strip_for_teacher()` in system_prompt.py removes TA-only sections (Input Data) from skill.md text before embedding in teacher prompt. Skill files are also trimmed (no Actions section, condensed State/Events/Teacher Guide)
 
+## Authentication
+- Simple username/password auth (bcrypt) — `api/auth.py` (register/login/verify)
+- JWT auth tokens (7-day expiry, type: "auth") stored in `learnfun-auth` localStorage
+- AuthContext provider wraps app, auto-verifies token on mount
+- Login/Register pages, route protection via RequireAuth/RedirectIfAuth guards
+- DB: `users.username` + `users.password_hash` columns (migration 002_auth.sql)
+
+## Multiplayer Game Sync (Leader-Follower)
+- Room creator = leader (first to set `syncedGame.leader` in Yjs)
+- Leader's game iframe runs normally, emits `_fullState` event → written to Yjs
+- Followers skip game init (isFollower prop), receive `_sync` action from Yjs fullState
+- Player actions relayed: games emit `_relay` events → follower writes `pendingAction` to Yjs → leader forwards to iframe
+- Per-player scores: individual `score_<userId>` Yjs keys (no read-modify-write race)
+- In-game assets (coins, streak) are per-player local — `_sync` preserves them
+- Only leader sends events/state to teacher (no duplicates)
+- Game end: leader POSTs `/api/game/end` → persists scores to `game_results` + `learning_progress`
+
 ## Infrastructure
 
 - Docker Compose: PostgreSQL, Redis, LiveKit server

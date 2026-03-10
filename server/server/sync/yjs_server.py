@@ -82,15 +82,16 @@ async def stop_yjs(task: asyncio.Task) -> None:
 
 
 async def get_game_scores(room_id: str) -> dict[str, int]:
-    """Read per-player scores from the room's Yjs game map."""
+    """Read per-player scores from individual score_<userId> keys in the Yjs game map."""
     if room_id not in yjs_server.rooms:
         return {}
     room = yjs_server.rooms[room_id]
     game_map = room.ydoc.get("game", type=Map)
-    scores = game_map.get("scores")
-    if isinstance(scores, dict):
-        return scores
-    return {}
+    scores: dict[str, int] = {}
+    for key in game_map:
+        if key.startswith("score_") and isinstance(game_map[key], (int, float)):
+            scores[key[6:]] = int(game_map[key])
+    return scores
 
 
 def mount_yjs(app: FastAPI) -> None:
