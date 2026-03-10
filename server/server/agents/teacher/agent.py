@@ -55,6 +55,14 @@ def _sanitize_json_schema(value: Any) -> Any:
     if not isinstance(value, dict):
         return value
 
+    # Unwrap anyOf from Pydantic Optional (e.g. anyOf: [{type: X}, {type: null}])
+    if "anyOf" in value:
+        non_null = [v for v in value["anyOf"] if v != {"type": "null"}]
+        base = non_null[0] if non_null else {}
+        merged = {k: v for k, v in value.items() if k != "anyOf"}
+        merged.update(base)
+        return _sanitize_json_schema(merged)
+
     sanitized: dict[str, Any] = {}
     for key, item in value.items():
         if item is None:
