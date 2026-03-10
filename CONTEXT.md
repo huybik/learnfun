@@ -87,6 +87,9 @@ Interactive learning platform: AI teacher + teaching assistant guide students th
 - **Rate limiting**: `RateLimitResult(allowed, retry_after_ms)` — simple dataclass
 - **SQL helpers**: `_helpers.py` provides `build_update_sql()`
 - **Tool flow**: Gemini → tool call → TeacherAgent → ToolRegistry.execute() → handler → publish_event() → SSE → client. `light_control` and `signal_feedback` publish to UI_CONTROL channel; Room.tsx handles via `onUIControl` → ScreenEffects
+- **Transcript delivery**: LiveKit data channel (not Redis→SSE). TeacherAgent publishes via `room.local_participant.publish_data(topic="transcript")`, Room.tsx listens via `RoomEvent.DataReceived`. Bypasses Redis/SSE for lower latency.
+- **Audio forwarding**: `_forward_audio_to_gemini` uses a decoupled asyncio.Queue (reader task + sender loop) to prevent backpressure on LiveKit audio reads
+- **Prompt optimization**: `_strip_for_teacher()` in system_prompt.py removes TA-only sections (Input Data) from skill.md text before embedding in teacher prompt. Skill files are also trimmed (no Actions section, condensed State/Events/Teacher Guide)
 
 ## Infrastructure
 

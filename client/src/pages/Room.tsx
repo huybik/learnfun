@@ -13,6 +13,7 @@ import { useServerEvents, type ContentReadyPayload, type UIControlPayload, type 
 import { useSessionData } from "@/modules/realtime/hooks/useSessionData";
 import { useRoomTranscript } from "@/modules/realtime/hooks/useRoomTranscript";
 import { useRoomParticipants } from "@/modules/realtime/hooks/useRoomParticipants";
+import { RoomEvent } from "livekit-client";
 import { MdGroup } from "react-icons/md";
 import { cn } from "@/lib/utils";
 
@@ -96,6 +97,32 @@ export default function RoomPage() {
 
   const voice = useVoice(room.livekitConnection);
 
+  // Transcript via LiveKit data channel (lower latency than SSE)
+  useEffect(() => {
+    const lkRoom = room.livekitConnection?.room;
+    if (!lkRoom) return;
+
+    const onData = (
+      payload: Uint8Array,
+      _participant?: unknown,
+      _kind?: unknown,
+      topic?: string,
+    ) => {
+      if (topic !== "transcript") return;
+      try {
+        const data = JSON.parse(new TextDecoder().decode(payload));
+        addTranscript(data.source, data.text);
+      } catch (err) {
+        console.error("[RoomPage] Failed to parse transcript data", err);
+      }
+    };
+
+    lkRoom.on(RoomEvent.DataReceived, onData);
+    return () => {
+      lkRoom.off(RoomEvent.DataReceived, onData);
+    };
+  }, [room.connectionState, addTranscript]);
+
   const { participants: roomParticipants, localUserId } = useRoomParticipants(
     room.participants,
     room.localParticipant,
@@ -171,13 +198,6 @@ export default function RoomPage() {
     [activateBundle],
   );
 
-  const handleTranscript = useCallback(
-    (data: { source: "user" | "ai"; text: string }) => {
-      addTranscript(data.source, data.text);
-    },
-    [addTranscript],
-  );
-
   const handleUIControl = useCallback(
     (data: UIControlPayload) => {
       const { type, payload } = data;
@@ -222,7 +242,6 @@ export default function RoomPage() {
 
   const sse = useServerEvents(roomId || null, {
     onContentReady: handleContentReady,
-    onTranscript: handleTranscript,
     onUIControl: handleUIControl,
     onGameAction: handleGameAction,
   });

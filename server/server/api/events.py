@@ -21,7 +21,6 @@ router = APIRouter()
 _ROOM_CHANNELS = [
     (SUBJECTS["CONTENT_PUSH"], "content_ready"),
     (SUBJECTS["UI_CONTROL"], "ui_control"),
-    (SUBJECTS["TRANSCRIPT"], "transcript"),
     (SUBJECTS["GAME_STARTED"], "game_started"),
     (SUBJECTS["GAME_ENDED"], "game_ended"),
     (SUBJECTS["GAME_ACTION"], "game_action"),

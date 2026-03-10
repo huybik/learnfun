@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any, Optional
 
 from server.content.models import GameMeta
@@ -108,6 +109,31 @@ Use tools to control the experience. Do not hallucinate tools not listed above.
 See **Game Management** above for how to start self-contained vs TA-powered games."""
 
 
+def _strip_for_teacher(skill_text: str) -> str:
+    """Strip TA-only sections (Input Data) from skill text for the teacher prompt."""
+    skip_headings = {"input data"}
+    lines = skill_text.split("\n")
+    result: list[str] = []
+    skip = False
+    skip_level = 0
+
+    for line in lines:
+        m = re.match(r"^(#{1,6})\s+(.+)", line)
+        if m:
+            level = len(m.group(1))
+            title = re.sub(r"\s*\(.*?\)", "", m.group(2).strip()).lower()
+            if skip and level <= skip_level:
+                skip = False
+            if level >= 2 and title in skip_headings:
+                skip = True
+                skip_level = level
+                continue
+        if not skip:
+            result.append(line)
+
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(result)).strip()
+
+
 def _build_game_catalog(games: Optional[list[GameMeta]]) -> str:
     """Build a human-readable catalog of available games."""
     if not games:
@@ -115,14 +141,13 @@ def _build_game_catalog(games: Optional[list[GameMeta]]) -> str:
 
     lines: list[str] = [
         "**AVAILABLE GAMES**",
-        "Use **game_action** to interact with the active game (see each game's Actions section).",
         "",
     ]
     for g in games:
         tag = " [SELF-CONTAINED]" if g.selfContained else ""
         lines.append(f"### templateId=\"{g.id}\" — **{g.name}**{tag} (tags: {', '.join(g.tags)})")
         if g.skill_text:
-            lines.append(g.skill_text)
+            lines.append(_strip_for_teacher(g.skill_text))
         lines.append("")
 
     return "\n".join(lines)

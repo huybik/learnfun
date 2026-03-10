@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import uuid
 from typing import Any, Optional
 
@@ -312,18 +313,36 @@ class TeacherAgent:
     async def _forward_audio_to_gemini(
         self, audio_stream: rtc.AudioStream, participant_id: str
     ) -> None:
-        """Read frames from a LiveKit audio stream and send to Gemini."""
+        """Read frames from LiveKit and send to Gemini via a decoupled queue.
+
+        The queue prevents backpressure on audio reads if a send stalls.
+        """
+        queue: asyncio.Queue[bytes | None] = asyncio.Queue(maxsize=50)
+
+        async def reader() -> None:
+            try:
+                async for event in audio_stream:
+                    if not self._running:
+                        break
+                    await queue.put(event.frame.data.tobytes())
+            finally:
+                try:
+                    queue.put_nowait(None)
+                except asyncio.QueueFull:
+                    pass
+
+        reader_task = asyncio.create_task(reader())
         try:
-            async for event in audio_stream:
-                if not self._running or not self._gemini or not self._gemini.connected:
+            while True:
+                data = await queue.get()
+                if data is None:
                     break
-                frame = event.frame
-                # frame.data is bytes of PCM-16 samples
-                await self._gemini.send_audio(frame.data.tobytes())
+                if self._gemini and self._gemini.connected:
+                    await self._gemini.send_audio(data)
         except Exception as exc:
             log.error("Audio forward error", participant=participant_id, error=str(exc))
         finally:
-            # Signal end of audio stream so Gemini flushes any buffered audio
+            reader_task.cancel()
             if self._gemini and self._gemini.connected:
                 try:
                     await self._gemini.send_audio_stream_end()
@@ -471,16 +490,13 @@ class TeacherAgent:
             log.error("TA dispatch failed", call_id=call_id, error=str(exc))
 
     def _on_gemini_transcription(self, source: str, text: str) -> None:
-        """Publish transcription to Redis for SSE delivery."""
-        channel = room_subject(SUBJECTS["TRANSCRIPT"], self._room_id)
+        """Publish transcription via LiveKit data channel (lower latency than Redis→SSE)."""
+        if not self._room:
+            return
+        data = json.dumps({"source": source, "text": text}).encode()
         self._track_task(
             asyncio.create_task(
-                publish_event(
-                    channel=channel,
-                    event_type="transcript",
-                    payload={"source": source, "text": text},
-                    source_id="ai-teacher",
-                )
+                self._room.local_participant.publish_data(data, topic="transcript")
             )
         )
 
