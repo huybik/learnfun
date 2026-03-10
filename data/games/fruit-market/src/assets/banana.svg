@@ -1,54 +1,55 @@
 <svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="banana_skin_grad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#fceb71;stop-opacity:1" />
-      <stop offset="50%" style="stop-color:#f9d71c;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#e6b800;stop-opacity:1" />
+      <stop offset="0%" style="stop-color:#ffe135;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#fbd808;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e1b500;stop-opacity:1" />
     </linearGradient>
-    <linearGradient id="banana_stem_grad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" style="stop-color:#4e3b11;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#2a1f08;stop-opacity:1" />
+    <linearGradient id="banana_stem_grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8b9a47;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#5d4037;stop-opacity:1" />
     </linearGradient>
-    <radialGradient id="banana_flesh_grad" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
-      <stop offset="0%" style="stop-color:#fffdf0;stop-opacity:1" />
-      <stop offset="70%" style="stop-color:#fff9c4;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#f2e9bc;stop-opacity:1" />
+    <radialGradient id="banana_flesh_grad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#fffceb;stop-opacity:1" />
+      <stop offset="70%" style="stop-color:#fdf5c4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f2e394;stop-opacity:1" />
     </radialGradient>
-    <radialGradient id="banana_shadow_grad" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" style="stop-color:#000000;stop-opacity:0.3" />
-      <stop offset="100%" style="stop-color:#000000;stop-opacity:0" />
-    </radialGradient>
+    <filter id="banana_blur" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="0.5" />
+    </filter>
   </defs>
-  <!-- Ground Shadow -->
-  <ellipse cx="64" cy="110" rx="45" ry="8" style="fill:url(#banana_shadow_grad);" />
   <!-- Main Banana Body -->
-  <path d="M108,35 C115,45 120,65 105,85 C85,110 40,115 20,95 C10,85 5,70 12,55 C18,45 40,40 65,42 C85,45 100,30 108,35" style="fill:url(#banana_skin_grad);stroke:#d4a017;stroke-width:0.5;" />
-  <!-- Banana Ridge Lines -->
-  <path d="M110,48 C105,70 80,95 30,102" style="fill:none;stroke:#cc9900;stroke-width:0.8;stroke-linecap:round;opacity:0.6;" />
-  <path d="M102,40 C95,60 70,85 25,90" style="fill:none;stroke:#cc9900;stroke-width:0.4;stroke-linecap:round;opacity:0.4;" />
+  <path d="M25,35 C40,25 90,30 110,85 C112,90 105,95 100,92 C80,80 50,75 25,35" fill="url(#banana_skin_grad)" stroke="#d4a017" stroke-width="0.5" />
+  <!-- Ridges for texture -->
+  <path d="M28,38 C45,32 85,38 103,83" fill="none" stroke="#f0c400" stroke-width="1.5" style="opacity:0.6" />
+  <path d="M35,45 C50,42 85,50 100,88" fill="none" stroke="#b8860b" stroke-width="0.5" style="opacity:0.3" />
   <!-- Stem -->
-  <path d="M108,35 L118,25 C120,23 122,25 120,28 L114,38 Z" style="fill:url(#banana_stem_grad);" />
-  <!-- Bottom Tip -->
-  <path d="M12,55 C10,56 8,62 11,64 C13,65 15,60 12,55" style="fill:#2a1f08;" />
+  <path d="M25,35 L18,28 C16,25 20,22 23,24 L29,32 Z" fill="url(#banana_stem_grad)" />
+  <!-- Tip -->
+  <path d="M109,84 C111,86 112,89 110,91 C108,93 105,92 104,89 Z" fill="#4e342e" />
   <!-- Brown Spots -->
-  <circle cx="45" cy="102" r="1.2" style="fill:#6b541e;opacity:0.4;" />
-  <circle cx="85" cy="75" r="0.8" style="fill:#6b541e;opacity:0.3;" />
-  <circle cx="65" cy="98" r="1" style="fill:#6b541e;opacity:0.4;" />
-  <!-- Slice Shadow -->
-  <ellipse cx="40" cy="112" rx="15" ry="4" style="fill:url(#banana_shadow_grad);" />
-  <!-- Slice Skin -->
-  <path d="M55,95 C55,103 48,110 40,110 C32,110 25,103 25,95 C25,87 32,80 40,80 C48,80 55,87 55,95" style="fill:#f9d71c;stroke:#d4a017;stroke-width:0.5;" />
-  <!-- Slice Flesh -->
-  <ellipse cx="40" cy="95" rx="13" ry="13.5" style="fill:url(#banana_flesh_grad);" />
-  <!-- Slice Core and Seeds -->
-  <path d="M40,92 C42,92 43,95 40,98 C37,95 38,92 40,92" style="fill:#e6e0b0;" />
-  <circle cx="40" cy="94" r="0.6" style="fill:#4b3621;opacity:0.7;" />
-  <circle cx="38" cy="96" r="0.5" style="fill:#4b3621;opacity:0.7;" />
-  <circle cx="42" cy="96" r="0.5" style="fill:#4b3621;opacity:0.7;" />
-  <circle cx="40" cy="98" r="0.4" style="fill:#4b3621;opacity:0.7;" />
-  <!-- Slice Texture Lines -->
-  <line x1="40" y1="83" x2="40" y2="88" style="stroke:#e6e0b0;stroke-width:0.5;opacity:0.5;" />
-  <line x1="40" y1="102" x2="40" y2="107" style="stroke:#e6e0b0;stroke-width:0.5;opacity:0.5;" />
-  <line x1="28" y1="95" x2="33" y2="95" style="stroke:#e6e0b0;stroke-width:0.5;opacity:0.5;" />
-  <line x1="47" y1="95" x2="52" y2="95" style="stroke:#e6e0b0;stroke-width:0.5;opacity:0.5;" />
+  <circle cx="65" cy="48" r="0.8" fill="#5d4037" style="opacity:0.4" />
+  <circle cx="85" cy="65" r="1" fill="#5d4037" style="opacity:0.5" />
+  <circle cx="45" cy="42" r="0.6" fill="#5d4037" style="opacity:0.3" />
+  <!-- Cut Slice -->
+  <g transform="translate(45, 95) rotate(-10)">
+    <!-- Slice Peel -->
+    <ellipse cx="0" cy="0" rx="16" ry="14" fill="#fbd808" stroke="#d4a017" stroke-width="0.5" />
+    <!-- Slice Flesh -->
+    <ellipse cx="0" cy="0" rx="13" ry="11" fill="url(#banana_flesh_grad)" />
+    <!-- Center Seeds/Core -->
+    <g style="opacity:0.7" filter="url(#banana_blur)">
+      <circle cx="0" cy="0" r="1.5" fill="#e0d19d" />
+      <circle cx="1.5" cy="1" r="0.4" fill="#4e342e" />
+      <circle cx="-1.5" cy="1" r="0.4" fill="#4e342e" />
+      <circle cx="0" cy="-1.8" r="0.4" fill="#4e342e" />
+    </g>
+    <!-- Radial lines in flesh -->
+    <line x1="-2" y1="0" x2="-10" y2="0" stroke="#ede1a4" stroke-width="0.5" />
+    <line x1="2" y1="0" x2="10" y2="0" stroke="#ede1a4" stroke-width="0.5" />
+    <line x1="0" y1="-2" x2="0" y2="-8" stroke="#ede1a4" stroke-width="0.5" />
+    <line x1="0" y1="2" x2="0" y2="8" stroke="#ede1a4" stroke-width="0.5" />
+  </g>
+  <!-- Shadow under banana -->
+  <ellipse cx="70" cy="115" rx="40" ry="5" fill="#000" style="opacity:0.1" filter="url(#banana_blur)" />
 </svg>

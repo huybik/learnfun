@@ -26,6 +26,7 @@ const WAVE_SIZE = 3
 const TOTAL_WAVES = 3
 const FRUIT_PRICE = 10
 const STARTER_FRUITS = ['apple', 'banana', 'orange']
+const ALL_MINI_GAMES: MiniGame[] = ['memory', 'pattern', 'oddoneout', 'sort', 'juice']
 
 const FRUIT_COLORS: Record<string, string> = {
   apple: 'red', cherry: 'red', strawberry: 'red',
@@ -45,6 +46,7 @@ const COLOR_NAMES: Record<string, string> = {
 }
 
 const DRINK_RECIPES: DrinkRecipe[] = [
+  { name: 'Fruit Punch', drink: 'fruit-punch', fruits: ['apple', 'banana'] },
   { name: 'Apple Juice', drink: 'apple-juice', fruits: ['apple', 'lemon'] },
   { name: 'Tropical Smoothie', drink: 'tropical-smoothie', fruits: ['mango', 'pineapple', 'banana'] },
   { name: 'Berry Blast', drink: 'berry-blast', fruits: ['strawberry', 'blueberry', 'cherry'] },
@@ -103,6 +105,7 @@ export class FruitMarketGame implements GameAPI {
   private waveFruits: string[] = []
   private waveGames: MiniGame[] = []
   private gameIdx = 0
+  private playedGames: MiniGame[] = []
 
   // Fruit data
   private allFruits: Record<string, FruitInfo> = {}
@@ -176,7 +179,7 @@ export class FruitMarketGame implements GameAPI {
     this.timerDuration = Number(d.timerDuration) || 10000
 
     this.wave = 0; this.coins = 0; this.score = 0; this.streak = 0
-    this.learnedFruits = []; this.shopBasket = []
+    this.learnedFruits = []; this.shopBasket = []; this.playedGames = []
     clearTimeout(this.advanceTimer)
 
     const starters = (d.starterFruits as string[]) || STARTER_FRUITS
@@ -298,7 +301,6 @@ export class FruitMarketGame implements GameAPI {
   }
 
   private buildWaveData() {
-    // Intro items for this wave's fruits
     this.intro = this.waveFruits.map(fruit => {
       const info = this.getFruitInfo(fruit)
       return {
@@ -309,7 +311,6 @@ export class FruitMarketGame implements GameAPI {
     })
     this.introIdx = 0
 
-    // Challenges for this wave's fruits
     this.challenges = this.waveFruits.map((fruit, i) => ({
       id: `w${this.wave}-${i}`,
       fruit,
@@ -319,29 +320,35 @@ export class FruitMarketGame implements GameAPI {
     }))
     this.idx = 0; this.answered = false; this.wrongAttempts = 0
 
-    // Generate mini-game data from all known fruits
     const allKnown = [...this.learnedFruits, ...this.waveFruits]
     this.generateMiniGameData(allKnown)
   }
 
   private buildChallengePool(fruit: string): string[] {
     const others = FRUIT_NAMES.filter(f => f !== fruit)
-    const pool = [fruit, ...shuffle(others).slice(0, 5)]
-    return shuffle(pool)
+    return shuffle([fruit, ...shuffle(others).slice(0, 5)])
   }
 
   private assignWaveGames() {
     const allKnown = this.learnedFruits.length + this.waveFruits.length
-    const allGames: MiniGame[] = ['memory', 'pattern', 'oddoneout', 'sort', 'juice']
 
-    const available = allGames.filter(g => {
+    const available = ALL_MINI_GAMES.filter(g => {
       if (g === 'oddoneout') return allKnown >= 4
       if (g === 'sort') return allKnown >= 6
       if (g === 'juice') return this.getAvailableJuiceRecipes().length > 0
       return true
     })
 
-    this.waveGames = shuffle(available).slice(0, 2)
+    // Prioritize unplayed games so all mini-games appear across waves
+    const unplayed = available.filter(g => !this.playedGames.includes(g))
+    const picks = shuffle(unplayed).slice(0, 2)
+    if (picks.length < 2) {
+      const extras = shuffle(available.filter(g => !picks.includes(g)))
+      picks.push(...extras.slice(0, 2 - picks.length))
+    }
+
+    this.waveGames = picks
+    this.playedGames.push(...picks)
     this.gameIdx = 0
   }
 
@@ -353,7 +360,6 @@ export class FruitMarketGame implements GameAPI {
         this.introIdx++; sfxPop(); this.render(); this.sync()
         this.bridge.emitEvent('introAdvance', { index: this.introIdx, fruit: this.intro[this.introIdx]?.fruit })
       } else {
-        // Learn done → quiz
         this.phase = 'play'
         this.idx = 0; this.answered = false; this.wrongAttempts = 0
         sfxWhoosh(); this.render(); this.sync()
@@ -367,7 +373,6 @@ export class FruitMarketGame implements GameAPI {
         this.idx++; this.answered = false; this.wrongAttempts = 0
         this.render(); this.sync()
       } else {
-        // Quiz done → mark learned → start mini-games
         this.learnedFruits.push(...this.waveFruits)
         this.advanceToNextGame()
       }
@@ -419,9 +424,7 @@ export class FruitMarketGame implements GameAPI {
       this.gameIdx++
       this.transitionToMiniGame(next)
     } else if (this.wave < TOTAL_WAVES - 1) {
-      // All mini-games done → shop
       this.shopBasket = []
-      // Ensure kid can always buy 3 fruits
       const needed = WAVE_SIZE * this.fruitPrice
       if (this.coins < needed) this.coins = needed
       this.phase = 'shop'
@@ -547,6 +550,52 @@ export class FruitMarketGame implements GameAPI {
     this.juiceBasket = []
   }
 
+  // ===================== Render Helpers =====================
+
+  private get streakHtml() {
+    return this.streak >= 2 ? `<span class="hud-streak">🔥 ${this.streak}</span>` : ''
+  }
+
+  private renderHUD(center: string, right = '') {
+    const hud = el('div', 'hud')
+    hud.innerHTML = `
+      <div class="hud-left"><span class="hud-star">🪙</span> <span class="hud-score-val">${this.coins}</span></div>
+      <div class="hud-center">${center}</div>
+      <div class="hud-right">${right}</div>
+    `
+    this.root.appendChild(hud)
+  }
+
+  private makeFruitCard(fruit: string, i: number, extraClass = '', noAnim = false): HTMLElement {
+    const card = el('div', 'fruit-card' + (extraClass ? ' ' + extraClass : ''))
+    if (noAnim) card.style.animation = 'none'
+    else card.style.animationDelay = `${i * 0.07}s`
+    const inner = el('div', 'fruit-inner')
+    const svgWrap = el('div', 'fruit-svg')
+    svgWrap.innerHTML = getFruitSvg(fruit)
+    inner.appendChild(svgWrap)
+    const label = el('span', 'fruit-label')
+    label.textContent = fruit
+    inner.appendChild(label)
+    card.appendChild(inner)
+    return card
+  }
+
+  private renderDots(current: number, total: number) {
+    const dots = el('div', 'progress-dots')
+    for (let i = 0; i < total; i++) {
+      dots.appendChild(el('div', i < current ? 'dot done' : i === current ? 'dot active' : 'dot'))
+    }
+    this.root.appendChild(dots)
+  }
+
+  private awardPoints(amount: number, card?: HTMLElement) {
+    this.coins += amount; this.score += amount
+    sfxCorrect(); setTimeout(() => sfxCoin(), 200)
+    if (card) { this.burstParticles(card); this.floatScore(card, `+${amount}`) }
+    this.updateHUD()
+  }
+
   // ===================== Rendering =====================
 
   private render() {
@@ -577,16 +626,11 @@ export class FruitMarketGame implements GameAPI {
       <h2 class="intro-title">${item.title || item.fruit}</h2>
       ${item.fact ? `<p class="intro-fact">${item.fact}</p>` : ''}
     `
-    this.root.appendChild(card)
-
-    const dots = el('div', 'progress-dots')
-    for (let i = 0; i < this.intro.length; i++) {
-      dots.appendChild(el('div', i < this.introIdx ? 'dot done' : i === this.introIdx ? 'dot active' : 'dot'))
-    }
-    this.root.appendChild(dots)
-
     card.style.cursor = 'pointer'
     card.addEventListener('click', () => this.advance())
+    this.root.appendChild(card)
+
+    this.renderDots(this.introIdx, this.intro.length)
   }
 
   private renderChallenge() {
@@ -594,13 +638,7 @@ export class FruitMarketGame implements GameAPI {
     if (!c) return
     this.root.innerHTML = ''
 
-    const hud = el('div', 'hud')
-    hud.innerHTML = `
-      <div class="hud-left"><span class="hud-star">🪙</span> <span class="hud-score-val">${this.coins}</span></div>
-      <div class="hud-center">Wave ${this.wave + 1}: ${this.idx + 1} / ${this.challenges.length}</div>
-      <div class="hud-right">${this.streak >= 2 ? '<span class="hud-streak">🔥 ' + this.streak + '</span>' : ''}</div>
-    `
-    this.root.appendChild(hud)
+    this.renderHUD(`Wave ${this.wave + 1}: ${this.idx + 1} / ${this.challenges.length}`, this.streakHtml)
 
     const hint = el('div', 'challenge-hint')
     if (c.mode === 'shadow') hint.textContent = c.hint || 'Can you guess by the shape?'
@@ -608,7 +646,6 @@ export class FruitMarketGame implements GameAPI {
     else hint.textContent = c.hint || `Find the ${c.fruit}!`
     this.root.appendChild(hint)
 
-    // Timer bar
     if (this.timerEnabled && !this.answered) {
       const track = el('div', 'timer-bar-track')
       const fill = el('div', 'timer-bar-fill')
@@ -623,20 +660,10 @@ export class FruitMarketGame implements GameAPI {
     if (c.mode === 'shadow') grid.classList.add('shadow-mode')
     if (c.mode === 'describe') grid.classList.add('describe-mode')
     const pool = c.pool || [c.fruit]
-    grid.style.gridTemplateColumns = `repeat(${pool.length <= 4 ? 2 : pool.length <= 6 ? 3 : 4}, 1fr)`
+    grid.style.gridTemplateColumns = `repeat(${gridCols(pool.length)}, 1fr)`
 
     pool.forEach((fruitName, i) => {
-      const card = el('div', 'fruit-card')
-      card.style.animationDelay = `${i * 0.07}s`
-      const inner = el('div', 'fruit-inner')
-      const svgWrap = el('div', 'fruit-svg')
-      svgWrap.innerHTML = getFruitSvg(fruitName)
-      inner.appendChild(svgWrap)
-      const label = el('span', 'fruit-label')
-      label.textContent = fruitName
-      inner.appendChild(label)
-      card.appendChild(inner)
-
+      const card = this.makeFruitCard(fruitName, i)
       if (!this.answered) {
         card.addEventListener('pointerenter', () => sfxPop())
         card.addEventListener('click', () => this.handlePick(fruitName, card))
@@ -645,11 +672,7 @@ export class FruitMarketGame implements GameAPI {
     })
     this.root.appendChild(grid)
 
-    const dots = el('div', 'progress-dots')
-    for (let i = 0; i < this.challenges.length; i++) {
-      dots.appendChild(el('div', i < this.idx ? 'dot done' : i === this.idx ? 'dot active' : 'dot'))
-    }
-    this.root.appendChild(dots)
+    this.renderDots(this.idx, this.challenges.length)
   }
 
   private renderMemory() {
@@ -657,13 +680,7 @@ export class FruitMarketGame implements GameAPI {
     const round = this.memoryRounds[this.memoryIdx]
     if (!round) return
 
-    const hud = el('div', 'hud')
-    hud.innerHTML = `
-      <div class="hud-left"><span class="hud-star">🪙</span> <span class="hud-score-val">${this.coins}</span></div>
-      <div class="hud-center">Memory! ${this.memoryMatched.size / 2} / ${this.memoryCards.length / 2}</div>
-      <div class="hud-right"></div>
-    `
-    this.root.appendChild(hud)
+    this.renderHUD(`Memory! ${this.memoryMatched.size / 2} / ${this.memoryCards.length / 2}`)
 
     const hint = el('div', 'challenge-hint')
     hint.textContent = 'Find the matching pairs!'
@@ -671,8 +688,7 @@ export class FruitMarketGame implements GameAPI {
 
     const grid = el('div', 'fruit-grid memory-grid')
     const total = this.memoryCards.length
-    const cols = total <= 8 ? 4 : total <= 12 ? 4 : 5
-    grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`
+    grid.style.gridTemplateColumns = `repeat(${total <= 8 ? 4 : total <= 12 ? 4 : 5}, 1fr)`
 
     this.memoryCards.forEach((card, i) => {
       const isFlipped = this.memoryFlipped.includes(card.id) || this.memoryMatched.has(card.id)
@@ -703,13 +719,7 @@ export class FruitMarketGame implements GameAPI {
     })
     this.root.appendChild(grid)
 
-    const dots = el('div', 'progress-dots')
-    const pairs = this.memoryCards.length / 2
-    const matched = this.memoryMatched.size / 2
-    for (let i = 0; i < pairs; i++) {
-      dots.appendChild(el('div', i < matched ? 'dot done' : i === matched ? 'dot active' : 'dot'))
-    }
-    this.root.appendChild(dots)
+    this.renderDots(this.memoryMatched.size / 2, this.memoryCards.length / 2)
   }
 
   private renderOddOneOut() {
@@ -717,13 +727,7 @@ export class FruitMarketGame implements GameAPI {
     if (!round) return
     this.root.innerHTML = ''
 
-    const hud = el('div', 'hud')
-    hud.innerHTML = `
-      <div class="hud-left"><span class="hud-star">🪙</span> <span class="hud-score-val">${this.coins}</span></div>
-      <div class="hud-center">Odd one out! ${this.oddIdx + 1} / ${this.oddRounds.length}</div>
-      <div class="hud-right">${this.streak >= 2 ? '<span class="hud-streak">🔥 ' + this.streak + '</span>' : ''}</div>
-    `
-    this.root.appendChild(hud)
+    this.renderHUD(`Odd one out! ${this.oddIdx + 1} / ${this.oddRounds.length}`, this.streakHtml)
 
     const hint = el('div', 'challenge-hint')
     hint.textContent = `Which one is NOT a ${round.trait}?`
@@ -734,19 +738,8 @@ export class FruitMarketGame implements GameAPI {
 
     round.fruits.forEach((fruit, i) => {
       const isOdd = fruit.toLowerCase() === round.odd.toLowerCase()
-      const card = el('div', 'fruit-card')
-      card.style.animationDelay = `${i * 0.07}s`
-      if (this.oddAnswered) card.classList.add(isOdd ? 'is-correct' : 'is-dimmed')
-
-      const inner = el('div', 'fruit-inner')
-      const svgWrap = el('div', 'fruit-svg')
-      svgWrap.innerHTML = getFruitSvg(fruit)
-      inner.appendChild(svgWrap)
-      const label = el('span', 'fruit-label')
-      label.textContent = fruit
-      inner.appendChild(label)
-      card.appendChild(inner)
-
+      const extra = this.oddAnswered ? (isOdd ? 'is-correct' : 'is-dimmed') : ''
+      const card = this.makeFruitCard(fruit, i, extra)
       if (!this.oddAnswered) {
         card.addEventListener('pointerenter', () => sfxPop())
         card.addEventListener('click', () => this.handleOddPick(fruit))
@@ -761,11 +754,7 @@ export class FruitMarketGame implements GameAPI {
       this.root.appendChild(expl)
     }
 
-    const dots = el('div', 'progress-dots')
-    for (let i = 0; i < this.oddRounds.length; i++) {
-      dots.appendChild(el('div', i < this.oddIdx ? 'dot done' : i === this.oddIdx ? 'dot active' : 'dot'))
-    }
-    this.root.appendChild(dots)
+    this.renderDots(this.oddIdx, this.oddRounds.length)
   }
 
   private renderPattern() {
@@ -773,13 +762,7 @@ export class FruitMarketGame implements GameAPI {
     if (!round) return
     this.root.innerHTML = ''
 
-    const hud = el('div', 'hud')
-    hud.innerHTML = `
-      <div class="hud-left"><span class="hud-star">🪙</span> <span class="hud-score-val">${this.coins}</span></div>
-      <div class="hud-center">Pattern! ${this.patternIdx + 1} / ${this.patternRounds.length}</div>
-      <div class="hud-right">${this.streak >= 2 ? '<span class="hud-streak">🔥 ' + this.streak + '</span>' : ''}</div>
-    `
-    this.root.appendChild(hud)
+    this.renderHUD(`Pattern! ${this.patternIdx + 1} / ${this.patternRounds.length}`, this.streakHtml)
 
     const hint = el('div', 'challenge-hint')
     hint.textContent = 'What comes next?'
@@ -807,19 +790,8 @@ export class FruitMarketGame implements GameAPI {
 
     round.options.forEach((fruit, i) => {
       const isAnswer = fruit.toLowerCase() === round.answer.toLowerCase()
-      const card = el('div', 'fruit-card')
-      card.style.animationDelay = `${i * 0.07}s`
-      if (this.patternAnswered) card.classList.add(isAnswer ? 'is-correct' : 'is-dimmed')
-
-      const inner = el('div', 'fruit-inner')
-      const svgWrap = el('div', 'fruit-svg')
-      svgWrap.innerHTML = getFruitSvg(fruit)
-      inner.appendChild(svgWrap)
-      const label = el('span', 'fruit-label')
-      label.textContent = fruit
-      inner.appendChild(label)
-      card.appendChild(inner)
-
+      const extra = this.patternAnswered ? (isAnswer ? 'is-correct' : 'is-dimmed') : ''
+      const card = this.makeFruitCard(fruit, i, extra)
       if (!this.patternAnswered) {
         card.addEventListener('pointerenter', () => sfxPop())
         card.addEventListener('click', () => this.handlePatternPick(fruit))
@@ -828,11 +800,7 @@ export class FruitMarketGame implements GameAPI {
     })
     this.root.appendChild(grid)
 
-    const dots = el('div', 'progress-dots')
-    for (let i = 0; i < this.patternRounds.length; i++) {
-      dots.appendChild(el('div', i < this.patternIdx ? 'dot done' : i === this.patternIdx ? 'dot active' : 'dot'))
-    }
-    this.root.appendChild(dots)
+    this.renderDots(this.patternIdx, this.patternRounds.length)
   }
 
   private renderSort() {
@@ -840,13 +808,10 @@ export class FruitMarketGame implements GameAPI {
     if (!round) return
     this.root.innerHTML = ''
 
-    const hud = el('div', 'hud')
-    hud.innerHTML = `
-      <div class="hud-left"><span class="hud-star">🪙</span> <span class="hud-score-val">${this.coins}</span></div>
-      <div class="hud-center">Sort! ${this.sortRemaining.length} left</div>
-      <div class="hud-right">${this.sortRounds.length > 1 ? `${this.sortIdx + 1}/${this.sortRounds.length}` : ''}</div>
-    `
-    this.root.appendChild(hud)
+    this.renderHUD(
+      `Sort! ${this.sortRemaining.length} left`,
+      this.sortRounds.length > 1 ? `${this.sortIdx + 1}/${this.sortRounds.length}` : '',
+    )
 
     const hint = el('div', 'challenge-hint')
     hint.textContent = this.sortSelected
@@ -882,24 +847,13 @@ export class FruitMarketGame implements GameAPI {
     })
     this.root.appendChild(binsWrap)
 
-    // Fruit grid
     if (this.sortRemaining.length > 0) {
       const grid = el('div', 'fruit-grid')
-      const cols = this.sortRemaining.length <= 4 ? 2 : this.sortRemaining.length <= 6 ? 3 : 4
-      grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`
+      grid.style.gridTemplateColumns = `repeat(${gridCols(this.sortRemaining.length)}, 1fr)`
 
       this.sortRemaining.forEach((fruitName, i) => {
-        const card = el('div', 'fruit-card' + (fruitName === this.sortSelected ? ' is-selected' : ''))
-        if (this.rerender) card.style.animation = 'none'
-        else card.style.animationDelay = `${i * 0.07}s`
-        const inner = el('div', 'fruit-inner')
-        const svgWrap = el('div', 'fruit-svg')
-        svgWrap.innerHTML = getFruitSvg(fruitName)
-        inner.appendChild(svgWrap)
-        const label = el('span', 'fruit-label')
-        label.textContent = fruitName
-        inner.appendChild(label)
-        card.appendChild(inner)
+        const extra = fruitName === this.sortSelected ? 'is-selected' : ''
+        const card = this.makeFruitCard(fruitName, i, extra, this.rerender)
         card.addEventListener('pointerenter', () => sfxPop())
         card.addEventListener('click', () => {
           this.root.querySelectorAll('.fruit-card.is-selected').forEach(c => c.classList.remove('is-selected'))
@@ -927,13 +881,8 @@ export class FruitMarketGame implements GameAPI {
       this.root.appendChild(grid)
     }
 
-    const dots = el('div', 'progress-dots')
-    const total = round.fruits.length
-    const done = total - this.sortRemaining.length
-    for (let i = 0; i < total; i++) {
-      dots.appendChild(el('div', i < done ? 'dot done' : i === done ? 'dot active' : 'dot'))
-    }
-    this.root.appendChild(dots)
+    const done = round.fruits.length - this.sortRemaining.length
+    this.renderDots(done, round.fruits.length)
   }
 
   private renderShop() {
@@ -941,43 +890,26 @@ export class FruitMarketGame implements GameAPI {
     const unlearned = FRUIT_NAMES.filter(f => !this.learnedFruits.includes(f) && !this.shopBasket.includes(f))
     const remaining = WAVE_SIZE - this.shopBasket.length
 
-    const hud = el('div', 'hud')
-    hud.innerHTML = `
-      <div class="hud-left"><span class="hud-star">🪙</span> <span class="hud-score-val">${this.coins}</span></div>
-      <div class="hud-center">Pick ${remaining} fruit${remaining !== 1 ? 's' : ''} to learn!</div>
-      <div class="hud-right">🧺 ${this.shopBasket.length}/${WAVE_SIZE}</div>
-    `
-    this.root.appendChild(hud)
+    this.renderHUD(
+      `Pick ${remaining} fruit${remaining !== 1 ? 's' : ''} to learn!`,
+      `🧺 ${this.shopBasket.length}/${WAVE_SIZE}`,
+    )
 
     const hint = el('div', 'challenge-hint')
-    if (this.shopBasket.length >= WAVE_SIZE) {
-      hint.textContent = 'Great choices! Let\'s learn about them! 🎉'
-    } else {
-      hint.textContent = `Each fruit costs 🪙${this.fruitPrice} — choose wisely!`
-    }
+    hint.textContent = this.shopBasket.length >= WAVE_SIZE
+      ? 'Great choices! Let\'s learn about them! 🎉'
+      : `Each fruit costs 🪙${this.fruitPrice} — choose wisely!`
     this.root.appendChild(hint)
 
-    // Grid of unlearned fruits
     const grid = el('div', 'fruit-grid')
-    grid.style.gridTemplateColumns = `repeat(${unlearned.length <= 4 ? 2 : unlearned.length <= 6 ? 3 : 4}, 1fr)`
+    grid.style.gridTemplateColumns = `repeat(${gridCols(unlearned.length)}, 1fr)`
 
     unlearned.forEach((fruit, i) => {
       const canAfford = this.coins >= this.fruitPrice && this.shopBasket.length < WAVE_SIZE
-      const card = el('div', 'fruit-card shop-item' + (!canAfford ? ' is-expensive' : ''))
-      card.style.animationDelay = `${i * 0.07}s`
-
-      const inner = el('div', 'fruit-inner')
-      const svgWrap = el('div', 'fruit-svg')
-      svgWrap.innerHTML = getFruitSvg(fruit)
-      inner.appendChild(svgWrap)
-      const label = el('span', 'fruit-label')
-      label.textContent = fruit
-      inner.appendChild(label)
+      const card = this.makeFruitCard(fruit, i, 'shop-item' + (!canAfford ? ' is-expensive' : ''))
       const price = el('span', 'shop-price')
       price.textContent = `🪙 ${this.fruitPrice}`
-      inner.appendChild(price)
-      card.appendChild(inner)
-
+      card.querySelector('.fruit-inner')!.appendChild(price)
       if (canAfford) {
         card.addEventListener('pointerenter', () => sfxPop())
         card.addEventListener('click', () => this.handleBuy({ fruit, price: this.fruitPrice }))
@@ -986,7 +918,6 @@ export class FruitMarketGame implements GameAPI {
     })
     this.root.appendChild(grid)
 
-    // Basket with chosen fruits
     if (this.shopBasket.length > 0) {
       const dropZone = el('div', 'basket-drop-zone')
       const basketIcon = el('div', 'basket-icon')
@@ -1013,15 +944,8 @@ export class FruitMarketGame implements GameAPI {
 
     const allDone = this.juiceRecipe.fruits.every(f => this.juiceBasket.includes(f))
 
-    const hud = el('div', 'hud')
-    hud.innerHTML = `
-      <div class="hud-left"><span class="hud-star">🪙</span> <span class="hud-score-val">${this.coins}</span></div>
-      <div class="hud-center">Make a drink!</div>
-      <div class="hud-right"></div>
-    `
-    this.root.appendChild(hud)
+    this.renderHUD('Make a drink!')
 
-    // Drink card
     const drinkCard = el('div', 'juice-card')
     const drinkSvg = getDrinkSvg(this.juiceRecipe.drink)
     let ingHtml = ''
@@ -1041,29 +965,17 @@ export class FruitMarketGame implements GameAPI {
     this.root.appendChild(hint)
 
     if (!allDone) {
-      // Grid with a pool of fruits (required + distractors from learned)
       const pool = [...this.juiceRecipe.fruits]
       const distractors = shuffle(this.learnedFruits.filter(f => !pool.includes(f))).slice(0, 3)
       pool.push(...distractors)
       const shuffledPool = shuffle(pool)
 
       const grid = el('div', 'fruit-grid')
-      grid.style.gridTemplateColumns = `repeat(${shuffledPool.length <= 4 ? 2 : shuffledPool.length <= 6 ? 3 : 4}, 1fr)`
+      grid.style.gridTemplateColumns = `repeat(${gridCols(shuffledPool.length)}, 1fr)`
 
       shuffledPool.forEach((fruit, i) => {
         const picked = this.juiceBasket.includes(fruit)
-        const card = el('div', 'fruit-card' + (picked ? ' is-bought' : ''))
-        card.style.animationDelay = `${i * 0.07}s`
-
-        const inner = el('div', 'fruit-inner')
-        const svgWrap = el('div', 'fruit-svg')
-        svgWrap.innerHTML = getFruitSvg(fruit)
-        inner.appendChild(svgWrap)
-        const label = el('span', 'fruit-label')
-        label.textContent = fruit
-        inner.appendChild(label)
-        card.appendChild(inner)
-
+        const card = this.makeFruitCard(fruit, i, picked ? 'is-bought' : '')
         if (!picked) {
           card.addEventListener('pointerenter', () => sfxPop())
           card.addEventListener('click', () => this.handleJuicePick(fruit))
@@ -1147,20 +1059,15 @@ export class FruitMarketGame implements GameAPI {
 
     if (isCorrect) {
       this.answered = true
-      this.coins += 10; this.score += 10
       let bonus = 0
       if (this.timerEnabled) {
         const elapsed = Date.now() - this.timerStart
         bonus = Math.max(0, Math.ceil((1 - elapsed / this.timerDuration) * 5))
-        this.coins += bonus; this.score += bonus
       }
       this.streak++
       card.classList.add('is-correct')
-      sfxCorrect()
-      setTimeout(() => sfxCoin(), 350)
-      this.burstParticles(card)
-      this.floatScore(card, bonus > 0 ? `+${10 + bonus}` : '+10')
-      this.updateHUD()
+      this.awardPoints(10 + bonus, card)
+      clearTimeout(this.advanceTimer)
 
       const grid = this.root.querySelector('.fruit-grid')
       if (grid) { grid.classList.remove('shadow-mode', 'describe-mode') }
@@ -1173,7 +1080,6 @@ export class FruitMarketGame implements GameAPI {
         challengeIndex: this.idx, expected: c.fruit, given: fruitName, score: this.score,
       })
       this.sync()
-      clearTimeout(this.advanceTimer)
       this.advanceTimer = window.setTimeout(() => this.advance(), 1800)
     } else {
       this.wrongAttempts++
@@ -1225,15 +1131,10 @@ export class FruitMarketGame implements GameAPI {
     if (isCorrect) {
       const cards = this.root.querySelectorAll<HTMLElement>('.fruit-card')
       const ci = this.sortRemaining.indexOf(fruitName)
-      if (ci >= 0 && cards[ci]) {
-        cards[ci].classList.add('is-correct')
-        this.burstParticles(cards[ci])
-        this.floatScore(cards[ci], '+5')
-      }
+      if (ci >= 0 && cards[ci]) cards[ci].classList.add('is-correct')
       this.sortRemaining = this.sortRemaining.filter(f => f !== fruitName)
-      this.coins += 5; this.score += 5; this.sortSelected = null
-      sfxCorrect(); setTimeout(() => sfxCoin(), 200)
-      this.updateHUD()
+      this.sortSelected = null
+      this.awardPoints(5, ci >= 0 ? cards[ci] : undefined)
       this.bridge.emitEvent('correctSort', { fruit: fruitName, category: category.name, score: this.score })
       if (this.sortRemaining.length === 0) {
         this.bridge.emitEvent('sortRoundComplete', { round: this.sortIdx, score: this.score })
@@ -1302,10 +1203,9 @@ export class FruitMarketGame implements GameAPI {
       if (c1.fruit === c2.fruit) {
         this.memoryMatched.add(id1)
         this.memoryMatched.add(id2)
-        this.coins += 10; this.score += 10
         this.memoryFlipped = []
         this.memoryLocked = false
-        sfxCorrect(); setTimeout(() => sfxCoin(), 200)
+        this.awardPoints(10)
         this.bridge.emitEvent('memoryMatch', { fruit: c1.fruit, matched: this.memoryMatched.size / 2, total: this.memoryCards.length / 2, score: this.score })
 
         if (this.memoryMatched.size === this.memoryCards.length) {
@@ -1335,12 +1235,11 @@ export class FruitMarketGame implements GameAPI {
     const isCorrect = fruit.toLowerCase() === round.odd.toLowerCase()
 
     if (isCorrect) {
-      this.coins += 10; this.score += 10; this.streak++
-      sfxCorrect(); setTimeout(() => sfxCoin(), 200)
-      this.bridge.emitEvent('oddCorrect', { round: this.oddIdx, odd: round.odd, score: this.score })
+      this.streak++
       const cards = this.root.querySelectorAll<HTMLElement>('.fruit-card')
       const idx = round.fruits.findIndex(f => f.toLowerCase() === fruit.toLowerCase())
-      if (idx >= 0 && cards[idx]) { this.burstParticles(cards[idx]); this.floatScore(cards[idx], '+10') }
+      this.awardPoints(10, idx >= 0 ? cards[idx] : undefined)
+      this.bridge.emitEvent('oddCorrect', { round: this.oddIdx, odd: round.odd, score: this.score })
     } else {
       this.streak = 0; sfxWrong()
       this.bridge.emitEvent('oddWrong', { round: this.oddIdx, picked: fruit, odd: round.odd })
@@ -1366,12 +1265,11 @@ export class FruitMarketGame implements GameAPI {
     const isCorrect = fruit.toLowerCase() === round.answer.toLowerCase()
 
     if (isCorrect) {
-      this.coins += 10; this.score += 10; this.streak++
-      sfxCorrect(); setTimeout(() => sfxCoin(), 200)
-      this.bridge.emitEvent('patternCorrect', { round: this.patternIdx, answer: round.answer, score: this.score })
+      this.streak++
       const cards = this.root.querySelectorAll<HTMLElement>('.fruit-card')
       const idx = round.options.findIndex(f => f.toLowerCase() === fruit.toLowerCase())
-      if (idx >= 0 && cards[idx]) { this.burstParticles(cards[idx]); this.floatScore(cards[idx], '+10') }
+      this.awardPoints(10, idx >= 0 ? cards[idx] : undefined)
+      this.bridge.emitEvent('patternCorrect', { round: this.patternIdx, answer: round.answer, score: this.score })
     } else {
       this.streak = 0; sfxWrong()
       this.bridge.emitEvent('patternWrong', { round: this.patternIdx, picked: fruit, answer: round.answer })
@@ -1405,14 +1303,11 @@ export class FruitMarketGame implements GameAPI {
 
     if (isCorrect) {
       this.juiceBasket.push(fruit)
-      this.coins += 10; this.score += 10
-      sfxCorrect(); setTimeout(() => sfxCoin(), 200)
-      this.bridge.emitEvent('juiceCorrect', { fruit, recipe: this.juiceRecipe.name, score: this.score })
-
       const cards = this.root.querySelectorAll<HTMLElement>('.fruit-card')
       const pool = [...this.root.querySelectorAll('.fruit-label')].map(l => l.textContent?.toLowerCase())
       const idx = pool.indexOf(fruit.toLowerCase())
-      if (idx >= 0 && cards[idx]) { this.burstParticles(cards[idx]); this.floatScore(cards[idx], '+10') }
+      this.awardPoints(10, idx >= 0 ? cards[idx] : undefined)
+      this.bridge.emitEvent('juiceCorrect', { fruit, recipe: this.juiceRecipe.name, score: this.score })
     } else {
       sfxWrong()
       this.bridge.emitEvent('juiceWrong', { fruit, recipe: this.juiceRecipe.name })
@@ -1510,6 +1405,10 @@ function el(tag: string, className?: string): HTMLElement {
 
 function clamp(v: number, min: number, max: number) {
   return Math.max(min, Math.min(max, v))
+}
+
+function gridCols(n: number): number {
+  return n <= 4 ? 2 : n <= 6 ? 3 : 4
 }
 
 function shuffle<T>(arr: T[]): T[] {

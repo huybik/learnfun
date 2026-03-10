@@ -1,0 +1,47 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<linearGradient id="fruit-punch_liquid-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+<stop offset="0%" style="stop-color:#ff5e62;stop-opacity:1" />
+<stop offset="100%" style="stop-color:#ff9966;stop-opacity:1" />
+</linearGradient>
+<linearGradient id="fruit-punch_glass-edge" x1="0%" y1="0%" x2="100%" y2="0%">
+<stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.4" />
+<stop offset="50%" style="stop-color:#ffffff;stop-opacity:0.1" />
+<stop offset="100%" style="stop-color:#ffffff;stop-opacity:0.4" />
+</linearGradient>
+<radialGradient id="fruit-punch_cherry-grad" cx="40%" cy="40%" r="50%">
+<stop offset="0%" style="stop-color:#ff4d4d;stop-opacity:1" />
+<stop offset="100%" style="stop-color:#800000;stop-opacity:1" />
+</radialGradient>
+<linearGradient id="fruit-punch_orange-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+<stop offset="0%" style="stop-color:#ffd89b;stop-opacity:1" />
+<stop offset="100%" style="stop-color:#ffb347;stop-opacity:1" />
+</linearGradient>
+<linearGradient id="fruit-punch_straw-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+<stop offset="0%" style="stop-color:#00f2fe;stop-opacity:1" />
+<stop offset="100%" style="stop-color:#4facfe;stop-opacity:1" />
+</linearGradient>
+<filter id="fruit-punch_glow">
+<feGaussianBlur stdDeviation="1" result="blur" />
+<feComposite in="SourceGraphic" in2="blur" operator="over" />
+</filter>
+</defs>
+<path d="M42 20 L86 20 L80 115 C80 120 48 120 48 115 Z" style="fill:rgba(255,255,255,0.1);stroke:url(#fruit-punch_glass-edge);stroke-width:1.5;" />
+<path d="M44 45 L84 45 L79 113 C79 116 49 116 49 113 Z" style="fill:url(#fruit-punch_liquid-grad);" />
+<ellipse cx="64" cy="45" rx="20" ry="4" style="fill:#ff7e67;opacity:0.8;" />
+<rect x="70" y="55" width="12" height="12" rx="2" style="fill:rgba(255,255,255,0.3);transform:rotate(15deg);" />
+<rect x="50" y="70" width="10" height="10" rx="2" style="fill:rgba(255,255,255,0.2);transform:rotate(-10deg);" />
+<circle cx="58" cy="95" r="6" style="fill:url(#fruit-punch_cherry-grad);" />
+<circle cx="60" cy="92" r="1.5" style="fill:#ffffff;opacity:0.6;" />
+<path d="M40 35 A25 25 0 0 1 65 15 L65 25 A15 15 0 0 0 50 35 Z" style="fill:url(#fruit-punch_orange-grad);stroke:#ff8c00;stroke-width:0.5;" />
+<path d="M42 33 L62 21 M48 35 L62 25 M54 35 L62 30" style="stroke:#ffffff;stroke-width:0.5;opacity:0.6;" />
+<path d="M78 10 L78 60" style="stroke:url(#fruit-punch_straw-grad);stroke-width:4;stroke-linecap:round;" />
+<path d="M78 15 L82 15 M78 25 L82 25 M78 35 L82 35" style="stroke:#ffffff;stroke-width:1.5;opacity:0.4;" />
+<path d="M46 30 Q44 60 46 100" style="stroke:#ffffff;stroke-width:2;stroke-linecap:round;opacity:0.3;filter:url(#fruit-punch_glow);" />
+<circle cx="85" cy="80" r="1.5" style="fill:#ffffff;opacity:0.5;" />
+<circle cx="83" cy="95" r="1" style="fill:#ffffff;opacity:0.4;" />
+<circle cx="43" cy="70" r="1.2" style="fill:#ffffff;opacity:0.5;" />
+<circle cx="55" cy="52" r="1" style="fill:#ffffff;opacity:0.6;" />
+<circle cx="72" cy="48" r="0.8" style="fill:#ffffff;opacity:0.6;" />
+<path d="M48 115 C48 118 80 118 80 115" style="fill:none;stroke:#ffffff;stroke-width:1;opacity:0.3;" />
+</svg>

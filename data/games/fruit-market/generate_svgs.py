@@ -1,8 +1,10 @@
 """Generate SVG fruit & drink assets using Gemini Flash (parallel).
 
 Usage:
-    python generate_svgs.py           # generate missing only
-    python generate_svgs.py --force   # regenerate all
+    python generate_svgs.py                # generate missing only
+    python generate_svgs.py --force        # regenerate all
+    python generate_svgs.py banana         # regenerate specific item(s)
+    python generate_svgs.py banana grape-fizz
 
 Reads GEMINI_API_KEY from ../.env (project root).
 Outputs SVGs to src/assets/<name>.svg
@@ -30,6 +32,7 @@ ASSETS_DIR = Path(__file__).parent / "src" / "assets"
 ASSETS_DIR.mkdir(parents=True, exist_ok=True)
 
 FORCE = "--force" in sys.argv
+TARGETS = [a for a in sys.argv[1:] if not a.startswith("--")]
 
 FRUITS = [
     "apple", "banana", "orange", "strawberry",
@@ -47,6 +50,7 @@ DRINKS = [
     "watermelon-cooler",
     "coconut-paradise",
     "grape-fizz",
+    "fruit-punch",
 ]
 
 FRUIT_PROMPT = """Generate a realistic, detailed SVG of a {fruit} with a cut slice next to it showing the inside. Viewbox 0 0 128 128. Centered, filling ~80% of the viewbox. No text, no background, no external references. Use inline styles only, no CSS classes. Prefix all gradient/filter IDs with "{fruit}_". Output ONLY raw SVG markup, no markdown fences."""
@@ -81,7 +85,7 @@ def _fix_svg_attrs(m: re.Match) -> str:
 async def generate_one(name: str, prompt: str) -> tuple[str, str | None, str | None]:
     """Generate SVG for one item. Returns (name, svg, error)."""
     out_path = ASSETS_DIR / f"{name}.svg"
-    if out_path.exists() and not FORCE:
+    if out_path.exists() and not FORCE and not TARGETS:
         return name, None, "skipped"
     try:
         response = await client.aio.models.generate_content(
@@ -96,17 +100,31 @@ async def generate_one(name: str, prompt: str) -> tuple[str, str | None, str | N
 
 
 async def main():
+    # When targets specified, force-regenerate just those
+    if TARGETS:
+        all_known = set(FRUITS + DRINKS)
+        bad = [t for t in TARGETS if t not in all_known]
+        if bad:
+            print(f"ERROR: unknown names: {', '.join(bad)}")
+            print(f"  Valid: {', '.join(sorted(all_known))}")
+            sys.exit(1)
+
+    fruits = [f for f in FRUITS if f in TARGETS] if TARGETS else FRUITS
+    drinks = [d for d in DRINKS if d in TARGETS] if TARGETS else DRINKS
+
     tasks = []
-    for fruit in FRUITS:
+    for fruit in fruits:
         prompt = FRUIT_PROMPT.format(fruit=fruit)
         tasks.append(generate_one(fruit, prompt))
-    for name in DRINKS:
+    for name in drinks:
         drink = name.replace("-", " ")
         prompt = DRINK_PROMPT.format(name=name, drink=drink)
         tasks.append(generate_one(name, prompt))
 
     total = len(tasks)
-    print(f"Generating {total} SVGs ({len(FRUITS)} fruits + {len(DRINKS)} drinks)...")
+    print(f"Generating {total} SVGs ({len(fruits)} fruits + {len(drinks)} drinks)...")
+    if TARGETS:
+        print(f"  targets: {', '.join(TARGETS)}")
     if FORCE:
         print("  --force: regenerating all")
 

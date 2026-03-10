@@ -12,6 +12,7 @@ for (const [path, raw] of Object.entries(svgModules)) {
 const DRINK_IDS = [
   'apple-juice', 'tropical-smoothie', 'berry-blast', 'citrus-sunrise',
   'green-machine', 'watermelon-cooler', 'coconut-paradise', 'grape-fizz',
+  'fruit-punch',
 ]
 
 export const FRUIT_NAMES = Object.keys(allSvgs).filter(n => !DRINK_IDS.includes(n) && n !== 'basket')
