@@ -434,6 +434,17 @@ export default function RoomPage() {
                 participants={roomParticipants}
                 localUserId={localUserId}
               />
+              {sessionData?.sessionId && (
+                <button
+                  onClick={() => {
+                    const url = `${location.origin}/join/${sessionData.sessionId}`;
+                    navigator.clipboard.writeText(url);
+                  }}
+                  className="mt-2 w-full rounded-md bg-neutral-700/60 px-3 py-1.5 text-xs text-neutral-300 transition hover:bg-neutral-600/60"
+                >
+                  Copy invite link
+                </button>
+              )}
             </div>
           </>
         )}

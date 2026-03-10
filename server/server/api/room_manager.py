@@ -185,6 +185,7 @@ async def join_session(session_id: str, user_name: str) -> dict:
     log.info("User joined session", session_id=session_id, user_id=user_id, user_name=user_name)
 
     return {
+        "roomId": session.room_id,
         "token": token,
         "livekitToken": livekit_token,
         "livekitUrl": settings.LIVEKIT_URL,
