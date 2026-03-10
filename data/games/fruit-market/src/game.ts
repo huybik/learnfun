@@ -594,6 +594,27 @@ export class FruitMarketGame implements GameAPI {
     this.updateHUD()
   }
 
+  // ===================== Click Feedback =====================
+
+  private markCorrect(card: HTMLElement, points: number) {
+    card.classList.add('is-correct')
+    this.awardPoints(points, card)
+  }
+
+  private markWrong(card?: HTMLElement) {
+    sfxWrong()
+    if (card) {
+      card.classList.add('is-wrong')
+      setTimeout(() => card.classList.remove('is-wrong'), 500)
+    }
+  }
+
+  private dimOthers(keep: HTMLElement) {
+    this.root.querySelectorAll<HTMLElement>('.fruit-card').forEach(c => {
+      if (c !== keep) c.classList.add('is-dimmed')
+    })
+  }
+
   // ===================== Rendering =====================
 
   private render() {
@@ -1061,16 +1082,12 @@ export class FruitMarketGame implements GameAPI {
         bonus = Math.max(0, Math.ceil((1 - elapsed / this.timerDuration) * 5))
       }
       this.streak++
-      card.classList.add('is-correct')
-      this.awardPoints(10 + bonus, card)
+      this.markCorrect(card, 10 + bonus)
+      this.dimOthers(card)
       clearTimeout(this.advanceTimer)
 
       const grid = this.root.querySelector('.fruit-grid')
-      if (grid) { grid.classList.remove('shadow-mode', 'describe-mode') }
-
-      this.root.querySelectorAll<HTMLElement>('.fruit-card').forEach(c => {
-        if (c !== card) c.classList.add('is-dimmed')
-      })
+      if (grid) grid.classList.remove('shadow-mode', 'describe-mode')
 
       this.bridge.emitEvent('correctAnswer', {
         challengeIndex: this.idx, expected: c.fruit, given: fruitName, score: this.score,
@@ -1079,9 +1096,7 @@ export class FruitMarketGame implements GameAPI {
       this.advanceTimer = window.setTimeout(() => this.advance(), 1800)
     } else {
       this.wrongAttempts++
-      card.classList.add('is-wrong')
-      sfxWrong()
-      setTimeout(() => card.classList.remove('is-wrong'), 500)
+      this.markWrong(card)
       this.streak = 0
       this.updateHUD()
 
@@ -1124,13 +1139,14 @@ export class FruitMarketGame implements GameAPI {
 
   private handleSort(fruitName: string, category: SortCategory) {
     const isCorrect = category.fruits.some(f => f.toLowerCase() === fruitName.toLowerCase())
+    const cards = this.root.querySelectorAll<HTMLElement>('.fruit-card')
+    const ci = this.sortRemaining.indexOf(fruitName)
+    const card = ci >= 0 ? cards[ci] : undefined
+
     if (isCorrect) {
-      const cards = this.root.querySelectorAll<HTMLElement>('.fruit-card')
-      const ci = this.sortRemaining.indexOf(fruitName)
-      if (ci >= 0 && cards[ci]) cards[ci].classList.add('is-correct')
       this.sortRemaining = this.sortRemaining.filter(f => f !== fruitName)
       this.sortSelected = null
-      this.awardPoints(5, ci >= 0 ? cards[ci] : undefined)
+      if (card) this.markCorrect(card, 5)
       this.bridge.emitEvent('correctSort', { fruit: fruitName, category: category.name, score: this.score })
       if (this.sortRemaining.length === 0) {
         this.bridge.emitEvent('sortRoundComplete', { round: this.sortIdx, score: this.score })
@@ -1138,7 +1154,7 @@ export class FruitMarketGame implements GameAPI {
       }
       setTimeout(() => this.renderSort(), 450)
     } else {
-      sfxWrong()
+      this.markWrong(card)
       const bins = this.root.querySelectorAll('.sort-bin')
       const round = this.sortRounds[this.sortIdx]
       if (round) {
@@ -1288,19 +1304,28 @@ export class FruitMarketGame implements GameAPI {
     if (!round) return
 
     this.oddAnswered = true
+    const cards = this.root.querySelectorAll<HTMLElement>('.fruit-card')
+    const idx = round.fruits.findIndex(f => f.toLowerCase() === fruit.toLowerCase())
+    const card = idx >= 0 ? cards[idx] : undefined
     const isCorrect = fruit.toLowerCase() === round.odd.toLowerCase()
 
     if (isCorrect) {
       this.streak++
-      const cards = this.root.querySelectorAll<HTMLElement>('.fruit-card')
-      const idx = round.fruits.findIndex(f => f.toLowerCase() === fruit.toLowerCase())
-      this.awardPoints(10, idx >= 0 ? cards[idx] : undefined)
+      if (card) { this.markCorrect(card, 10); this.dimOthers(card) }
       this.bridge.emitEvent('oddCorrect', { round: this.oddIdx, odd: round.odd, score: this.score })
     } else {
-      this.streak = 0; sfxWrong()
+      this.streak = 0
+      this.markWrong(card)
+      // Highlight the actual odd one
+      const oddIdx = round.fruits.findIndex(f => f.toLowerCase() === round.odd.toLowerCase())
+      if (oddIdx >= 0 && cards[oddIdx]) cards[oddIdx].classList.add('is-revealed')
       this.bridge.emitEvent('oddWrong', { round: this.oddIdx, picked: fruit, odd: round.odd })
     }
-    this.renderOddOneOut()
+    if (round.explanation) {
+      const expl = el('div', 'odd-explanation')
+      expl.textContent = round.explanation
+      this.root.appendChild(expl)
+    }
     this.sync()
     this.advanceTimer = window.setTimeout(() => this.advance(), 2000)
   }
@@ -1308,7 +1333,20 @@ export class FruitMarketGame implements GameAPI {
   private doOddReveal() {
     if (this.oddAnswered) return
     this.oddAnswered = true; sfxWhoosh()
-    this.renderOddOneOut(); this.sync()
+    const round = this.oddRounds[this.oddIdx]
+    if (round) {
+      const cards = this.root.querySelectorAll<HTMLElement>('.fruit-card')
+      round.fruits.forEach((f, i) => {
+        if (f.toLowerCase() === round.odd.toLowerCase()) cards[i]?.classList.add('is-revealed')
+        else cards[i]?.classList.add('is-dimmed')
+      })
+      if (round.explanation) {
+        const expl = el('div', 'odd-explanation')
+        expl.textContent = round.explanation
+        this.root.appendChild(expl)
+      }
+    }
+    this.sync()
     this.advanceTimer = window.setTimeout(() => this.advance(), 2200)
   }
 
@@ -1318,19 +1356,29 @@ export class FruitMarketGame implements GameAPI {
     if (!round) return
 
     this.patternAnswered = true
+    const cards = this.root.querySelectorAll<HTMLElement>('.fruit-card')
+    const idx = round.options.findIndex(f => f.toLowerCase() === fruit.toLowerCase())
+    const card = idx >= 0 ? cards[idx] : undefined
     const isCorrect = fruit.toLowerCase() === round.answer.toLowerCase()
 
     if (isCorrect) {
       this.streak++
-      const cards = this.root.querySelectorAll<HTMLElement>('.fruit-card')
-      const idx = round.options.findIndex(f => f.toLowerCase() === fruit.toLowerCase())
-      this.awardPoints(10, idx >= 0 ? cards[idx] : undefined)
+      if (card) { this.markCorrect(card, 10); this.dimOthers(card) }
       this.bridge.emitEvent('patternCorrect', { round: this.patternIdx, answer: round.answer, score: this.score })
     } else {
-      this.streak = 0; sfxWrong()
+      this.streak = 0
+      this.markWrong(card)
+      // Highlight correct answer
+      const ansIdx = round.options.findIndex(f => f.toLowerCase() === round.answer.toLowerCase())
+      if (ansIdx >= 0 && cards[ansIdx]) cards[ansIdx].classList.add('is-revealed')
       this.bridge.emitEvent('patternWrong', { round: this.patternIdx, picked: fruit, answer: round.answer })
     }
-    this.renderPattern()
+    // Fill in the pattern answer
+    const blank = this.root.querySelector('.pattern-blank')
+    if (blank) {
+      blank.className = 'pattern-item pattern-answer'
+      blank.innerHTML = getFruitSvg(round.answer)
+    }
     this.sync()
     this.advanceTimer = window.setTimeout(() => this.advance(), 2000)
   }
@@ -1338,7 +1386,20 @@ export class FruitMarketGame implements GameAPI {
   private doPatternReveal() {
     if (this.patternAnswered) return
     this.patternAnswered = true; sfxWhoosh()
-    this.renderPattern(); this.sync()
+    const round = this.patternRounds[this.patternIdx]
+    if (round) {
+      const cards = this.root.querySelectorAll<HTMLElement>('.fruit-card')
+      round.options.forEach((f, i) => {
+        if (f.toLowerCase() === round.answer.toLowerCase()) cards[i]?.classList.add('is-revealed')
+        else cards[i]?.classList.add('is-dimmed')
+      })
+      const blank = this.root.querySelector('.pattern-blank')
+      if (blank) {
+        blank.className = 'pattern-item pattern-answer'
+        blank.innerHTML = getFruitSvg(round.answer)
+      }
+    }
+    this.sync()
     this.advanceTimer = window.setTimeout(() => this.advance(), 2200)
   }
 
@@ -1360,21 +1421,18 @@ export class FruitMarketGame implements GameAPI {
     const cards = this.root.querySelectorAll<HTMLElement>('.fruit-card')
     const pool = [...this.root.querySelectorAll('.fruit-label')].map(l => l.textContent?.toLowerCase())
     const idx = pool.indexOf(fruit.toLowerCase())
-    const cardEl = idx >= 0 ? cards[idx] : undefined
+    const card = idx >= 0 ? cards[idx] : undefined
 
     if (isCorrect) {
       this.juiceBasket.push(fruit)
-      this.awardPoints(10, cardEl)
+      if (card) this.markCorrect(card, 10)
       this.bridge.emitEvent('juiceCorrect', { fruit, recipe: this.juiceRecipe.name, score: this.score })
-      if (cardEl) { cardEl.classList.add('is-bought'); cardEl.style.pointerEvents = 'none' }
+      if (card) { card.classList.add('is-bought'); card.style.pointerEvents = 'none' }
       // Update recipe ingredient indicator
       const ings = this.root.querySelectorAll<HTMLElement>('.recipe-ing')
       this.juiceRecipe.fruits.forEach((f, i) => {
         if (f === fruit && ings[i]) ings[i].classList.add('recipe-ing-done')
       })
-      // Update HUD score
-      const hudScore = this.root.querySelector('.hud-score-val')
-      if (hudScore) hudScore.textContent = String(this.coins)
 
       const allDone = this.juiceRecipe.fruits.every(f => this.juiceBasket.includes(f))
       if (allDone) {
@@ -1383,12 +1441,8 @@ export class FruitMarketGame implements GameAPI {
         this.advanceTimer = window.setTimeout(() => this.advance(), 2000)
       }
     } else {
-      sfxWrong()
+      this.markWrong(card)
       this.bridge.emitEvent('juiceWrong', { fruit, recipe: this.juiceRecipe.name })
-      if (cardEl) {
-        cardEl.classList.add('is-wrong')
-        setTimeout(() => cardEl.classList.remove('is-wrong'), 500)
-      }
     }
     this.sync()
   }
