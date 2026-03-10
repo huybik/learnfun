@@ -96,9 +96,9 @@ export const GameHost = forwardRef<GameHostHandle, GameHostProps>(
         switch (msg.type) {
           case "ready":
             readyRef.current = true;
-            syncRole();
             // Always init so followers can render base assets immediately.
             postToGame({ type: "init", data: initDataRef.current });
+            syncRole();
             syncPeers(peersRef.current);
             onReady?.();
             break;

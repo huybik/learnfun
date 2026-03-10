@@ -34,7 +34,11 @@ export function renderPlay(ctx: GameCtx) {
   grid.style.gridTemplateColumns = `repeat(${gridCols(pool.length)}, 1fr)`
 
   pool.forEach((fruitName, i) => {
-    const card = makeFruitCard(fruitName, i)
+    const isAnswer = fruitName.toLowerCase() === c.fruit.toLowerCase()
+    const extra = s.answered
+      ? (isAnswer ? (s.playResult === 'revealed' ? 'is-revealed' : 'is-correct') : 'is-dimmed')
+      : ''
+    const card = makeFruitCard(fruitName, i, extra)
     if (!s.answered) {
       card.addEventListener('pointerenter', () => sfxPop())
       card.addEventListener('click', () => handlePick(ctx, fruitName, card))
@@ -60,6 +64,7 @@ export function handlePick(ctx: GameCtx, fruitName: string, card: HTMLElement) {
 
   if (isCorrect) {
     s.answered = true
+    s.playResult = 'correct'
     let bonus = 0
     if (s.timerEnabled) {
       const elapsed = Date.now() - s.timerStart
@@ -104,6 +109,7 @@ export function doReveal(ctx: GameCtx) {
   const { root, s } = ctx
   if (s.answered) return
   s.answered = true
+  s.playResult = 'revealed'
   const c = s.challenges[s.idx]
   if (!c) return
   sfxWhoosh()

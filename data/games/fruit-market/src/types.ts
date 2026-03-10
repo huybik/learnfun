@@ -35,6 +35,7 @@ export interface GameState {
   challenges: Challenge[]
   idx: number
   answered: boolean
+  playResult: 'correct' | 'revealed' | null
   wrongAttempts: number
   advanceTimer: number
   // timer

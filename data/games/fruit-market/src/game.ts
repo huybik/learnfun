@@ -108,7 +108,7 @@ export class FruitMarketGame implements GameAPI, GameCtx {
         if (this.s.phase === 'learn') this.s.introIdx = clamp(to, 0, this.s.intro.length - 1)
         else if (this.s.phase === 'play') {
           this.s.idx = clamp(to, 0, this.s.challenges.length - 1)
-          this.s.answered = false; this.s.wrongAttempts = 0; clearTimeout(this.s.advanceTimer)
+          this.s.answered = false; this.s.playResult = null; this.s.wrongAttempts = 0; clearTimeout(this.s.advanceTimer)
         } else if (this.s.phase === 'sort') { this.s.sortIdx = clamp(to, 0, this.s.sortRounds.length - 1); initSortRound(this) }
         else if (this.s.phase === 'memory') { this.s.memoryIdx = clamp(to, 0, this.s.memoryRounds.length - 1); initMemoryRound(this) }
         else if (this.s.phase === 'oddoneout') { this.s.oddIdx = clamp(to, 0, this.s.oddRounds.length - 1); this.s.oddAnswered = false }
@@ -242,7 +242,7 @@ export class FruitMarketGame implements GameAPI, GameCtx {
         this.bridge.emitEvent('introAdvance', { index: s.introIdx, fruit: s.intro[s.introIdx]?.fruit })
       } else {
         s.phase = 'play'
-        s.idx = 0; s.answered = false; s.wrongAttempts = 0
+        s.idx = 0; s.answered = false; s.playResult = null; s.wrongAttempts = 0
         sfxWhoosh(); this.render(); this.sync()
         this.bridge.emitEvent('phaseChange', { phase: 'play' })
       }
@@ -251,7 +251,7 @@ export class FruitMarketGame implements GameAPI, GameCtx {
 
     if (s.phase === 'play') {
       if (s.idx < s.challenges.length - 1) {
-        s.idx++; s.answered = false; s.wrongAttempts = 0
+        s.idx++; s.answered = false; s.playResult = null; s.wrongAttempts = 0
         this.render(); this.sync()
       } else {
         s.learnedFruits.push(...s.waveFruits)
@@ -402,7 +402,7 @@ export class FruitMarketGame implements GameAPI, GameCtx {
         mode: info.mode,
       }
     })
-    s.idx = 0; s.answered = false; s.wrongAttempts = 0
+    s.idx = 0; s.answered = false; s.playResult = null; s.wrongAttempts = 0
 
     const allKnown = [...s.learnedFruits, ...s.waveFruits]
     this.generateMiniGameData(allKnown)
@@ -455,7 +455,7 @@ function createInitialState(): GameState {
     gameIdx: 0, playedGames: [],
     allFruits: {}, fruitPrice: FRUIT_PRICE,
     intro: [], introIdx: 0,
-    challenges: [], idx: 0, answered: false, wrongAttempts: 0, advanceTimer: 0,
+    challenges: [], idx: 0, answered: false, playResult: null, wrongAttempts: 0, advanceTimer: 0,
     timerEnabled: false, timerDuration: 10000, timerStart: 0,
     sortRounds: [], sortIdx: 0, sortRemaining: [], sortSelected: null,
     shopBasket: [],
