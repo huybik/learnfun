@@ -64,6 +64,7 @@ export default function RoomPage() {
   const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
   const [feedback, setFeedback] = useState<{ type: "correct" | "incorrect"; key: number; points?: number } | null>(null);
+  const [hasOwnHUD, setHasOwnHUD] = useState(false);
 
   // --- Game host ref (to send teacher actions to iframe) ---
   const gameHostRef = useRef<GameHostHandle>(null);
@@ -141,6 +142,7 @@ export default function RoomPage() {
       setScore(0);
       setStreak(0);
       setFeedback(null);
+      setHasOwnHUD(false);
       addTranscript("system", "Content loaded!");
     },
     [addTranscript],
@@ -223,6 +225,7 @@ export default function RoomPage() {
   const handleGameStateUpdate = useCallback(
     (state: Record<string, unknown>) => {
       if (typeof state.score === "number") setScore(state.score);
+      if (state.hasOwnHUD) setHasOwnHUD(true);
       sendToTeacher(`[game_state_update] ${JSON.stringify(state)}`);
     },
     [sendToTeacher],
@@ -322,9 +325,48 @@ export default function RoomPage() {
 
   const now = Date.now();
 
+  const statusBadges = (position: "top" | "bottom") => (
+    <div className={cn(
+      "flex items-center gap-2",
+      position === "top" && "absolute right-4 top-4 z-50",
+    )}>
+      <div className="flex gap-1.5 text-[10px]">
+        <span className={cn("rounded-full px-1.5 py-0.5", sse.connected ? "bg-emerald-900/40 text-emerald-400" : "bg-red-900/40 text-red-400")}>
+          {sse.connected ? "SSE" : "SSE off"}
+        </span>
+        <span className={cn("rounded-full px-1.5 py-0.5", room.connectionState === "connected" ? "bg-emerald-900/40 text-emerald-400" : "bg-neutral-800/40 text-neutral-500")}>
+          {room.connectionState === "connected" ? "LK" : "LK off"}
+        </span>
+      </div>
+      <div className="relative">
+        <button
+          onClick={() => setShowParticipants((v) => !v)}
+          className="flex items-center gap-1.5 rounded-full bg-neutral-800/60 px-3 py-1.5 text-sm text-neutral-300 backdrop-blur transition hover:bg-neutral-700/60"
+        >
+          <MdGroup size={18} />
+          {roomParticipants.length}
+        </button>
+        {showParticipants && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setShowParticipants(false)} />
+            <div className={cn(
+              "absolute right-0 z-50 w-64 rounded-xl bg-neutral-800/90 p-3 shadow-xl backdrop-blur",
+              position === "top" ? "top-full mt-2" : "bottom-full mb-2",
+            )}>
+              <ParticipantList
+                participants={roomParticipants}
+                localUserId={localUserId}
+              />
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <RoomLayout
-      hud={isGameActive ? <ScoreBoard score={score} streak={streak} feedback={feedback} /> : undefined}
+      hud={isGameActive && !hasOwnHUD ? <ScoreBoard score={score} streak={streak} feedback={feedback} /> : undefined}
       board={
         <div className="relative flex h-full flex-col">
           {/* Error banner */}
@@ -407,46 +449,13 @@ export default function RoomPage() {
           onConnect={() => room.connect()}
           onPause={handlePause}
           onResume={handleResume}
-        />
+        >
+          {hasOwnHUD && statusBadges("bottom")}
+        </ControlBar>
       }
       overlay={
         <>
-          {/* Top-right: participant badge + connection indicators on same line */}
-          <div className="absolute right-4 top-4 z-50 flex items-center gap-2">
-            {/* Tiny connection indicators */}
-            <div className="flex gap-1.5 text-[10px]">
-              <span className={cn("rounded-full px-1.5 py-0.5", sse.connected ? "bg-emerald-900/40 text-emerald-400" : "bg-red-900/40 text-red-400")}>
-                {sse.connected ? "SSE" : "SSE off"}
-              </span>
-              <span className={cn("rounded-full px-1.5 py-0.5", room.connectionState === "connected" ? "bg-emerald-900/40 text-emerald-400" : "bg-neutral-800/40 text-neutral-500")}>
-                {room.connectionState === "connected" ? "LK" : "LK off"}
-              </span>
-            </div>
-
-            {/* Participant count badge */}
-            <div className="relative">
-              <button
-                onClick={() => setShowParticipants((v) => !v)}
-                className="flex items-center gap-1.5 rounded-full bg-neutral-800/60 px-3 py-1.5 text-sm text-neutral-300 backdrop-blur transition hover:bg-neutral-700/60"
-              >
-                <MdGroup size={18} />
-                {roomParticipants.length}
-              </button>
-
-              {/* Participant list dropdown */}
-              {showParticipants && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowParticipants(false)} />
-                  <div className="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl bg-neutral-800/90 p-3 shadow-xl backdrop-blur">
-                    <ParticipantList
-                      participants={roomParticipants}
-                      localUserId={localUserId}
-                    />
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
+          {!hasOwnHUD && statusBadges("top")}
         </>
       }
       loadingOverlay={<LoadingOverlay visible={loading} message={loadingMsg} />}

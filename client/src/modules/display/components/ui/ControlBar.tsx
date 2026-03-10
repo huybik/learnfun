@@ -18,6 +18,8 @@ interface ControlBarProps {
   onConnect?: () => void;
   onPause?: () => void;
   onResume?: () => void;
+  /** Extra elements rendered inside the control bar cluster. */
+  children?: React.ReactNode;
 }
 
 /**
@@ -34,6 +36,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
   onConnect,
   onPause,
   onResume,
+  children,
 }) => {
 
   return (
@@ -112,6 +115,8 @@ export const ControlBar: React.FC<ControlBarProps> = ({
         >
           {connectionState === "disconnected" ? <MdPowerSettingsNew size={20} /> : connectionState === "connected" ? <MdPause size={20} /> : <MdPlayArrow size={20} />}
         </button>
+
+        {children}
       </div>
     </section>
   );

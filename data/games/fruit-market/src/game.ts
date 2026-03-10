@@ -118,7 +118,7 @@ export class FruitMarketGame implements GameAPI, GameCtx {
 
   getState() {
     const s = this.s
-    const base = { wave: s.wave, coins: s.coins, score: s.score, learnedFruits: [...s.learnedFruits] }
+    const base = { wave: s.wave, coins: s.coins, score: s.score, learnedFruits: [...s.learnedFruits], hasOwnHUD: true }
     if (s.phase === 'learn') {
       const item = s.intro[s.introIdx]
       return { ...base, phase: 'learn' as const, introIndex: s.introIdx, introTotal: s.intro.length, currentFruit: item?.fruit ?? '' }
