@@ -30,6 +30,9 @@ def _parse_frontmatter(raw: str) -> dict:
         if value.startswith("[") and value.endswith("]"):
             items = [s.strip() for s in value[1:-1].split(",")]
             result[key.strip()] = items
+        # Parse booleans
+        elif value.lower() in ("true", "false"):
+            result[key.strip()] = value.lower() == "true"
         # Parse numbers
         elif value.isdigit():
             result[key.strip()] = int(value)

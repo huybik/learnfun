@@ -220,13 +220,50 @@ async def handle_update_profile(params: dict, ctx: ToolHandlerContext) -> ToolRe
 
 
 async def handle_load_content(params: dict, ctx: ToolHandlerContext) -> ToolResponse:
-    """Load a content item (game or bundle) by ID."""
+    """Load a content item (game or bundle) by ID.
+
+    For self-contained games, this also starts the game directly by publishing
+    content_ready + game_started events (no TA needed).
+    """
     content_type = params["content_type"]
     content_id = params["content_id"]
 
     try:
         if content_type == "game":
             item = get_game(content_id)
+
+            # Self-contained games: start directly without TA
+            if item.selfContained:
+                room_id = ctx.caller.session_id
+                bundle = FilledBundle(
+                    templateId=item.id,
+                    sessionId=room_id,
+                    filledSlots={},
+                    createdAt=datetime.now(timezone.utc).isoformat(),
+                )
+
+                channel = room_subject(SUBJECTS["CONTENT_PUSH"], room_id)
+                await publish_event(
+                    channel=channel,
+                    event_type="ta.content_ready",
+                    payload={
+                        "contentId": room_id,
+                        "bundle": bundle.model_dump(),
+                        "metadata": {"templateId": item.id},
+                    },
+                    source_id=ctx.caller.id,
+                )
+
+                game_ch = room_subject(SUBJECTS["GAME_STARTED"], room_id)
+                await publish_event(
+                    channel=game_ch,
+                    event_type="game.started",
+                    payload={"templateId": item.id, "roomId": room_id},
+                    source_id=ctx.caller.id,
+                )
+
+                return ToolResponse(call_id=ctx.call_id, success=True, data={"started": True, "game": item.id})
+
             return ToolResponse(call_id=ctx.call_id, success=True, data={"game": item.model_dump()})
         if content_type == "bundle":
             item = get_bundle(content_id)

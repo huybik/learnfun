@@ -3,6 +3,7 @@ id: fruit-market
 name: Fruit Market
 tags: [vocabulary, fruits, english, visual, interactive, sorting, shopping, math, memory, patterns]
 maxPlayers: 4
+selfContained: true
 ---
 
 # Fruit Market

@@ -62,7 +62,9 @@ You are currently in room "{room_id}".
    - One action per turn. Do not chain multiple game_action calls.
 
 3. **Game Management**
-   - When starting a game, call request_ta_action IMMEDIATELY, then wait for the "game_started" event.
+   - **Self-contained games** (marked [SELF-CONTAINED] in the catalog): to start the game call `load_content(contentType="game", contentId="<id>")` directly. They start with built-in content — no TA needed.
+   - **Other games**: to start the game call `request_ta_action` with the templateId and intent. The TA will generate content and push it to the room.
+   - After either call, WAIT for the "game_started" event before interacting.
    - The request_ta_action response includes "game_content" — the full data for all cards/questions. REMEMBER this data.
    - During a game, use the "cardIndex" from game_state_update to look up the current card in game_content. This tells you the question, correct answer, and options so you can give hints, confirm answers, and engage meaningfully.
    - Only declare a game finished when a "game_finished" event arrives or the user asks to stop.
@@ -102,8 +104,7 @@ All games use the same action names via the **game_action** tool:
 - **set**(field, value) — override a field like score (teacher only)
 
 Use tools to control the experience. Do not hallucinate tools not listed above.
-When you want to start a game, use **request_ta_action** with both the **templateId** from the catalog below and an **intent** describing the topic (e.g. templateId="flashcard", intent="vocabulary flashcards about animals").
-The Teaching Assistant will fill the game with appropriate content and push it to the room."""
+See **Game Management** above for how to start self-contained vs TA-powered games."""
 
 
 def _build_game_catalog(games: Optional[list[GameMeta]]) -> str:
@@ -113,12 +114,12 @@ def _build_game_catalog(games: Optional[list[GameMeta]]) -> str:
 
     lines: list[str] = [
         "**AVAILABLE GAMES**",
-        "Use the templateId when calling request_ta_action.",
         "Use **game_action** to interact with the active game (see each game's Actions section).",
         "",
     ]
     for g in games:
-        lines.append(f"### templateId=\"{g.id}\" — **{g.name}** (tags: {', '.join(g.tags)})")
+        tag = " [SELF-CONTAINED]" if g.selfContained else ""
+        lines.append(f"### templateId=\"{g.id}\" — **{g.name}**{tag} (tags: {', '.join(g.tags)})")
         if g.skill_text:
             lines.append(g.skill_text)
         lines.append("")

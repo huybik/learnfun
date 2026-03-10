@@ -11,6 +11,7 @@ class GameMeta(BaseModel):
     name: str
     tags: list[str] = []
     maxPlayers: int = 1
+    selfContained: bool = False
     skill_text: str = ""
 
 
