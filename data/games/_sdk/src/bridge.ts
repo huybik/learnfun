@@ -34,19 +34,26 @@ export class GameBridge {
   }
 
   private onHostMessage = (e: MessageEvent) => {
+    if (e.origin !== window.location.origin) return
     const msg = e.data as HostToGame
     if (!this.game || !msg?.type) return
 
-    if (msg.type === 'init') {
-      this.game.init(msg.data)
-    } else if (msg.type === 'action') {
-      this.game.handleAction(msg.name, msg.params)
+    try {
+      if (msg.type === 'init') {
+        this.game.init(msg.data)
+      } else if (msg.type === 'action') {
+        this.game.handleAction(msg.name, msg.params)
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      console.error('[GameBridge]', message)
+      this.emitEvent('error', { message })
     }
   }
 
   private sendToHost(msg: GameToHost) {
     if (this.isIframe) {
-      window.parent.postMessage(msg, '*')
+      window.parent.postMessage(msg, window.location.origin)
     }
     this.devPanel?.onGameMessage(msg)
   }
