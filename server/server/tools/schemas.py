@@ -199,8 +199,8 @@ TOOL_DEFINITIONS: list[ToolRegistration] = [
     ToolRegistration(
         name="signal_feedback",
         description=(
-            "Show visual feedback to the user: correct, incorrect, or "
-            "informational. Optionally awards points."
+            'Show visual feedback. Required: type ("correct", "incorrect", '
+            'or "info"). Optional: points (int), message (str).'
         ),
         schema_cls=SignalFeedbackParams,
         allowed_callers=["teacher", "ta"],

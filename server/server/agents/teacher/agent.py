@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import uuid
 from typing import Any, Optional
 
@@ -489,9 +490,14 @@ class TeacherAgent:
         except Exception as exc:
             log.error("TA dispatch failed", call_id=call_id, error=str(exc))
 
+    _GARBAGE_TRANSCRIPTION_RE = re.compile(r"<ctrl\d+>")
+
     def _on_gemini_transcription(self, source: str, text: str) -> None:
         """Publish transcription via LiveKit data channel (lower latency than Redis→SSE)."""
         if not self._room:
+            return
+        text = self._GARBAGE_TRANSCRIPTION_RE.sub("", text).strip()
+        if not text:
             return
         data = json.dumps({"source": source, "text": text}).encode()
         self._track_task(
