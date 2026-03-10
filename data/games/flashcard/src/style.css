@@ -4,11 +4,12 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
+html, body { height: 100%; }
+
 body {
   background: linear-gradient(180deg, #E8E0F0, #FEFAF6);
   font-family: 'Fredoka', sans-serif;
   color: #2D2D2D;
-  min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -16,7 +17,7 @@ body {
 
 #game {
   width: 100%;
-  max-width: 600px;
+  max-width: 700px;
   padding: 24px;
   display: flex;
   flex-direction: column;
@@ -339,7 +340,7 @@ body {
   display: grid;
   gap: 12px;
   width: 100%;
-  max-width: 400px;
+  max-width: 500px;
 }
 
 .match-card {
@@ -437,7 +438,7 @@ body {
   grid-template-columns: 1fr 1fr;
   gap: 12px;
   width: 100%;
-  max-width: 320px;
+  max-width: 380px;
 }
 
 .end-stat {
@@ -603,7 +604,7 @@ body {
 
   .card {
     padding: 16px;
-    min-height: 160px;
+    min-height: 140px;
   }
 
   .option-btn {
@@ -633,7 +634,7 @@ body {
   }
 
   .end-trophy {
-    font-size: 56px;
+    font-size: 48px;
   }
 
   .end-stats {
@@ -645,10 +646,15 @@ body {
   }
 
   .end-stat-value {
-    font-size: 24px;
+    font-size: 22px;
   }
 
   .match-grid {
     gap: 8px;
+    max-width: 320px;
+  }
+
+  .mastery-section {
+    max-width: 100%;
   }
 }
