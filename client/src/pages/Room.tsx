@@ -126,6 +126,8 @@ export default function RoomPage() {
     };
   }, [room.connectionState, addTranscript]);
 
+  const userName = sessionData?.userName ?? "Student";
+
   const { participants: roomParticipants, localUserId } = useRoomParticipants(
     room.participants,
     room.localParticipant,
@@ -289,7 +291,7 @@ export default function RoomPage() {
     (state: Record<string, unknown>) => {
       if (typeof state.score === "number") setScore(state.score);
       if (state.hasOwnHUD) setHasOwnHUD(true);
-      sendToTeacher(`[game_state_update] ${JSON.stringify(state)}`);
+      sendToTeacher(`[game_state_update from ${userName}] ${JSON.stringify(state)}`);
       // Sync score to Yjs for multiplayer scoreboard
       if (typeof state.score === "number" && localUserId) {
         updateGameState({
@@ -298,7 +300,7 @@ export default function RoomPage() {
         });
       }
     },
-    [sendToTeacher, localUserId, updateGameState, syncedGame.scores, syncedGame.data],
+    [sendToTeacher, userName, localUserId, updateGameState, syncedGame.scores, syncedGame.data],
   );
 
   const handleGameEvent = useCallback(
@@ -327,20 +329,20 @@ export default function RoomPage() {
         }, 500);
       }
 
-      sendToTeacher(`[game_event:${name}] ${JSON.stringify(data)}`);
+      sendToTeacher(`[game_event:${name} from ${userName}] ${JSON.stringify(data)}`);
     },
-    [sendToTeacher, roomId],
+    [sendToTeacher, userName, roomId],
   );
 
   const handleGameEnd = useCallback(
     (results?: Record<string, unknown>) => {
       setIsGameActive(false);
       if (results) {
-        sendToTeacher(`[game_event:gameEnd] ${JSON.stringify(results)}`);
+        sendToTeacher(`[game_event:gameEnd from ${userName}] ${JSON.stringify(results)}`);
       }
       updateGameState({ active: false });
     },
-    [sendToTeacher, updateGameState],
+    [sendToTeacher, userName, updateGameState],
   );
 
   const handleEndGame = useCallback(() => {
@@ -348,20 +350,20 @@ export default function RoomPage() {
       clearTimeout(screenshotTimerRef.current);
       screenshotTimerRef.current = null;
     }
-    sendToTeacher(`[game_event:gameEnd] ${JSON.stringify({ outcome: "closed_by_user" })}`);
+    sendToTeacher(`[game_event:gameEnd from ${userName}] ${JSON.stringify({ outcome: "closed_by_user" })}`);
     setIsGameActive(false);
     setGameId(undefined);
     setGameInitData(undefined);
     updateGameState({ active: false });
-  }, [sendToTeacher, updateGameState]);
+  }, [sendToTeacher, userName, updateGameState]);
 
   // --- Text chat: send to AI teacher ---
   const handleSendText = useCallback(
     (text: string) => {
       addTranscript("user", text, true);
-      sendToTeacher(text);
+      sendToTeacher(`[${userName}] ${text}`);
     },
-    [addTranscript, sendToTeacher],
+    [addTranscript, sendToTeacher, userName],
   );
 
   // Peers for in-game multiplayer scoreboard

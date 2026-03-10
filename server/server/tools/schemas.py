@@ -109,7 +109,7 @@ class GetRoomStateParams(BaseModel):
 class GameActionParams(BaseModel):
     action: str = Field(min_length=1, description="The action name declared in the game's skill.md Actions section")
     params: dict[str, Any] = Field(default_factory=dict, description="Action parameters")
-    target_player: str | None = Field(default=None, description="If set, only this player receives the action")
+    target_player: str | None = Field(default=None, description="Player ID to send the action to. If set, only this player receives it. Use IDs from the participant list.")
 
 
 # ---------------------------------------------------------------------------

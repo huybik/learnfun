@@ -26,7 +26,8 @@ def build_teacher_prompt(
         profile = next((u for u in user_profiles if u.get("id") == p.get("id")), None)
         observations = profile.get("observations", []) if profile else []
         notes = "; ".join(observations) if observations else "no notes yet"
-        student_lines.append(f"  - {p.get('name', 'Unknown')} ({p.get('role', 'student')}) -- {notes}")
+        pid = p.get('id', '?')
+        student_lines.append(f"  - {p.get('name', 'Unknown')} [id: {pid}] ({p.get('role', 'student')}) -- {notes}")
 
     student_list = "\n".join(student_lines) if student_lines else "  (nobody has joined yet)"
 
@@ -52,6 +53,13 @@ You are currently in room "{room_id}".
 
 **PARTICIPANTS**
 {student_list}
+
+**MULTIPLAYER**
+- When multiple students are present, you receive `[now speaking: Name]` hints identifying who is talking via voice.
+- Text messages and game events include the sender's name (e.g. `[Sarah] hello`, `[game_event:correctAnswer from Sarah]`).
+- Address students by name. Give personalized feedback based on each student's actions.
+- You are notified when students join or leave via `[system: Name just joined/left the room]`.
+- To target a game action to one student, use their player ID (shown above) in the `target_player` field.
 
 **CORE RULES (STRICT)**
 1. **Wait-for-Response Rule**

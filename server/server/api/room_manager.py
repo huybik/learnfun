@@ -7,7 +7,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
-from server.agents.teacher.manager import stop_teacher
+from server.agents.teacher.manager import get_teacher, stop_teacher
 from server.config import settings
 from server.events.helpers import publish_event
 from server.events.subjects import SUBJECTS, room_subject
@@ -33,6 +33,7 @@ class StoredSession:
     host_id: str
     host_name: str
     participants: list[str] = field(default_factory=list)
+    participant_names: dict[str, str] = field(default_factory=dict)
     created_at: float = 0.0
     ended_at: float | None = None
     db_session_id: str | None = None
@@ -94,6 +95,7 @@ async def create_session(
             host_id=user_id,
             host_name=user_name,
             participants=[user_id],
+            participant_names={user_id: user_name},
             created_at=datetime.now(timezone.utc).timestamp(),
             db_session_id=db_session.id,
         )
@@ -161,6 +163,12 @@ async def join_session(session_id: str, user_name: str) -> dict:
 
     async with _lock:
         session.participants.append(user_id)
+        session.participant_names[user_id] = user_name
+
+    # Notify running teacher agent about the new participant
+    teacher = get_teacher(session.room_id)
+    if teacher:
+        await teacher.notify_participant_joined(user_id, user_name)
 
     token = generate_session_token(
         user_id=user_id,

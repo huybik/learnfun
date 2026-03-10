@@ -116,6 +116,13 @@ class TeacherAgent:
         self._tool_registry = tool_registry
         self._ta_agent = ta_agent
 
+        # Participant tracking for multiplayer
+        self._participant_names: dict[str, str] = {
+            p.get("id", ""): p.get("name", "Unknown")
+            for p in self._participants if p.get("id")
+        }
+        self._current_speaker: str | None = None
+
         self._gemini: Optional[GeminiSession] = None
         self._room: Optional[rtc.Room] = None
         self._audio_source: Optional[rtc.AudioSource] = None
@@ -285,6 +292,7 @@ class TeacherAgent:
 
         # Wire room events
         self._room.on("track_subscribed", self._on_track_subscribed)
+        self._room.on("active_speakers_changed", self._on_active_speakers_changed)
 
         # Connect to room
         await self._room.connect(self._livekit_url, self._livekit_token)
@@ -349,6 +357,41 @@ class TeacherAgent:
                     await self._gemini.send_audio_stream_end()
                 except Exception:
                     pass
+
+    # ------------------------------------------------------------------
+    # Multiplayer: active speaker + participant notifications
+    # ------------------------------------------------------------------
+
+    def _on_active_speakers_changed(self, speakers: list[rtc.Participant]) -> None:
+        """Send a text hint to Gemini when the active speaker changes."""
+        if len(self._participant_names) <= 1:
+            return
+        human = [s for s in speakers if s.identity != "ai-teacher"]
+        new_speaker = human[0].identity if human else None
+        if new_speaker and new_speaker != self._current_speaker:
+            self._current_speaker = new_speaker
+            name = self._participant_names.get(new_speaker, new_speaker)
+            if self._gemini and self._gemini.connected:
+                self._track_task(asyncio.create_task(
+                    self._gemini.send_text(f"[now speaking: {name}]")
+                ))
+
+    async def notify_participant_joined(self, user_id: str, name: str) -> None:
+        """Notify the teacher that a new participant joined the room."""
+        self._participant_names[user_id] = name
+        if self._gemini and self._gemini.connected:
+            await self._gemini.send_text(
+                f"[system: {name} just joined the room. Their player ID is {user_id}. "
+                f"Address them by name and welcome them!]"
+            )
+
+    async def notify_participant_left(self, user_id: str, name: str) -> None:
+        """Notify the teacher that a participant left the room."""
+        self._participant_names.pop(user_id, None)
+        if user_id == self._current_speaker:
+            self._current_speaker = None
+        if self._gemini and self._gemini.connected:
+            await self._gemini.send_text(f"[system: {name} has left the room]")
 
     # ------------------------------------------------------------------
     # Gemini callbacks

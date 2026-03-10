@@ -36,10 +36,14 @@ async def post_teacher_message(body: TeacherMessageBody):
 
     text = body.text
     # Enrich game state updates with all players' scores from Yjs
-    if "[game_state_update]" in text:
+    if "[game_state_update" in text:
         scores = await get_game_scores(body.roomId)
         if len(scores) > 1:
-            score_summary = " | ".join(f"{pid}: {s}" for pid, s in scores.items())
+            # Resolve player IDs to names via the teacher's participant map
+            names = agent._participant_names if hasattr(agent, '_participant_names') else {}
+            score_summary = " | ".join(
+                f"{names.get(pid, pid)}: {s}" for pid, s in scores.items()
+            )
             text += f" [all_scores: {score_summary}]"
 
     sent = await agent.send_text(text)
@@ -91,14 +95,28 @@ async def post_ensure_teacher(body: EnsureTeacherBody, request: Request):
         return {"ok": True, "spawned": False}
 
     log.info("Spawning teacher on resume", room_id=room_id)
+
+    # Build participant list from session store so teacher knows everyone
+    from .room_manager import get_session_by_room
+    session = get_session_by_room(room_id)
+
     user_profile = {
-        "id": "",
-        "name": body.userName,
+        "id": session.host_id if session else "",
+        "name": session.host_name if session else body.userName,
         "preferences": {
             "voice": body.voicePreference,
             "language": body.languageCode,
         },
     }
+    participants = []
+    if session:
+        for pid in session.participants:
+            pname = session.participant_names.get(pid, "Student")
+            role = "host" if pid == session.host_id else "student"
+            participants.append({"id": pid, "name": pname, "role": role})
+    else:
+        participants = [user_profile]
+
     teacher_token = generate_livekit_token(room_id, "ai-teacher", "teacher")
 
     task = asyncio.create_task(
@@ -106,7 +124,7 @@ async def post_ensure_teacher(body: EnsureTeacherBody, request: Request):
             room_id=room_id,
             livekit_token=teacher_token,
             user_profile=user_profile,
-            participants=[user_profile],
+            participants=participants,
             ta_agent=request.app.state.ta_agent,
             tool_registry=request.app.state.tool_registry,
         )
