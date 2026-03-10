@@ -1,220 +1,307 @@
 import type { GameAPI } from '@learnfun/game-sdk'
-import { GameBridge } from '@learnfun/game-sdk'
-
-interface Card {
-  id: number | string
-  image_data?: string
-  answer?: string
-  sentence_template?: string
-  missing_word?: string
-  options?: string[]
-}
-
-type Mode = 'ImageToWord' | 'SentenceCompletion'
+import type { GameBridge } from '@learnfun/game-sdk'
+import type { Card, Mode, Phase, GameState, GameCtx } from './types'
+import { POINTS_CORRECT, SPEED_TIMER_MS, ALL_MINI_GAMES } from './constants'
+import { clamp, shuffle } from './utils'
+import { sfxWhoosh } from './audio'
+import { renderLearn } from './phases/learn'
+import { renderQuiz } from './phases/quiz'
+import { renderSpeed } from './phases/speed'
+import { renderMatch, generateMatchCards } from './phases/match'
+import { renderEnd } from './phases/end'
 
 export class FlashcardGame implements GameAPI {
-  private bridge: GameBridge
   private root: HTMLElement
-  private mode: Mode = 'SentenceCompletion'
-  private cards: Card[] = []
-  private idx = 0
-  private score = 0
-  private answered = false
-  private wasCorrect: boolean | null = null
+  private bridge: GameBridge
+  private state: GameState
+  private ctx: GameCtx
 
   constructor(root: HTMLElement, bridge: GameBridge) {
     this.root = root
     this.bridge = bridge
+    this.state = this.defaultState()
+    this.ctx = {
+      root,
+      bridge,
+      s: this.state,
+      render: () => this.render(),
+      sync: () => this.sync(),
+      advance: () => this.advanceInPhase(),
+      checkAnswer: (v) => this.checkAnswer(v),
+    }
   }
 
   init(data: unknown) {
     const d = data as Record<string, unknown>
-    this.mode = (d.sub_type as Mode) || 'SentenceCompletion'
-    this.cards = (d.cards as Card[]) || []
-    this.idx = 0
-    this.score = 0
-    this.answered = false
-    this.wasCorrect = null
+    const cards = (d.cards as Card[]) || []
+    const mode = (d.sub_type as Mode) || 'SentenceCompletion'
+
+    // Reset all state
+    Object.assign(this.state, this.defaultState())
+    this.state.mode = mode
+    this.state.cards = cards
+    this.state.miniGames = shuffle([...ALL_MINI_GAMES])
+
+    for (const card of cards) {
+      this.state.mastery[String(card.id)] = 0
+    }
+
+    this.bridge.emitEvent('gameStarted', { mode, total: cards.length })
     this.render()
     this.sync()
-    this.bridge.emitEvent('gameStarted', { mode: this.mode, total: this.cards.length })
   }
 
   handleAction(name: string, params: Record<string, unknown>) {
+    const s = this.state
     const actions: Record<string, () => void> = {
-      submit: () => this.checkAnswer(String(params.value ?? '')),
-      next: () => this.advance(),
-      reveal: () => { this.answered = true; this.wasCorrect = null; this.render() },
-      jump: () => {
-        this.idx = clamp(Number(params.to), 0, this.cards.length - 1)
-        this.answered = false
-        this.wasCorrect = null
+      submit: () => {
+        this.checkAnswer(String(params.value ?? ''))
         this.render()
+        this.sync()
       },
-      end: () => this.finish(),
+      next: () => this.advanceInPhase(),
+      reveal: () => {
+        if (s.phase === 'quiz' || s.phase === 'speed') {
+          s.answered = true
+          s.wasCorrect = null
+          this.clearSpeedTimer()
+          this.render()
+          this.sync()
+        }
+      },
+      jump: () => {
+        s.cardIndex = clamp(Number(params.to), 0, s.cards.length - 1)
+        s.answered = false
+        s.wasCorrect = null
+        s.wrongAttempts = 0
+        this.render()
+        this.sync()
+      },
+      end: () => {
+        this.clearTimers()
+        s.phase = 'end'
+        this.render()
+        this.sync()
+      },
       set: () => {
-        const field = String(params.field)
-        if (field === 'score') { this.score = Number(params.value); this.render() }
+        if (String(params.field) === 'score') {
+          s.score = Number(params.value)
+          this.render()
+          this.sync()
+        }
       },
     }
     actions[name]?.()
-    this.sync()
   }
 
   getState() {
-    const card = this.cards[this.idx]
+    const s = this.state
+    const card = s.cards[s.cardIndex]
     return {
-      mode: this.mode,
-      cardIndex: this.idx,
-      score: this.score,
-      total: this.cards.length,
-      answered: this.answered,
-      isComplete: this.idx >= this.cards.length,
+      phase: s.phase,
+      mode: s.mode,
+      cardIndex: s.cardIndex,
+      score: s.score,
+      total: s.cards.length,
+      streak: s.streak,
+      answered: s.answered,
+      isComplete: s.phase === 'end',
       currentAnswer: card ? (card.answer ?? card.missing_word ?? '') : '',
+      bestStreak: s.bestStreak,
+      totalCorrect: s.totalCorrect,
+      totalAnswered: s.totalAnswered,
+      mastery: s.mastery,
     }
   }
 
   destroy() {
+    this.clearTimers()
     this.root.innerHTML = ''
   }
 
-  // --- Internal ---
+  // --- Private ---
+
+  private defaultState(): GameState {
+    return {
+      phase: 'learn',
+      mode: 'SentenceCompletion',
+      score: 0,
+      streak: 0,
+      bestStreak: 0,
+      totalCorrect: 0,
+      totalAnswered: 0,
+      cards: [],
+      cardIndex: 0,
+      answered: false,
+      wasCorrect: null,
+      wrongAttempts: 0,
+      miniGames: [],
+      miniGameIndex: 0,
+      timerStart: 0,
+      timerDuration: SPEED_TIMER_MS,
+      speedTimerId: 0,
+      matchCards: [],
+      matchFlipped: [],
+      matchMatched: [],
+      matchLocked: false,
+      mastery: {},
+      advanceTimer: 0,
+    }
+  }
+
+  private checkAnswer(value: string): boolean {
+    const s = this.state
+    if (s.answered || !value.trim()) return false
+    if (s.phase !== 'quiz' && s.phase !== 'speed') return false
+
+    const card = s.cards[s.cardIndex]
+    if (!card) return false
+
+    const correct = (card.answer ?? card.missing_word ?? '').trim().toLowerCase()
+    const isCorrect = value.trim().toLowerCase() === correct
+
+    s.answered = true
+    s.wasCorrect = isCorrect
+    s.totalAnswered++
+
+    if (isCorrect) {
+      s.totalCorrect++
+      s.streak++
+      s.bestStreak = Math.max(s.bestStreak, s.streak)
+      s.mastery[String(card.id)] = (s.mastery[String(card.id)] || 0) + 1
+      s.score += POINTS_CORRECT
+    } else {
+      s.streak = 0
+      s.wrongAttempts++
+      s.mastery[String(card.id)] = 0
+    }
+
+    this.bridge.emitEvent(isCorrect ? 'correctAnswer' : 'incorrectAnswer', {
+      cardIndex: s.cardIndex,
+      expected: correct,
+      given: value.trim(),
+      score: s.score,
+    })
+
+    return isCorrect
+  }
+
+  private render() {
+    const renderers: Record<Phase, (ctx: GameCtx) => void> = {
+      learn: renderLearn,
+      quiz: renderQuiz,
+      speed: renderSpeed,
+      match: renderMatch,
+      end: renderEnd,
+    }
+    renderers[this.state.phase](this.ctx)
+  }
 
   private sync() {
     this.bridge.updateState(this.getState())
   }
 
-  private correctAnswer(card: Card): string {
-    return (card.answer ?? card.missing_word ?? '').trim().toLowerCase()
+  private advanceInPhase() {
+    const s = this.state
+    clearTimeout(s.advanceTimer)
+    s.advanceTimer = 0
+
+    switch (s.phase) {
+      case 'learn':
+        if (s.cardIndex < s.cards.length - 1) {
+          s.cardIndex++
+        } else {
+          s.phase = 'quiz'
+          s.cardIndex = 0
+          s.answered = false
+          s.wasCorrect = null
+          s.wrongAttempts = 0
+          sfxWhoosh()
+        }
+        this.render()
+        this.sync()
+        break
+
+      case 'quiz':
+        if (s.cardIndex < s.cards.length - 1) {
+          s.cardIndex++
+          s.answered = false
+          s.wasCorrect = null
+          s.wrongAttempts = 0
+          this.render()
+          this.sync()
+        } else {
+          this.startMiniGame(0)
+        }
+        break
+
+      case 'speed':
+        this.clearSpeedTimer()
+        if (s.cardIndex < s.cards.length - 1) {
+          s.cardIndex++
+          s.answered = false
+          s.wasCorrect = null
+          s.wrongAttempts = 0
+          s.timerStart = Date.now()
+          this.render()
+          this.sync()
+        } else {
+          this.advanceToNextMiniGame()
+        }
+        break
+
+      case 'match':
+        this.advanceToNextMiniGame()
+        break
+
+      case 'end':
+        break
+    }
   }
 
-  private checkAnswer(answer: string) {
-    if (this.answered || !answer.trim()) return
-    const card = this.cards[this.idx]
-    if (!card) return
+  private startMiniGame(index: number) {
+    const s = this.state
 
-    const correct = this.correctAnswer(card)
-    this.wasCorrect = answer.trim().toLowerCase() === correct
-    this.answered = true
-    if (this.wasCorrect) this.score += 10
+    if (index >= s.miniGames.length) {
+      s.phase = 'end'
+      this.render()
+      this.sync()
+      return
+    }
 
-    this.bridge.emitEvent(this.wasCorrect ? 'correctAnswer' : 'incorrectAnswer', {
-      cardIndex: this.idx,
-      expected: correct,
-      given: answer.trim(),
-      score: this.score,
-    })
+    s.miniGameIndex = index
+    const game = s.miniGames[index]
+
+    if (game === 'speed') {
+      s.phase = 'speed'
+      s.cardIndex = 0
+      s.answered = false
+      s.wasCorrect = null
+      s.wrongAttempts = 0
+      s.cards = shuffle([...s.cards])
+      s.timerStart = Date.now()
+    } else if (game === 'match') {
+      s.phase = 'match'
+      generateMatchCards(this.ctx)
+    }
+
+    sfxWhoosh()
     this.render()
     this.sync()
   }
 
-  private advance() {
-    if (this.idx < this.cards.length - 1) {
-      this.idx++
-      this.answered = false
-      this.wasCorrect = null
-      this.render()
-      this.sync()
-    } else {
-      this.finish()
-    }
+  private advanceToNextMiniGame() {
+    this.startMiniGame(this.state.miniGameIndex + 1)
   }
 
-  private finish() {
-    this.bridge.emitEvent('gameCompleted', { score: this.score, total: this.cards.length })
-    this.bridge.endGame({ outcome: 'completed', finalScore: this.score })
-    this.root.innerHTML = ''
-    const div = h('div', 'completion')
-    div.innerHTML = `<h2>Game Complete!</h2><p class="final-score">Score: ${this.score} / ${this.cards.length * 10}</p>`
-    this.root.appendChild(div)
+  private clearSpeedTimer() {
+    clearTimeout(this.state.speedTimerId)
+    this.state.speedTimerId = 0
   }
 
-  private render() {
-    const card = this.cards[this.idx]
-    if (!card) return
-    this.root.innerHTML = ''
-
-    // Header
-    const header = h('div', 'header')
-    header.innerHTML = `
-      <span class="progress">Card ${this.idx + 1} / ${this.cards.length}</span>
-      <span class="score">Score: ${this.score}</span>
-    `
-    this.root.appendChild(header)
-
-    // Card content
-    const cardEl = h('div', 'card')
-    if (this.mode === 'ImageToWord' && card.image_data) {
-      const img = document.createElement('img')
-      img.src = card.image_data.startsWith('data:') ? card.image_data : `data:image/jpeg;base64,${card.image_data}`
-      img.alt = `Card ${this.idx + 1}`
-      cardEl.appendChild(img)
-    } else if (this.mode === 'SentenceCompletion' && card.sentence_template) {
-      const p = h('p', 'sentence')
-      const answer = card.missing_word ?? ''
-      if (this.answered) {
-        p.innerHTML = card.sentence_template.split('____').join(`<span class="filled">${answer}</span>`)
-      } else {
-        p.innerHTML = card.sentence_template.split('____').join('<span class="blank">____</span>')
-      }
-      cardEl.appendChild(p)
-    }
-    this.root.appendChild(cardEl)
-
-    // Feedback (after answering)
-    if (this.answered) {
-      const correctText = card.answer ?? card.missing_word ?? ''
-      const fb = h('div', `feedback ${this.wasCorrect === true ? 'correct' : this.wasCorrect === false ? 'incorrect' : 'reveal'}`)
-      fb.textContent = this.wasCorrect === true
-        ? 'Correct!'
-        : this.wasCorrect === false
-          ? `Incorrect. Answer: ${correctText}`
-          : `Answer: ${correctText}`
-      this.root.appendChild(fb)
-
-      const btn = h('button', 'next-btn')
-      btn.textContent = this.idx < this.cards.length - 1 ? 'Next' : 'Finish'
-      btn.onclick = () => this.advance()
-      this.root.appendChild(btn)
-      return
-    }
-
-    // Input area
-    if (this.mode === 'SentenceCompletion' && card.options?.length) {
-      const opts = h('div', 'options')
-      for (const opt of card.options) {
-        const btn = h('button', 'option-btn')
-        btn.textContent = opt
-        btn.onclick = () => this.checkAnswer(opt)
-        opts.appendChild(btn)
-      }
-      this.root.appendChild(opts)
-    } else {
-      const form = h('div', 'input-area')
-      const input = document.createElement('input')
-      input.type = 'text'
-      input.className = 'answer-input'
-      input.placeholder = this.mode === 'ImageToWord' ? 'Type the word...' : 'Type the missing word...'
-      input.onkeydown = (e) => {
-        if (e.key === 'Enter' && input.value.trim()) this.checkAnswer(input.value)
-      }
-      const btn = h('button', 'submit-btn')
-      btn.textContent = 'Check'
-      btn.onclick = () => { if (input.value.trim()) this.checkAnswer(input.value) }
-      form.appendChild(input)
-      form.appendChild(btn)
-      this.root.appendChild(form)
-      requestAnimationFrame(() => input.focus())
-    }
+  private clearTimers() {
+    this.clearSpeedTimer()
+    clearTimeout(this.state.advanceTimer)
+    this.state.advanceTimer = 0
   }
-}
-
-function h(tag: string, className?: string): HTMLElement {
-  const el = document.createElement(tag)
-  if (className) el.className = className
-  return el
-}
-
-function clamp(v: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, v))
 }
