@@ -1,0 +1,1 @@
+- when working with games, read their CONTEXT.md in game's root folder instead starting from scratch.
