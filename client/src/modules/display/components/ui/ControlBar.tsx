@@ -40,7 +40,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
 }) => {
 
   return (
-    <section className="absolute bottom-0 right-4 z-50 flex flex-col items-end pb-4 opacity-30 transition-opacity duration-500 hover:opacity-100">
+    <section className="absolute bottom-0 right-4 z-50 flex w-80 flex-col items-center pb-4 opacity-30 transition-opacity duration-500 hover:opacity-100">
       {/* Main controls cluster */}
       <div
         className={cn(
