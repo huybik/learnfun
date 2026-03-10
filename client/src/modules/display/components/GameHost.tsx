@@ -31,22 +31,43 @@ interface GameHostProps {
   onEvent?: (name: string, data: Record<string, unknown>) => void;
   /** Called when the game signals it has ended. */
   onEnd?: (results: Record<string, unknown>) => void;
+  /** Called when the game iframe is ready to receive messages. */
+  onReady?: () => void;
 }
 
 export const GameHost = forwardRef<GameHostHandle, GameHostProps>(
-  ({ gameId, initData, peers, isFollower, onStateUpdate, onEvent, onEnd }, ref) => {
+  ({ gameId, initData, peers, isFollower, onStateUpdate, onEvent, onEnd, onReady }, ref) => {
     const iframeRef = useRef<HTMLIFrameElement>(null);
     const initDataRef = useRef(initData);
     initDataRef.current = initData;
-    const prevPeersRef = useRef('');
+    const peersRef = useRef(peers);
+    peersRef.current = peers;
+    const prevPeersRef = useRef("");
+    const readyRef = useRef(false);
+
+    const postToGame = useCallback((message: Record<string, unknown>) => {
+      iframeRef.current?.contentWindow?.postMessage(message, window.location.origin);
+    }, []);
+
+    const syncRole = useCallback(() => {
+      postToGame({ type: "action", name: "_setRole", params: { isFollower: !!isFollower } });
+    }, [isFollower, postToGame]);
+
+    const syncPeers = useCallback(
+      (players?: { id: string; name: string; score: number; phase: string | null }[]) => {
+        if (!players || players.length === 0) return;
+        const json = JSON.stringify(players);
+        if (json === prevPeersRef.current) return;
+        prevPeersRef.current = json;
+        postToGame({ type: "action", name: "_peers", params: { players } });
+      },
+      [postToGame],
+    );
 
     // Expose sendAction + captureScreenshot to parent via ref
     useImperativeHandle(ref, () => ({
       sendAction(name: string, params: Record<string, unknown>) {
-        iframeRef.current?.contentWindow?.postMessage(
-          { type: "action", name, params },
-          window.location.origin,
-        );
+        postToGame({ type: "action", name, params });
       },
       async captureScreenshot(): Promise<string | null> {
         const doc = iframeRef.current?.contentDocument;
@@ -74,13 +95,14 @@ export const GameHost = forwardRef<GameHostHandle, GameHostProps>(
 
         switch (msg.type) {
           case "ready":
+            readyRef.current = true;
+            syncRole();
             // Game loaded — send init data (leader only; follower waits for _sync)
             if (!isFollower) {
-              iframeRef.current?.contentWindow?.postMessage(
-                { type: "init", data: initDataRef.current },
-                window.location.origin,
-              );
+              postToGame({ type: "init", data: initDataRef.current });
             }
+            syncPeers(peersRef.current);
+            onReady?.();
             break;
           case "state":
             onStateUpdate?.(msg.state);
@@ -93,7 +115,7 @@ export const GameHost = forwardRef<GameHostHandle, GameHostProps>(
             break;
         }
       },
-      [onStateUpdate, onEvent, onEnd],
+      [isFollower, onEnd, onEvent, onReady, onStateUpdate, postToGame, syncPeers, syncRole],
     );
 
     useEffect(() => {
@@ -101,17 +123,21 @@ export const GameHost = forwardRef<GameHostHandle, GameHostProps>(
       return () => window.removeEventListener("message", onMessage);
     }, [onMessage]);
 
+    useEffect(() => {
+      readyRef.current = false;
+      prevPeersRef.current = "";
+    }, [gameId]);
+
+    useEffect(() => {
+      if (!readyRef.current) return;
+      syncRole();
+    }, [syncRole]);
+
     // Send peers to iframe when they change (JSON dedup)
     useEffect(() => {
-      if (!peers) return;
-      const json = JSON.stringify(peers);
-      if (json === prevPeersRef.current) return;
-      prevPeersRef.current = json;
-      iframeRef.current?.contentWindow?.postMessage(
-        { type: "action", name: "_peers", params: { players: peers } },
-        window.location.origin,
-      );
-    }, [peers]);
+      if (!readyRef.current) return;
+      syncPeers(peers);
+    }, [peers, syncPeers]);
 
     return (
       <iframe

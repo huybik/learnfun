@@ -6,7 +6,7 @@ import asyncio
 import json
 import re
 import uuid
-from typing import Any, Optional
+from typing import Any, AsyncIterator, Optional
 
 from livekit import rtc
 
@@ -32,6 +32,9 @@ log = get_logger("teacher:agent")
 
 # Gemini Live input expects 16 kHz mono PCM-16
 INPUT_SAMPLE_RATE = 16000
+# Mix 20 ms frames to keep Gemini input latency low.
+INPUT_FRAME_MS = 20
+INPUT_FRAME_SAMPLES = INPUT_SAMPLE_RATE * INPUT_FRAME_MS // 1000
 # Gemini Live output is 24 kHz mono PCM-16
 OUTPUT_SAMPLE_RATE = 24000
 
@@ -127,6 +130,7 @@ class TeacherAgent:
         self._room: Optional[rtc.Room] = None
         self._audio_source: Optional[rtc.AudioSource] = None
         self._audio_track: Optional[rtc.LocalAudioTrack] = None
+        self._audio_mixer: Optional[rtc.AudioMixer] = None
         self._running = False
         self._tasks: set[asyncio.Task[None]] = set()
 
@@ -208,6 +212,14 @@ class TeacherAgent:
             self._wire_gemini_callbacks()
             await self._gemini.connect()
 
+            # Mix all remote participant audio into one Gemini input stream.
+            self._audio_mixer = rtc.AudioMixer(
+                INPUT_SAMPLE_RATE,
+                1,
+                blocksize=INPUT_FRAME_SAMPLES,
+            )
+            self._track_task(asyncio.create_task(self._forward_mixed_audio_to_gemini()))
+
             # 3. Join LiveKit room
             await self._join_livekit_room()
 
@@ -233,6 +245,10 @@ class TeacherAgent:
         if self._gemini:
             await self._gemini.disconnect()
             self._gemini = None
+
+        if self._audio_mixer:
+            await self._audio_mixer.aclose()
+            self._audio_mixer = None
 
         if self._room:
             await self._room.disconnect()
@@ -316,47 +332,54 @@ class TeacherAgent:
             return
 
         log.debug("Audio track subscribed", participant=participant.identity)
-        audio_stream = rtc.AudioStream(track, sample_rate=INPUT_SAMPLE_RATE, num_channels=1)
-        self._track_task(asyncio.create_task(self._forward_audio_to_gemini(audio_stream, participant.identity)))
+        if not self._audio_mixer:
+            log.warning("Audio mixer unavailable; track ignored", participant=participant.identity)
+            return
 
-    async def _forward_audio_to_gemini(
-        self, audio_stream: rtc.AudioStream, participant_id: str
-    ) -> None:
-        """Read frames from LiveKit and send to Gemini via a decoupled queue.
+        audio_stream = rtc.AudioStream(
+            track,
+            sample_rate=INPUT_SAMPLE_RATE,
+            num_channels=1,
+            frame_size_ms=INPUT_FRAME_MS,
+        )
+        self._audio_mixer.add_stream(
+            self._iter_audio_frames(audio_stream, participant.identity)
+        )
 
-        The queue prevents backpressure on audio reads if a send stalls.
-        """
-        queue: asyncio.Queue[bytes | None] = asyncio.Queue(maxsize=50)
-
-        async def reader() -> None:
-            try:
-                async for event in audio_stream:
-                    if not self._running:
-                        break
-                    await queue.put(event.frame.data.tobytes())
-            finally:
-                try:
-                    queue.put_nowait(None)
-                except asyncio.QueueFull:
-                    pass
-
-        reader_task = asyncio.create_task(reader())
+    async def _iter_audio_frames(
+        self,
+        audio_stream: rtc.AudioStream,
+        participant_id: str,
+    ) -> AsyncIterator[rtc.AudioFrame]:
+        """Yield normalized audio frames for the shared mixer."""
         try:
-            while True:
-                data = await queue.get()
-                if data is None:
+            async for event in audio_stream:
+                if not self._running:
+                    break
+                yield event.frame
+        except Exception as exc:
+            log.error("Audio stream error", participant=participant_id, error=str(exc))
+        finally:
+            await audio_stream.aclose()
+
+    async def _forward_mixed_audio_to_gemini(self) -> None:
+        """Read mixed audio from LiveKit and send one stream to Gemini.
+
+        This avoids concurrent Gemini audio writes from multiple participant tracks.
+        """
+        try:
+            if not self._audio_mixer:
+                return
+
+            async for frame in self._audio_mixer:
+                if not self._running:
                     break
                 if self._gemini and self._gemini.connected:
-                    await self._gemini.send_audio(data)
+                    await self._gemini.send_audio(frame.data.tobytes())
+        except asyncio.CancelledError:
+            raise
         except Exception as exc:
-            log.error("Audio forward error", participant=participant_id, error=str(exc))
-        finally:
-            reader_task.cancel()
-            if self._gemini and self._gemini.connected:
-                try:
-                    await self._gemini.send_audio_stream_end()
-                except Exception:
-                    pass
+            log.error("Mixed audio forward error", room_id=self._room_id, error=str(exc))
 
     # ------------------------------------------------------------------
     # Multiplayer: active speaker + participant notifications

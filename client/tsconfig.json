@@ -38,6 +38,7 @@
   "exclude": [
     "node_modules",
     "../data/games/_sdk",
-    "../data/games/flashcard"
+    "../data/games/flashcard",
+    "../data/games/fruit-market"
   ]
 }

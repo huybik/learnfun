@@ -70,6 +70,10 @@ export function renderMemory(ctx: GameCtx) {
 
 export function handleMemoryFlip(ctx: GameCtx, cardId: number) {
   const { root, s, bridge } = ctx
+  if (s.isFollower) {
+    bridge.emitEvent('_relay', { name: 'memory_flip', params: { cardId } })
+    return
+  }
   if (s.memoryLocked || s.memoryFlipped.includes(cardId) || s.memoryMatched.has(cardId)) return
   s.memoryFlipped.push(cardId)
   sfxPop()
@@ -94,7 +98,9 @@ export function handleMemoryFlip(ctx: GameCtx, cardId: number) {
 
       if (s.memoryMatched.size === s.memoryCards.length) {
         bridge.emitEvent('memoryRoundComplete', { round: s.memoryIdx, score: s.score })
-        s.advanceTimer = window.setTimeout(() => ctx.advance(), 1200)
+        if (!s.isFollower) {
+          s.advanceTimer = window.setTimeout(() => ctx.advance(), 1200)
+        }
       }
       ctx.sync()
     } else {

@@ -55,13 +55,17 @@ export function renderShop(ctx: GameCtx) {
     root.appendChild(dropZone)
   }
 
-  if (s.shopBasket.length >= WAVE_SIZE) {
+  if (!s.isFollower && s.shopBasket.length >= WAVE_SIZE) {
     s.advanceTimer = window.setTimeout(() => ctx.advance(), 2000)
   }
 }
 
 export function handleBuy(ctx: GameCtx, item: ShopItem) {
   const { s, bridge } = ctx
+  if (s.isFollower) {
+    bridge.emitEvent('_relay', { name: 'buy', params: { fruit: item.fruit } })
+    return
+  }
   if (s.shopBasket.includes(item.fruit) || s.coins < item.price || s.shopBasket.length >= WAVE_SIZE) return
   clearTimeout(s.advanceTimer)
   s.shopBasket.push(item.fruit)

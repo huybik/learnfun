@@ -124,6 +124,10 @@ export function renderSort(ctx: GameCtx) {
 
 export function handleSort(ctx: GameCtx, fruitName: string, category: SortCategory) {
   const { root, s, bridge } = ctx
+  if (s.isFollower) {
+    bridge.emitEvent('_relay', { name: 'sort', params: { fruit: fruitName, category: category.name } })
+    return
+  }
   const isCorrect = category.fruits.some(f => f.toLowerCase() === fruitName.toLowerCase())
   if (isCorrect) {
     const cards = root.querySelectorAll<HTMLElement>('.fruit-card')
@@ -135,7 +139,9 @@ export function handleSort(ctx: GameCtx, fruitName: string, category: SortCatego
     bridge.emitEvent('correctSort', { fruit: fruitName, category: category.name, score: s.score })
     if (s.sortRemaining.length === 0) {
       bridge.emitEvent('sortRoundComplete', { round: s.sortIdx, score: s.score })
-      s.advanceTimer = window.setTimeout(() => ctx.advance(), 1500)
+      if (!s.isFollower) {
+        s.advanceTimer = window.setTimeout(() => ctx.advance(), 1500)
+      }
     }
     setTimeout(() => renderSort(ctx), 450)
   } else {
@@ -169,5 +175,7 @@ export function doSortReveal(ctx: GameCtx) {
   const bins = ctx.root.querySelectorAll('.sort-bin')
   const catIdx = round.categories.indexOf(cat)
   if (catIdx >= 0 && bins[catIdx]) bins[catIdx].classList.add('is-revealed')
-  s.advanceTimer = window.setTimeout(() => handleSort(ctx, fruit, cat), 1500)
+  if (!s.isFollower) {
+    s.advanceTimer = window.setTimeout(() => handleSort(ctx, fruit, cat), 1500)
+  }
 }

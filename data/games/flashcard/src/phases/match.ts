@@ -87,15 +87,19 @@ export function renderMatch(ctx: GameCtx): void {
     inner.appendChild(back)
     card.appendChild(inner)
 
-    card.onclick = () => onCardClick(ctx, mc.id)
+    card.onclick = () => handleMatchFlip(ctx, mc.id)
     grid.appendChild(card)
   }
 
   root.appendChild(grid)
 }
 
-function onCardClick(ctx: GameCtx, id: string): void {
+export function handleMatchFlip(ctx: GameCtx, id: string): void {
   const { s } = ctx
+  if (s.isFollower) {
+    ctx.bridge.emitEvent('_relay', { name: 'match_flip', params: { id } })
+    return
+  }
   if (s.matchLocked) return
   if (s.matchFlipped.includes(id) || s.matchMatched.includes(id)) return
 

@@ -17,7 +17,7 @@ export function renderPlay(ctx: GameCtx) {
   else hint.textContent = c.hint || `Find the ${c.fruit}!`
   root.appendChild(hint)
 
-  if (s.timerEnabled && !s.answered) {
+  if (s.timerEnabled && !s.answered && !s.isFollower) {
     const track = el('div', 'timer-bar-track')
     const fill = el('div', 'timer-bar-fill')
     fill.style.setProperty('--timer-ms', `${s.timerDuration}ms`)
@@ -48,7 +48,10 @@ export function renderPlay(ctx: GameCtx) {
 
 export function handlePick(ctx: GameCtx, fruitName: string, card: HTMLElement) {
   const { root, s, bridge } = ctx
-  bridge.emitEvent('_relay', { name: 'submit', params: { value: fruitName } })
+  if (s.isFollower) {
+    bridge.emitEvent('_relay', { name: 'submit', params: { value: fruitName } })
+    return
+  }
   if (s.answered) return
   const c = s.challenges[s.idx]
   if (!c) return
@@ -78,7 +81,9 @@ export function handlePick(ctx: GameCtx, fruitName: string, card: HTMLElement) {
       challengeIndex: s.idx, expected: c.fruit, given: fruitName, score: s.score,
     })
     ctx.sync()
-    s.advanceTimer = window.setTimeout(() => ctx.advance(), 1800)
+    if (!s.isFollower) {
+      s.advanceTimer = window.setTimeout(() => ctx.advance(), 1800)
+    }
   } else {
     s.wrongAttempts++
     card.classList.add('is-wrong')
@@ -115,5 +120,7 @@ export function doReveal(ctx: GameCtx) {
   })
 
   ctx.sync()
-  s.advanceTimer = window.setTimeout(() => ctx.advance(), 2200)
+  if (!s.isFollower) {
+    s.advanceTimer = window.setTimeout(() => ctx.advance(), 2200)
+  }
 }

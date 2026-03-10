@@ -63,6 +63,10 @@ export function renderPattern(ctx: GameCtx) {
 
 export function handlePatternPick(ctx: GameCtx, fruit: string) {
   const { s } = ctx
+  if (s.isFollower) {
+    ctx.bridge.emitEvent('_relay', { name: 'submit', params: { value: fruit } })
+    return
+  }
   if (s.patternAnswered) return
   const round = s.patternRounds[s.patternIdx]
   if (!round) return

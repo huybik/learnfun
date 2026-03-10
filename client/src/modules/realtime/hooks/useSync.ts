@@ -15,8 +15,10 @@ export interface UseSyncResult {
   updateGameState: (partial: Partial<GameSyncState>) => void;
   setPlayerScore: (userId: string, score: number) => void;
   setPlayerPhase: (userId: string, phase: string | null) => void;
-  setPendingAction: (action: PendingAction | null) => void;
-  clearPendingAction: () => void;
+  enqueuePendingAction: (action: PendingAction) => void;
+  removePendingAction: (actionId: string) => void;
+  clearPendingActions: () => void;
+  clearPlayerState: () => void;
 }
 
 const defaultBoard: BoardSyncState = { currentBundle: null, focusPoint: null, currentPage: 0 };
@@ -24,9 +26,10 @@ const defaultGame: GameSyncState = {
   active: false,
   type: null,
   leader: null,
+  initData: null,
   fullState: null,
   scores: {},
-  pendingAction: null,
+  pendingActions: [],
   turnOrder: [],
   data: {},
 };
@@ -103,15 +106,26 @@ export function useSync(syncStore: SyncStore | null): UseSyncResult {
     [syncStore],
   );
 
-  const setPendingAction = useCallback(
-    (action: PendingAction | null) => {
-      syncStore?.setPendingAction(action);
+  const enqueuePendingAction = useCallback(
+    (action: PendingAction) => {
+      syncStore?.enqueuePendingAction(action);
     },
     [syncStore],
   );
 
-  const clearPendingAction = useCallback(() => {
-    syncStore?.clearPendingAction();
+  const removePendingAction = useCallback(
+    (actionId: string) => {
+      syncStore?.removePendingAction(actionId);
+    },
+    [syncStore],
+  );
+
+  const clearPendingActions = useCallback(() => {
+    syncStore?.clearPendingActions();
+  }, [syncStore]);
+
+  const clearPlayerState = useCallback(() => {
+    syncStore?.clearPlayerState();
   }, [syncStore]);
 
   return {
@@ -123,7 +137,9 @@ export function useSync(syncStore: SyncStore | null): UseSyncResult {
     updateGameState,
     setPlayerScore,
     setPlayerPhase,
-    setPendingAction,
-    clearPendingAction,
+    enqueuePendingAction,
+    removePendingAction,
+    clearPendingActions,
+    clearPlayerState,
   };
 }

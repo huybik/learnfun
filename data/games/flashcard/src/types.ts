@@ -22,6 +22,7 @@ export interface MatchCard {
 }
 
 export interface GameState {
+  isFollower: boolean
   phase: Phase
   mode: Mode
   score: number

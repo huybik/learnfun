@@ -65,13 +65,17 @@ export function renderJuice(ctx: GameCtx) {
     root.appendChild(grid)
   }
 
-  if (allDone) {
+  if (allDone && !s.isFollower) {
     s.advanceTimer = window.setTimeout(() => ctx.advance(), 2000)
   }
 }
 
 export function handleJuicePick(ctx: GameCtx, fruit: string) {
   const { root, s, bridge } = ctx
+  if (s.isFollower) {
+    bridge.emitEvent('_relay', { name: 'submit', params: { value: fruit } })
+    return
+  }
   if (!s.juiceRecipe || s.juiceBasket.includes(fruit)) return
   const isCorrect = s.juiceRecipe.fruits.includes(fruit)
 
@@ -98,7 +102,9 @@ export function handleJuicePick(ctx: GameCtx, fruit: string) {
     if (allDone) {
       const hint = root.querySelector('.challenge-hint')
       if (hint) hint.textContent = 'Delicious! \u{1F389}'
-      s.advanceTimer = window.setTimeout(() => ctx.advance(), 2000)
+      if (!s.isFollower) {
+        s.advanceTimer = window.setTimeout(() => ctx.advance(), 2000)
+      }
     }
   } else {
     sfxWrong()

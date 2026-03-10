@@ -66,6 +66,10 @@ export function renderOddOneOut(ctx: GameCtx) {
 
 export function handleOddPick(ctx: GameCtx, fruit: string) {
   const { s } = ctx
+  if (s.isFollower) {
+    ctx.bridge.emitEvent('_relay', { name: 'submit', params: { value: fruit } })
+    return
+  }
   if (s.oddAnswered) return
   const round = s.oddRounds[s.oddIdx]
   if (!round) return

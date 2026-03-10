@@ -40,6 +40,13 @@ function parseInitData(bundle: FilledBundle): Record<string, unknown> {
   }
 }
 
+function createActionId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 export default function RoomPage() {
   const { roomId = "" } = useParams<{ roomId: string }>();
   const [searchParams] = useSearchParams();
@@ -97,9 +104,21 @@ export default function RoomPage() {
     autoConnect: hasLiveKit,
   });
 
-  const { gameState: syncedGame, updateGameState, setPlayerScore, setPlayerPhase, setPendingAction, clearPendingAction } = useSync(room.syncStore);
+  const {
+    gameState: syncedGame,
+    updateGameState,
+    setPlayerScore,
+    setPlayerPhase,
+    enqueuePendingAction,
+    removePendingAction,
+    clearPendingActions,
+    clearPlayerState,
+  } = useSync(room.syncStore);
   const voice = useVoice(room.livekitConnection);
   const pendingActionFromRef = useRef<string | null>(null);
+  const authoritativeScoreRef = useRef(0);
+  const lastFollowerScoreRef = useRef<number | null>(null);
+  const [gameReady, setGameReady] = useState(false);
 
   // Transcript via LiveKit data channel (lower latency than SSE)
   useEffect(() => {
@@ -138,6 +157,40 @@ export default function RoomPage() {
   // --- Leader / Follower ---
   const isLeader = !!(localUserId && syncedGame.leader === localUserId);
   const isFollower = !!(localUserId && syncedGame.leader && syncedGame.leader !== localUserId);
+
+  useEffect(() => {
+    if (syncedGame.active && syncedGame.type && syncedGame.initData) {
+      setGameId(syncedGame.type);
+      setGameInitData(syncedGame.initData);
+      setIsGameActive(true);
+      setHasOwnHUD(syncedGame.type === "fruit-market");
+      return;
+    }
+    setGameId(undefined);
+    setGameInitData(undefined);
+    setIsGameActive(false);
+    setGameReady(false);
+    setHasOwnHUD(false);
+  }, [syncedGame.active, syncedGame.type, syncedGame.initData]);
+
+  useEffect(() => {
+    setGameReady(false);
+    lastFollowerScoreRef.current = null;
+  }, [gameId]);
+
+  useEffect(() => {
+    if (!localUserId) return;
+    const nextScore = syncedGame.scores[localUserId] ?? 0;
+    setScore(nextScore);
+
+    if (!isFollower || !gameReady) {
+      lastFollowerScoreRef.current = null;
+      return;
+    }
+    if (lastFollowerScoreRef.current === nextScore) return;
+    lastFollowerScoreRef.current = nextScore;
+    gameHostRef.current?.sendAction("set", { field: "score", value: nextScore });
+  }, [localUserId, syncedGame.scores, isFollower, gameReady]);
 
   // Set Yjs awareness (presence)
   useEffect(() => {
@@ -194,19 +247,32 @@ export default function RoomPage() {
   // --- Content activation ---
   const activateBundle = useCallback(
     (bundle: FilledBundle) => {
+      const initData = parseInitData(bundle);
       setGameId(bundle.templateId.toLowerCase());
-      setGameInitData(parseInitData(bundle));
+      setGameInitData(initData);
       setIsGameActive(true);
       setScore(0);
       setStreak(0);
       setFeedback(null);
-      setHasOwnHUD(false);
+      setHasOwnHUD(bundle.templateId.toLowerCase() === "fruit-market");
+      authoritativeScoreRef.current = 0;
+      pendingActionFromRef.current = null;
+      clearPendingActions();
+      clearPlayerState();
       addTranscript("system", "Content loaded!");
       // First player to activate claims leader (host connects first)
       const leader = syncedGame.leader || localUserId || null;
-      updateGameState({ active: true, type: bundle.templateId.toLowerCase(), leader, data: {}, turnOrder: [] });
+      updateGameState({
+        active: true,
+        type: bundle.templateId.toLowerCase(),
+        leader,
+        initData,
+        fullState: null,
+        data: {},
+        turnOrder: [],
+      });
     },
-    [addTranscript, updateGameState, syncedGame.leader, localUserId],
+    [addTranscript, clearPendingActions, clearPlayerState, updateGameState, syncedGame.leader, localUserId],
   );
 
   // --- Pause / Resume (used by both ControlBar and light_control) ---
@@ -222,20 +288,20 @@ export default function RoomPage() {
     if (!voice.isSpeakerEnabled) voice.toggleSpeaker();
   }, [voice]);
 
-  // --- Leader: watch pendingAction → forward to game iframe ---
+  // --- Leader: watch queued actions → forward to game iframe ---
   useEffect(() => {
-    if (!isLeader || !syncedGame.pendingAction) return;
-    const { from, name, params } = syncedGame.pendingAction;
-    pendingActionFromRef.current = from;
+    if (!isLeader || !gameReady || syncedGame.pendingActions.length === 0) return;
+    const { id, from, name, params } = syncedGame.pendingActions[0];
+    pendingActionFromRef.current = name === "_getFullState" ? null : from;
     gameHostRef.current?.sendAction(name, params);
-    clearPendingAction();
-  }, [isLeader, syncedGame.pendingAction, clearPendingAction]);
+    removePendingAction(id);
+  }, [gameReady, isLeader, syncedGame.pendingActions, removePendingAction]);
 
   // --- Follower: watch fullState → send _sync to game iframe ---
   useEffect(() => {
-    if (!isFollower || !syncedGame.fullState) return;
+    if (!isFollower || !gameReady || !syncedGame.fullState) return;
     gameHostRef.current?.sendAction("_sync", { state: syncedGame.fullState });
-  }, [isFollower, syncedGame.fullState]);
+  }, [gameReady, isFollower, syncedGame.fullState]);
 
   // --- SSE event handlers ---
   const handleContentReady = useCallback(
@@ -291,6 +357,23 @@ export default function RoomPage() {
     [localUserId],
   );
 
+  const handleGameReady = useCallback(() => {
+    setGameReady(true);
+    if (!isFollower) return;
+    if (syncedGame.fullState) {
+      gameHostRef.current?.sendAction("_sync", { state: syncedGame.fullState });
+      return;
+    }
+    if (!localUserId) return;
+    enqueuePendingAction({
+      id: createActionId(),
+      from: localUserId,
+      name: "_getFullState",
+      params: {},
+      ts: Date.now(),
+    });
+  }, [enqueuePendingAction, isFollower, localUserId, syncedGame.fullState]);
+
   const sse = useServerEvents(roomId || null, {
     onContentReady: handleContentReady,
     onUIControl: handleUIControl,
@@ -311,20 +394,26 @@ export default function RoomPage() {
 
   const handleGameStateUpdate = useCallback(
     (state: Record<string, unknown>) => {
-      // Local HUD always updates for the local player
-      if (typeof state.score === "number") setScore(state.score);
       if (state.hasOwnHUD) setHasOwnHUD(true);
-      // Sync per-player score/phase to Yjs
-      if (typeof state.score === "number" && localUserId) {
-        setPlayerScore(localUserId, state.score);
+      if (localUserId) {
         setPlayerPhase(localUserId, (state.phase as string) ?? null);
       }
+      if (isLeader && typeof state.score === "number") {
+        const scoreDelta = state.score - authoritativeScoreRef.current;
+        const actedBy = pendingActionFromRef.current || localUserId;
+        if (actedBy && scoreDelta !== 0) {
+          const nextScore = Math.max(0, (syncedGame.scores[actedBy] || 0) + scoreDelta);
+          setPlayerScore(actedBy, nextScore);
+        }
+        authoritativeScoreRef.current = state.score;
+      }
+      pendingActionFromRef.current = null;
       // Only leader sends state updates to teacher
       if (isLeader) {
         sendToTeacher(`[game_state_update] ${JSON.stringify(state)}`);
       }
     },
-    [sendToTeacher, localUserId, setPlayerScore, setPlayerPhase, isLeader],
+    [sendToTeacher, localUserId, setPlayerPhase, isLeader, setPlayerScore, syncedGame.scores],
   );
 
   const handleGameEvent = useCallback(
@@ -337,9 +426,10 @@ export default function RoomPage() {
         return; // Internal event, don't send to teacher
       }
 
-      // --- Follower: relay actions to leader via Yjs pendingAction ---
+      // --- Follower: relay actions to leader via Yjs queue ---
       if (name === "_relay" && isFollower && localUserId) {
-        setPendingAction({
+        enqueuePendingAction({
+          id: createActionId(),
           from: localUserId,
           name: data.name as string,
           params: (data.params as Record<string, unknown>) ?? {},
@@ -355,15 +445,6 @@ export default function RoomPage() {
       } else if (name === "incorrectAnswer") {
         setStreak(0);
         setFeedback({ type: "incorrect", key: Date.now() });
-      }
-
-      // --- Leader: credit the player who answered ---
-      if (isLeader && (name === "correctAnswer" || name === "incorrectAnswer")) {
-        const answeredBy = pendingActionFromRef.current || localUserId;
-        pendingActionFromRef.current = null;
-        if (name === "correctAnswer" && answeredBy) {
-          setPlayerScore(answeredBy, (syncedGame.scores[answeredBy] || 0) + 10);
-        }
       }
 
       // --- Leader only: send events to teacher + screenshot ---
@@ -385,13 +466,17 @@ export default function RoomPage() {
         sendToTeacher(`[game_event:${name}] ${JSON.stringify(data)}`);
       }
     },
-    [sendToTeacher, roomId, isLeader, isFollower, localUserId, updateGameState, setPendingAction, setPlayerScore, syncedGame.scores],
+    [sendToTeacher, roomId, isLeader, isFollower, localUserId, updateGameState, enqueuePendingAction],
   );
 
   const handleGameEnd = useCallback(
     (results?: Record<string, unknown>) => {
       setIsGameActive(false);
       if (isLeader) {
+        authoritativeScoreRef.current = 0;
+        pendingActionFromRef.current = null;
+        clearPendingActions();
+        clearPlayerState();
         if (results) {
           sendToTeacher(`[game_event:gameEnd] ${JSON.stringify(results)}`);
         }
@@ -408,10 +493,18 @@ export default function RoomPage() {
             }),
           }).catch((err) => console.error("[RoomPage] Score persist error", err));
         }
+        updateGameState({
+          active: false,
+          type: null,
+          leader: null,
+          initData: null,
+          fullState: null,
+          data: {},
+          turnOrder: [],
+        });
       }
-      updateGameState({ active: false });
     },
-    [sendToTeacher, updateGameState, isLeader, roomId, syncedGame.scores, syncedGame.type],
+    [sendToTeacher, clearPendingActions, clearPlayerState, updateGameState, isLeader, roomId, syncedGame.scores, syncedGame.type],
   );
 
   const handleEndGame = useCallback(() => {
@@ -419,26 +512,39 @@ export default function RoomPage() {
       clearTimeout(screenshotTimerRef.current);
       screenshotTimerRef.current = null;
     }
-    if (isLeader) {
-      sendToTeacher(`[game_event:gameEnd] ${JSON.stringify({ outcome: "closed_by_user" })}`);
-      // Persist scores to DB
-      if (Object.keys(syncedGame.scores).length > 0) {
-        fetch("/api/game/end", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            roomId,
-            gameType: syncedGame.type ?? "unknown",
-            scores: syncedGame.scores,
-          }),
-        }).catch((err) => console.error("[RoomPage] Score persist error", err));
-      }
+    if (!isLeader) {
+      return;
     }
+    sendToTeacher(`[game_event:gameEnd] ${JSON.stringify({ outcome: "closed_by_user" })}`);
+    // Persist scores to DB
+    if (Object.keys(syncedGame.scores).length > 0) {
+      fetch("/api/game/end", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roomId,
+          gameType: syncedGame.type ?? "unknown",
+          scores: syncedGame.scores,
+        }),
+      }).catch((err) => console.error("[RoomPage] Score persist error", err));
+    }
+    authoritativeScoreRef.current = 0;
+    pendingActionFromRef.current = null;
+    clearPendingActions();
+    clearPlayerState();
     setIsGameActive(false);
     setGameId(undefined);
     setGameInitData(undefined);
-    updateGameState({ active: false });
-  }, [sendToTeacher, updateGameState, isLeader, roomId, syncedGame.scores, syncedGame.type]);
+    updateGameState({
+      active: false,
+      type: null,
+      leader: null,
+      initData: null,
+      fullState: null,
+      data: {},
+      turnOrder: [],
+    });
+  }, [sendToTeacher, clearPendingActions, clearPlayerState, updateGameState, isLeader, roomId, syncedGame.scores, syncedGame.type]);
 
   // --- Text chat: send to AI teacher ---
   const handleSendText = useCallback(
@@ -561,6 +667,7 @@ export default function RoomPage() {
               onGameStateUpdate={handleGameStateUpdate}
               onGameEvent={handleGameEvent}
               onGameEnd={handleGameEnd}
+              onGameReady={handleGameReady}
               focusPoint={focusPoint}
               emoteTrigger={emoteTrigger}
               confetti={confetti}

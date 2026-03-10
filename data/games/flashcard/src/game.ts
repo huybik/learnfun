@@ -7,7 +7,7 @@ import { sfxWhoosh } from './audio'
 import { renderLearn } from './phases/learn'
 import { renderQuiz } from './phases/quiz'
 import { renderSpeed } from './phases/speed'
-import { renderMatch, generateMatchCards } from './phases/match'
+import { renderMatch, generateMatchCards, handleMatchFlip } from './phases/match'
 import { renderEnd } from './phases/end'
 
 export class FlashcardGame implements GameAPI {
@@ -59,6 +59,9 @@ export class FlashcardGame implements GameAPI {
         this.render()
         this.sync()
       },
+      match_flip: () => {
+        handleMatchFlip(this.ctx, String(params.id ?? ''))
+      },
       next: () => this.advanceInPhase(),
       reveal: () => {
         if (s.phase === 'quiz' || s.phase === 'speed') {
@@ -90,11 +93,26 @@ export class FlashcardGame implements GameAPI {
           this.sync()
         }
       },
+      _setRole: () => {
+        s.isFollower = !!params.isFollower
+        if (s.isFollower) {
+          this.clearTimers()
+        }
+      },
       _sync: () => {
         const incoming = params.state as Partial<GameState>
-        // Preserve local timer IDs and per-player assets (score/streak)
-        const { speedTimerId, advanceTimer, score, streak, bestStreak, totalCorrect, totalAnswered, ...rest } = incoming as GameState
+        // Preserve local role, timers, and per-player HUD assets.
+        const { speedTimerId, advanceTimer, isFollower, score, streak, bestStreak, totalCorrect, totalAnswered, ...rest } = incoming as GameState
+        void speedTimerId
+        void advanceTimer
+        void isFollower
         Object.assign(this.state, rest)
+        this.state.isFollower = s.isFollower
+        this.state.score = s.score
+        this.state.streak = s.streak
+        this.state.bestStreak = s.bestStreak
+        this.state.totalCorrect = s.totalCorrect
+        this.state.totalAnswered = s.totalAnswered
         this.render()
         // Followers don't sync back to avoid loops
       },
@@ -135,6 +153,7 @@ export class FlashcardGame implements GameAPI {
   private defaultState(): GameState {
     return {
       phase: 'learn',
+      isFollower: false,
       mode: 'SentenceCompletion',
       score: 0,
       streak: 0,
@@ -164,7 +183,10 @@ export class FlashcardGame implements GameAPI {
     const s = this.state
     if (s.answered || !value.trim()) return false
     if (s.phase !== 'quiz' && s.phase !== 'speed') return false
-    this.bridge.emitEvent('_relay', { name: 'submit', params: { value } })
+    if (s.isFollower) {
+      this.bridge.emitEvent('_relay', { name: 'submit', params: { value } })
+      return false
+    }
 
     const card = s.cards[s.cardIndex]
     if (!card) return false
@@ -219,8 +241,11 @@ export class FlashcardGame implements GameAPI {
   }
 
   private advanceInPhase() {
-    this.bridge.emitEvent('_relay', { name: 'next', params: {} })
     const s = this.state
+    if (s.isFollower) {
+      this.bridge.emitEvent('_relay', { name: 'next', params: {} })
+      return
+    }
     clearTimeout(s.advanceTimer)
     s.advanceTimer = 0
 

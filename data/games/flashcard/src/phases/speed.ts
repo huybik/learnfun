@@ -30,7 +30,7 @@ export function renderSpeed(ctx: GameCtx): void {
   }
 
   // Start timeout if not already running and not answered
-  if (!s.answered && !s.speedTimerId) {
+  if (!s.isFollower && !s.answered && !s.speedTimerId) {
     if (!s.timerStart) s.timerStart = Date.now()
     const remaining = Math.max(0, s.timerDuration - (Date.now() - s.timerStart))
     s.speedTimerId = window.setTimeout(() => {
@@ -87,7 +87,7 @@ export function renderSpeed(ctx: GameCtx): void {
       : `Answer: ${correctText}`
     root.appendChild(fb)
 
-    if (!s.advanceTimer) {
+    if (!s.isFollower && !s.advanceTimer) {
       s.advanceTimer = window.setTimeout(() => ctx.advance(), 1500)
     }
 
@@ -97,6 +97,10 @@ export function renderSpeed(ctx: GameCtx): void {
 
   // Input area
   const submit = (value: string) => {
+    if (s.isFollower) {
+      ctx.checkAnswer(value)
+      return
+    }
     clearTimeout(s.speedTimerId)
     s.speedTimerId = 0
 

@@ -101,6 +101,10 @@ export function handleQuizPick(
   wrongEvent: [string, Record<string, unknown>],
 ) {
   const { root, s, bridge } = ctx
+  if (s.isFollower) {
+    bridge.emitEvent('_relay', { name: 'submit', params: { value: picked } })
+    return
+  }
   const isCorrect = picked.toLowerCase() === correct.toLowerCase()
   if (isCorrect) {
     s.streak++
@@ -114,12 +118,16 @@ export function handleQuizPick(
   }
   renderFn(ctx)
   ctx.sync()
-  s.advanceTimer = window.setTimeout(() => ctx.advance(), 2000)
+  if (!s.isFollower) {
+    s.advanceTimer = window.setTimeout(() => ctx.advance(), 2000)
+  }
 }
 
 /** Shared reveal handler for single-answer quiz phases. */
 export function doQuizReveal(ctx: GameCtx, renderFn: (ctx: GameCtx) => void) {
   sfxWhoosh()
   renderFn(ctx); ctx.sync()
-  ctx.s.advanceTimer = window.setTimeout(() => ctx.advance(), 2200)
+  if (!ctx.s.isFollower) {
+    ctx.s.advanceTimer = window.setTimeout(() => ctx.advance(), 2200)
+  }
 }

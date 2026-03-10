@@ -56,6 +56,10 @@ export function renderQuiz(ctx: GameCtx): void {
 
   // --- Input area ---
   const submit = (value: string) => {
+    if (s.isFollower) {
+      ctx.checkAnswer(value)
+      return
+    }
     const isCorrect = ctx.checkAnswer(value)
     if (isCorrect) {
       sfxCorrect()

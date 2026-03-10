@@ -15,6 +15,7 @@ export type MiniGame = 'memory' | 'oddoneout' | 'pattern' | 'sort' | 'juice'
 export type Phase = 'learn' | 'play' | MiniGame | 'shop'
 
 export interface GameState {
+  isFollower: boolean
   phase: Phase
   wave: number
   coins: number

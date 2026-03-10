@@ -80,6 +80,22 @@ export class FruitMarketGame implements GameAPI, GameCtx {
         if (this.s.phase === 'pattern') handlePatternPick(this, val)
         if (this.s.phase === 'juice') handleJuicePick(this, val)
       },
+      memory_flip: () => {
+        handleMemoryFlip(this, Number(params.cardId))
+      },
+      sort: () => {
+        const round = this.s.sortRounds[this.s.sortIdx]
+        if (!round) return
+        const fruit = String(params.fruit ?? '')
+        const category = round.categories.find((item) => item.name === String(params.category ?? ''))
+        if (!category) return
+        this.s.sortSelected = fruit
+        doSort(this, fruit, category)
+      },
+      buy: () => {
+        const fruit = FRUIT_NAMES.find((item) => item.toLowerCase() === String(params.fruit ?? '').toLowerCase())
+        if (fruit) doBuy(this, { fruit, price: this.s.fruitPrice })
+      },
       next: () => this.advance(),
       reveal: () => {
         if (this.s.phase === 'play') doReveal(this)
@@ -103,19 +119,28 @@ export class FruitMarketGame implements GameAPI, GameCtx {
         this.s.peers = (params.players as typeof this.s.peers) || []
         this.renderPeers()
       },
+      _setRole: () => {
+        this.s.isFollower = !!params.isFollower
+        if (this.s.isFollower) {
+          clearTimeout(this.s.advanceTimer)
+          this.s.advanceTimer = 0
+        }
+      },
       _sync: () => {
         const incoming = params.state as Record<string, unknown>
-        // Preserve local per-player assets, peers and timer
+        // Preserve local role, per-player assets, peers and timer.
         const localPeers = this.s.peers
         const localTimer = this.s.advanceTimer
         const localCoins = this.s.coins
         const localScore = this.s.score
         const localStreak = this.s.streak
+        const localRole = this.s.isFollower
         // Deserialize memoryMatched from array back to Set
         if (Array.isArray(incoming.memoryMatched)) {
           incoming.memoryMatched = new Set(incoming.memoryMatched as number[])
         }
         Object.assign(this.s, incoming)
+        this.s.isFollower = localRole
         this.s.peers = localPeers
         this.s.advanceTimer = localTimer
         this.s.coins = localCoins
@@ -143,7 +168,7 @@ export class FruitMarketGame implements GameAPI, GameCtx {
       },
     }
     // Internal actions handle their own sync (or skip it)
-    if (name === '_sync' || name === '_getFullState' || name === '_peers') {
+    if (name === '_sync' || name === '_getFullState' || name === '_peers' || name === '_setRole') {
       actions[name]?.()
       return
     }
@@ -204,7 +229,10 @@ export class FruitMarketGame implements GameAPI, GameCtx {
   }
 
   advance() {
-    this.bridge.emitEvent('_relay', { name: 'next', params: {} })
+    if (this.s.isFollower) {
+      this.bridge.emitEvent('_relay', { name: 'next', params: {} })
+      return
+    }
     clearTimeout(this.s.advanceTimer)
     const s = this.s
 
@@ -420,6 +448,7 @@ export class FruitMarketGame implements GameAPI, GameCtx {
 
 function createInitialState(): GameState {
   return {
+    isFollower: false,
     phase: 'learn',
     wave: 0, coins: 0, score: 0, streak: 0,
     learnedFruits: [], waveFruits: [], waveGames: [],

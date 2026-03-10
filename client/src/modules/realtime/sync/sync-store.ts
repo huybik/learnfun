@@ -16,6 +16,7 @@ export interface BoardSyncState {
 }
 
 export interface PendingAction {
+  id: string;
   from: string;
   name: string;
   params: Record<string, unknown>;
@@ -26,9 +27,10 @@ export interface GameSyncState {
   active: boolean;
   type: string | null;
   leader: string | null;
+  initData: Record<string, unknown> | null;
   fullState: Record<string, unknown> | null;
   scores: Record<string, number>;
-  pendingAction: PendingAction | null;
+  pendingActions: PendingAction[];
   turnOrder: string[];
   data: Record<string, unknown>;
 }
@@ -51,6 +53,7 @@ export class SyncStore {
   private doc: Y.Doc;
   private boardMap: Y.Map<unknown>;
   private gameMap: Y.Map<unknown>;
+  private gameActions: Y.Array<PendingAction>;
   private cursorsMap: Y.Map<unknown>;
   private annotationsArray: Y.Array<unknown>;
   private chatArray: Y.Array<unknown>;
@@ -60,6 +63,7 @@ export class SyncStore {
     this.doc = doc;
     this.boardMap = doc.getMap("board");
     this.gameMap = doc.getMap("game");
+    this.gameActions = doc.getArray<PendingAction>("game_actions");
     this.cursorsMap = doc.getMap("cursors");
     this.annotationsArray = doc.getArray("annotations");
     this.chatArray = doc.getArray("chat");
@@ -101,19 +105,23 @@ export class SyncStore {
       active: (this.gameMap.get("active") as boolean) ?? false,
       type: (this.gameMap.get("type") as string) ?? null,
       leader: (this.gameMap.get("leader") as string) ?? null,
+      initData: (this.gameMap.get("initData") as Record<string, unknown>) ?? null,
       fullState: (this.gameMap.get("fullState") as Record<string, unknown>) ?? null,
       scores: this.collectScores(),
-      pendingAction: (this.gameMap.get("pendingAction") as PendingAction) ?? null,
+      pendingActions: this.gameActions.toArray() as PendingAction[],
       turnOrder: (this.gameMap.get("turnOrder") as string[]) ?? [],
-      data: (this.gameMap.get("data") as Record<string, unknown>) ?? {},
+      data: {
+        ...((this.gameMap.get("data") as Record<string, unknown>) ?? {}),
+        ...this.collectPhases(),
+      },
     };
   }
 
   updateGameState(partial: Partial<GameSyncState>): void {
     this.doc.transact(() => {
       for (const [key, value] of Object.entries(partial)) {
-        // scores are stored as individual score_<userId> keys — skip the aggregated field
-        if (key === "scores") continue;
+        // Aggregated fields are stored elsewhere — skip them here.
+        if (key === "scores" || key === "pendingActions") continue;
         this.gameMap.set(key, value);
       }
     });
@@ -131,15 +139,40 @@ export class SyncStore {
     });
   }
 
-  setPendingAction(action: PendingAction | null): void {
+  enqueuePendingAction(action: PendingAction): void {
     this.doc.transact(() => {
-      this.gameMap.set("pendingAction", action);
+      this.gameActions.push([action]);
     });
   }
 
-  clearPendingAction(): void {
+  removePendingAction(actionId: string): void {
     this.doc.transact(() => {
-      this.gameMap.set("pendingAction", null);
+      const index = this.gameActions.toArray().findIndex((action) => action.id === actionId);
+      if (index >= 0) {
+        this.gameActions.delete(index, 1);
+      }
+    });
+  }
+
+  clearPendingActions(): void {
+    this.doc.transact(() => {
+      if (this.gameActions.length > 0) {
+        this.gameActions.delete(0, this.gameActions.length);
+      }
+    });
+  }
+
+  clearPlayerState(): void {
+    this.doc.transact(() => {
+      const keysToDelete: string[] = [];
+      this.gameMap.forEach((_value, key) => {
+        if (key.startsWith("score_") || key.startsWith("phase_")) {
+          keysToDelete.push(key);
+        }
+      });
+      for (const key of keysToDelete) {
+        this.gameMap.delete(key);
+      }
     });
   }
 
@@ -151,6 +184,16 @@ export class SyncStore {
       }
     });
     return scores;
+  }
+
+  private collectPhases(): Record<string, unknown> {
+    const phases: Record<string, unknown> = {};
+    this.gameMap.forEach((value, key) => {
+      if (key.startsWith("phase_")) {
+        phases[`${key.slice(6)}_phase`] = value;
+      }
+    });
+    return phases;
   }
 
   // -- Cursors --
@@ -194,6 +237,17 @@ export class SyncStore {
   // -- Observation --
 
   observe(path: string, callback: ObserverCallback): () => void {
+    if (path === "game") {
+      this.gameMap.observeDeep(callback);
+      this.gameActions.observeDeep(callback);
+      const unsubscribe = () => {
+        this.gameMap.unobserveDeep(callback);
+        this.gameActions.unobserveDeep(callback);
+      };
+      this.observers.push(unsubscribe);
+      return unsubscribe;
+    }
+
     const target = this.getTarget(path);
     if (!target) {
       log.warn("observe: unknown path", { path });

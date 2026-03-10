@@ -32,6 +32,7 @@ interface BoardProps {
   onGameStateUpdate?: (state: Record<string, unknown>) => void;
   onGameEvent?: (name: string, data: Record<string, unknown>) => void;
   onGameEnd?: (results: Record<string, unknown>) => void;
+  onGameReady?: () => void;
   /** Called when the user's cursor moves over the board. */
   onCursorMove?: (position: { x: number; y: number }) => void;
   /** Peer players for multiplayer scoreboard inside game. */
@@ -64,6 +65,7 @@ export const Board: React.FC<BoardProps> = ({
   onGameStateUpdate,
   onGameEvent,
   onGameEnd,
+  onGameReady,
   onCursorMove,
   peers,
   isFollower,
@@ -102,6 +104,7 @@ export const Board: React.FC<BoardProps> = ({
             onStateUpdate={onGameStateUpdate}
             onEvent={onGameEvent}
             onEnd={onGameEnd}
+            onReady={onGameReady}
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-neutral-500">
