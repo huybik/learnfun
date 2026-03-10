@@ -162,9 +162,9 @@ export class FlashcardGame implements GameAPI {
 
   private checkAnswer(value: string): boolean {
     const s = this.state
-    this.bridge.emitEvent('_relay', { name: 'submit', params: { value } })
     if (s.answered || !value.trim()) return false
     if (s.phase !== 'quiz' && s.phase !== 'speed') return false
+    this.bridge.emitEvent('_relay', { name: 'submit', params: { value } })
 
     const card = s.cards[s.cardIndex]
     if (!card) return false
