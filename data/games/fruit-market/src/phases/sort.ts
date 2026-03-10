@@ -1,11 +1,36 @@
-import type { GameCtx, SortCategory } from '../types'
-import { BIN_COLORS, coloredBasket } from '../constants'
+import type { GameCtx, SortCategory, SortRound } from '../types'
+import { FRUIT_COLORS, COLOR_NAMES, COLOR_EMOJIS, BIN_COLORS, coloredBasket } from '../constants'
 import { getFruitSvg } from '../fruits'
 import basketSvg from '../assets/basket.svg?raw'
 import { sfxPop, sfxWrong, sfxWhoosh } from '../audio'
-import { el, gridCols } from '../utils'
+import { el, gridCols, shuffle } from '../utils'
 import { renderHUD, renderDots, makeFruitCard, awardPoints } from '../ui'
 import { startDrag } from '../drag'
+
+export function generateSortRounds(fruits: string[]): SortRound[] {
+  if (fruits.length < 6) return []
+  const groups: Record<string, string[]> = {}
+  fruits.forEach(f => {
+    const color = FRUIT_COLORS[f] || 'other'
+    if (!groups[color]) groups[color] = []
+    groups[color].push(f)
+  })
+  const validGroups = Object.entries(groups).filter(([, fs]) => fs.length >= 2)
+  if (validGroups.length < 2) return []
+  const selected = shuffle(validGroups).slice(0, 3)
+  const allFruits: string[] = []
+  const categories: SortCategory[] = []
+  selected.forEach(([color, fs]) => {
+    const picked = shuffle(fs).slice(0, 2)
+    allFruits.push(...picked)
+    categories.push({
+      name: `${COLOR_NAMES[color] || color} Fruits`,
+      emoji: COLOR_EMOJIS[color] || '',
+      fruits: picked,
+    })
+  })
+  return [{ fruits: allFruits, categories }]
+}
 
 export function initSortRound(ctx: GameCtx) {
   const { s } = ctx

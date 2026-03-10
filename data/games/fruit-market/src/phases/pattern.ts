@@ -1,8 +1,18 @@
-import type { GameCtx } from '../types'
+import type { GameCtx, PatternRound } from '../types'
 import { getFruitSvg } from '../fruits'
-import { el } from '../utils'
+import { el, shuffle } from '../utils'
 import { renderHUD, renderDots, makeFruitCard, streakHtml, awardPoints } from '../ui'
 import { sfxPop, sfxWrong, sfxWhoosh } from '../audio'
+
+export function generatePatternRounds(fruits: string[]): PatternRound[] {
+  if (fruits.length < 2) return []
+  const picked = shuffle(fruits)
+  const a = picked[0], b = picked[1]
+  const distractors = shuffle(fruits.filter(f => f !== a && f !== b)).slice(0, 1)
+  const options = shuffle([a, b, ...distractors])
+  if (!options.includes(a)) options[0] = a
+  return [{ sequence: [a, b, a, b], answer: a, options: shuffle(options) }]
+}
 
 export function renderPattern(ctx: GameCtx) {
   const { root, s } = ctx

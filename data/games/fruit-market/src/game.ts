@@ -1,7 +1,7 @@
 import type { GameAPI } from '@learnfun/game-sdk'
 import type { GameBridge } from '@learnfun/game-sdk'
-import type { GameCtx, GameState, FruitInfo, MiniGame, Phase, SortCategory } from './types'
-import { WAVE_SIZE, TOTAL_WAVES, FRUIT_PRICE, STARTER_FRUITS, ALL_MINI_GAMES, FRUIT_COLORS, COLOR_NAMES, COLOR_EMOJIS } from './constants'
+import type { GameCtx, GameState, FruitInfo, MiniGame, Phase } from './types'
+import { WAVE_SIZE, TOTAL_WAVES, FRUIT_PRICE, STARTER_FRUITS, ALL_MINI_GAMES } from './constants'
 import { FRUIT_NAMES } from './fruits'
 import { clamp, shuffle } from './utils'
 import { updateHUD } from './ui'
@@ -9,10 +9,10 @@ import { sfxPop, sfxWhoosh } from './audio'
 
 import { renderLearn } from './phases/learn'
 import { renderPlay, handlePick, doReveal } from './phases/play'
-import { renderMemory, handleMemoryFlip, initMemoryRound } from './phases/memory'
-import { renderOddOneOut, handleOddPick, doOddReveal } from './phases/oddoneout'
-import { renderPattern, handlePatternPick, doPatternReveal } from './phases/pattern'
-import { renderSort, handleSort as doSort, doSortReveal, initSortRound } from './phases/sort'
+import { renderMemory, handleMemoryFlip, initMemoryRound, generateMemoryRounds } from './phases/memory'
+import { renderOddOneOut, handleOddPick, doOddReveal, generateOddRounds } from './phases/oddoneout'
+import { renderPattern, handlePatternPick, doPatternReveal, generatePatternRounds } from './phases/pattern'
+import { renderSort, handleSort as doSort, doSortReveal, initSortRound, generateSortRounds } from './phases/sort'
 import { renderShop, handleBuy as doBuy } from './phases/shop'
 import { renderJuice, handleJuicePick, initJuiceRound, getAvailableJuiceRecipes } from './phases/juice'
 import { renderEnd } from './phases/end'
@@ -345,79 +345,10 @@ export class FruitMarketGame implements GameAPI, GameCtx {
 
   private generateMiniGameData(fruits: string[]) {
     const s = this.s
-
-    // Memory: 3-4 fruit pairs
-    const memCount = Math.min(4, fruits.length)
-    s.memoryRounds = [{ fruits: shuffle(fruits).slice(0, memCount) }]
-    s.memoryIdx = 0
-
-    // Pattern: ABAB
-    s.patternRounds = []
-    if (fruits.length >= 2) {
-      const picked = shuffle(fruits)
-      const a = picked[0], b = picked[1]
-      const distractors = shuffle(fruits.filter(f => f !== a && f !== b)).slice(0, 1)
-      const options = shuffle([a, b, ...distractors])
-      if (!options.includes(a)) options[0] = a
-      s.patternRounds = [{ sequence: [a, b, a, b], answer: a, options: shuffle(options) }]
-    }
-    s.patternIdx = 0; s.patternAnswered = false
-
-    // OddOneOut: 3 same color + 1 different
-    s.oddRounds = []
-    if (fruits.length >= 4) {
-      const groups: Record<string, string[]> = {}
-      fruits.forEach(f => {
-        const color = FRUIT_COLORS[f] || 'other'
-        if (!groups[color]) groups[color] = []
-        groups[color].push(f)
-      })
-      const bigGroups = Object.entries(groups).filter(([, fs]) => fs.length >= 3)
-      if (bigGroups.length > 0) {
-        const [trait, group] = shuffle(bigGroups)[0]
-        const three = shuffle(group).slice(0, 3)
-        const others = fruits.filter(f => !group.includes(f))
-        if (others.length > 0) {
-          const odd = shuffle(others)[0]
-          const traitName = COLOR_NAMES[trait] || trait
-          s.oddRounds = [{
-            fruits: shuffle([...three, odd]),
-            odd,
-            trait: `${traitName.toLowerCase()} fruit`,
-            explanation: `${odd.charAt(0).toUpperCase() + odd.slice(1)} is not ${traitName.toLowerCase()} \u2014 the rest are!`,
-          }]
-        }
-      }
-    }
-    s.oddIdx = 0; s.oddAnswered = false
-
-    // Sort: group by color, 2-3 bins
-    s.sortRounds = []
-    if (fruits.length >= 6) {
-      const groups: Record<string, string[]> = {}
-      fruits.forEach(f => {
-        const color = FRUIT_COLORS[f] || 'other'
-        if (!groups[color]) groups[color] = []
-        groups[color].push(f)
-      })
-      const validGroups = Object.entries(groups).filter(([, fs]) => fs.length >= 2)
-      if (validGroups.length >= 2) {
-        const selected = shuffle(validGroups).slice(0, 3)
-        const allFruits: string[] = []
-        const categories: SortCategory[] = []
-        selected.forEach(([color, fs]) => {
-          const picked = shuffle(fs).slice(0, 2)
-          allFruits.push(...picked)
-          categories.push({
-            name: `${COLOR_NAMES[color] || color} Fruits`,
-            emoji: COLOR_EMOJIS[color] || '',
-            fruits: picked,
-          })
-        })
-        s.sortRounds = [{ fruits: allFruits, categories }]
-      }
-    }
-    s.sortIdx = 0; s.sortRemaining = []; s.sortSelected = null
+    s.memoryRounds = generateMemoryRounds(fruits); s.memoryIdx = 0
+    s.patternRounds = generatePatternRounds(fruits); s.patternIdx = 0; s.patternAnswered = false
+    s.oddRounds = generateOddRounds(fruits); s.oddIdx = 0; s.oddAnswered = false
+    s.sortRounds = generateSortRounds(fruits); s.sortIdx = 0; s.sortRemaining = []; s.sortSelected = null
     if (s.sortRounds.length > 0) initSortRound(this)
   }
 }

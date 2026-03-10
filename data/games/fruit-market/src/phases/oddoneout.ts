@@ -1,7 +1,32 @@
-import type { GameCtx } from '../types'
-import { el } from '../utils'
+import type { GameCtx, OddOneOutRound } from '../types'
+import { FRUIT_COLORS, COLOR_NAMES } from '../constants'
+import { el, shuffle } from '../utils'
 import { renderHUD, renderDots, makeFruitCard, streakHtml, awardPoints } from '../ui'
 import { sfxPop, sfxWrong, sfxWhoosh } from '../audio'
+
+export function generateOddRounds(fruits: string[]): OddOneOutRound[] {
+  if (fruits.length < 4) return []
+  const groups: Record<string, string[]> = {}
+  fruits.forEach(f => {
+    const color = FRUIT_COLORS[f] || 'other'
+    if (!groups[color]) groups[color] = []
+    groups[color].push(f)
+  })
+  const bigGroups = Object.entries(groups).filter(([, fs]) => fs.length >= 3)
+  if (bigGroups.length === 0) return []
+  const [trait, group] = shuffle(bigGroups)[0]
+  const three = shuffle(group).slice(0, 3)
+  const others = fruits.filter(f => !group.includes(f))
+  if (others.length === 0) return []
+  const odd = shuffle(others)[0]
+  const traitName = COLOR_NAMES[trait] || trait
+  return [{
+    fruits: shuffle([...three, odd]),
+    odd,
+    trait: `${traitName.toLowerCase()} fruit`,
+    explanation: `${odd.charAt(0).toUpperCase() + odd.slice(1)} is not ${traitName.toLowerCase()} \u2014 the rest are!`,
+  }]
+}
 
 export function renderOddOneOut(ctx: GameCtx) {
   const { root, s } = ctx

@@ -1,8 +1,13 @@
-import type { GameCtx } from '../types'
+import type { GameCtx, MemoryRound } from '../types'
 import { getFruitSvg } from '../fruits'
 import { sfxPop, sfxWrong } from '../audio'
-import { el } from '../utils'
+import { el, shuffle } from '../utils'
 import { renderHUD, renderDots, awardPoints } from '../ui'
+
+export function generateMemoryRounds(fruits: string[]): MemoryRound[] {
+  const count = Math.min(4, fruits.length)
+  return [{ fruits: shuffle(fruits).slice(0, count) }]
+}
 
 export function initMemoryRound(ctx: GameCtx) {
   const { s } = ctx
