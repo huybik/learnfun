@@ -313,10 +313,11 @@ export default function RoomPage() {
       clearTimeout(screenshotTimerRef.current);
       screenshotTimerRef.current = null;
     }
+    sendToTeacher(`[game_event:gameEnd] ${JSON.stringify({ outcome: "closed_by_user" })}`);
     setIsGameActive(false);
     setGameId(undefined);
     setGameInitData(undefined);
-  }, []);
+  }, [sendToTeacher]);
 
   // --- Text chat: send to AI teacher ---
   const handleSendText = useCallback(
