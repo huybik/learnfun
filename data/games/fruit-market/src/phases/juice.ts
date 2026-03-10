@@ -73,7 +73,7 @@ export function renderJuice(ctx: GameCtx) {
 export function handleJuicePick(ctx: GameCtx, fruit: string) {
   const { root, s, bridge } = ctx
   if (s.isFollower) {
-    bridge.emitEvent('_relay', { name: 'submit', params: { value: fruit } })
+    bridge.relayAction('submit', { value: fruit })
     return
   }
   if (!s.juiceRecipe || s.juiceBasket.includes(fruit)) return

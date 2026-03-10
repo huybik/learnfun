@@ -125,7 +125,7 @@ export function renderSort(ctx: GameCtx) {
 export function handleSort(ctx: GameCtx, fruitName: string, category: SortCategory) {
   const { root, s, bridge } = ctx
   if (s.isFollower) {
-    bridge.emitEvent('_relay', { name: 'sort', params: { fruit: fruitName, category: category.name } })
+    bridge.relayAction('sort', { fruit: fruitName, category: category.name })
     return
   }
   const isCorrect = category.fruits.some(f => f.toLowerCase() === fruitName.toLowerCase())

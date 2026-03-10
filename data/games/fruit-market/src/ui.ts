@@ -102,7 +102,7 @@ export function handleQuizPick(
 ) {
   const { root, s, bridge } = ctx
   if (s.isFollower) {
-    bridge.emitEvent('_relay', { name: 'submit', params: { value: picked } })
+    bridge.relayAction('submit', { value: picked })
     return
   }
   const isCorrect = picked.toLowerCase() === correct.toLowerCase()

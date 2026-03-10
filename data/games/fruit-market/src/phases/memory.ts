@@ -71,7 +71,7 @@ export function renderMemory(ctx: GameCtx) {
 export function handleMemoryFlip(ctx: GameCtx, cardId: number) {
   const { root, s, bridge } = ctx
   if (s.isFollower) {
-    bridge.emitEvent('_relay', { name: 'memory_flip', params: { cardId } })
+    bridge.relayAction('memory_flip', { cardId })
     return
   }
   if (s.memoryLocked || s.memoryFlipped.includes(cardId) || s.memoryMatched.has(cardId)) return

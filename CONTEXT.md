@@ -75,6 +75,7 @@ Interactive learning platform: AI teacher + teaching assistant guide students th
 ## Key Patterns
 
 - **Game plugin**: Each game in `data/games/<id>/` is a standalone Vite project with `skill.md` (frontmatter for metadata, body for AI context). Games implement `GameAPI` (init/handleAction/getState/destroy) via the `_sdk` bridge. Communication uses postMessage (HostToGame: init/action, GameToHost: ready/state/event/end). No manifest.json — skill.md is the single source.
+- **SDK multiplayer hooks**: `_sdk` owns the reserved leader/follower protocol (`_setRole`, `_sync`, `_getFullState`, `_peers`, `_relay`). Multiplayer games expose optional hooks like `setRole()`, `applyFullState()`, `getFullState()`, `setPeers()` and call bridge helpers like `relayAction()` / `syncState()` instead of emitting raw protocol events.
 - **Universal game actions**: All games use the same action names: `submit(value)`, `next()`, `reveal()`, `jump(to)`, `end()`, `set(field, value)`. Each game maps these to its internal logic in `handleAction`.
 - **State dedup**: GameBridge only sends state updates when state actually changes (JSON comparison).
 - **Game screenshot**: On game start, GameHost captures iframe via html2canvas → sends to `/api/teacher/image` → Gemini receives screenshot as visual context.
@@ -102,8 +103,8 @@ Interactive learning platform: AI teacher + teaching assistant guide students th
 - Room creator = leader (stable `hostId` from session metadata; Yjs leader is seeded from hostId, not whoever activates content first)
 - Game activation is stored in Yjs (`active`, `type`, `initData`) so late joiners can mount the current game without replaying SSE `content_ready`
 - Leader's game iframe runs authoritatively, emits `_fullState` event → written to Yjs
-- Followers still receive `init` for local asset/render bootstrap, but `_setRole` keeps them read-only; `_sync` then aligns them with leader state and they request `_getFullState` on iframe ready if the snapshot is missing
-- Player actions relayed: games emit `_relay` intents → follower enqueues action in Yjs array `game_actions` → leader dequeues and forwards to iframe
+- Followers still receive `init` for local asset/render bootstrap, then `_setRole` marks them read-only; `_sync` aligns them with leader state and they request `_getFullState` on iframe ready if the snapshot is missing
+- Player actions relayed: games call `_sdk` `relayAction()` → follower enqueues action in Yjs array `game_actions` → leader dequeues and forwards to iframe
 - Per-player scores: individual `score_<userId>` Yjs keys (no read-modify-write race)
 - Leader attributes score deltas from authoritative game state to the acting player; followers inject their Yjs score back into their local HUD via `set(score, ...)`
 - In-game assets (coins, streak) are per-player local — `_sync` preserves them

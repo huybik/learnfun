@@ -10,6 +10,25 @@ export interface GameAPI {
   destroy(): void
 }
 
+/** Shared peer payload used by iframe multiplayer games. */
+export interface MultiplayerPeer {
+  id: string
+  name: string
+  score: number
+  phase: string | null
+}
+
+/**
+ * Optional hooks for games that participate in leader/follower sync.
+ * The SDK owns the reserved multiplayer protocol and calls these hooks when present.
+ */
+export interface MultiplayerGame {
+  setRole?(isFollower: boolean): void
+  applyFullState?(state: unknown): void
+  getFullState?(): unknown
+  setPeers?(players: MultiplayerPeer[]): void
+}
+
 // --- Messages between host (iframe parent) and game ---
 
 export type HostToGame =

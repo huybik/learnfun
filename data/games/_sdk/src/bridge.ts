@@ -1,10 +1,19 @@
-import type { GameAPI, HostToGame, GameToHost, BridgeConfig, GameEndResults } from './types'
+import type {
+  GameAPI,
+  HostToGame,
+  GameToHost,
+  BridgeConfig,
+  GameEndResults,
+  MultiplayerGame,
+  MultiplayerPeer,
+} from './types'
 import { createDevPanel, type DevPanel } from './dev-panel'
 
 export class GameBridge {
   private game: GameAPI | null = null
   private devPanel: DevPanel | null = null
   private _prevStateJSON = ''
+  private _prevFullStateJSON = ''
   readonly isIframe: boolean
 
   constructor(private config: BridgeConfig = {}) {
@@ -40,8 +49,10 @@ export class GameBridge {
 
     try {
       if (msg.type === 'init') {
+        this.resetSnapshots()
         this.game.init(msg.data)
       } else if (msg.type === 'action') {
+        if (this.handleInternalAction(msg.name, msg.params)) return
         this.game.handleAction(msg.name, msg.params)
       }
     } catch (err) {
@@ -66,9 +77,30 @@ export class GameBridge {
     this.sendToHost({ type: 'state', state })
   }
 
+  /** Send a full authoritative snapshot for follower sync. */
+  updateFullState(state: unknown) {
+    const json = JSON.stringify(state)
+    if (json === this._prevFullStateJSON) return
+    this._prevFullStateJSON = json
+    this.emitEvent('_fullState', { state })
+  }
+
+  /** Publish both teacher-facing state and the multiplayer snapshot. */
+  syncState(state: Record<string, unknown>, fullState?: unknown) {
+    this.updateState(state)
+    if (typeof fullState !== 'undefined') {
+      this.updateFullState(fullState)
+    }
+  }
+
   /** Emit a named event to host. */
   emitEvent(name: string, data: Record<string, unknown> = {}) {
     this.sendToHost({ type: 'event', name, data })
+  }
+
+  /** Relay a follower action to the leader. */
+  relayAction(name: string, params: Record<string, unknown> = {}) {
+    this.emitEvent('_relay', { name, params })
   }
 
   /** Signal game end to host. */
@@ -81,5 +113,37 @@ export class GameBridge {
     this.devPanel?.destroy()
     this.game?.destroy()
     this.game = null
+  }
+
+  private resetSnapshots() {
+    this._prevStateJSON = ''
+    this._prevFullStateJSON = ''
+  }
+
+  private getMultiplayerGame(): MultiplayerGame | null {
+    return this.game as (GameAPI & MultiplayerGame) | null
+  }
+
+  private handleInternalAction(name: string, params: Record<string, unknown>): boolean {
+    const game = this.getMultiplayerGame()
+
+    switch (name) {
+      case '_setRole':
+        game?.setRole?.(!!params.isFollower)
+        return true
+      case '_sync':
+        game?.applyFullState?.(params.state)
+        return true
+      case '_getFullState':
+        if (typeof game?.getFullState === 'function') {
+          this.updateFullState(game.getFullState())
+        }
+        return true
+      case '_peers':
+        game?.setPeers?.((params.players as MultiplayerPeer[]) || [])
+        return true
+      default:
+        return false
+    }
   }
 }

@@ -97,7 +97,7 @@ export function renderMatch(ctx: GameCtx): void {
 export function handleMatchFlip(ctx: GameCtx, id: string): void {
   const { s } = ctx
   if (s.isFollower) {
-    ctx.bridge.emitEvent('_relay', { name: 'match_flip', params: { id } })
+    ctx.bridge.relayAction('match_flip', { id })
     return
   }
   if (s.matchLocked) return

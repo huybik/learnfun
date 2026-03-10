@@ -1,4 +1,4 @@
-import type { GameAPI } from '@learnfun/game-sdk'
+import type { GameAPI, MultiplayerGame } from '@learnfun/game-sdk'
 import type { GameBridge } from '@learnfun/game-sdk'
 import type { Card, Mode, Phase, GameState, GameCtx } from './types'
 import { POINTS_CORRECT, SPEED_TIMER_MS, ALL_MINI_GAMES } from './constants'
@@ -10,7 +10,7 @@ import { renderSpeed } from './phases/speed'
 import { renderMatch, generateMatchCards, handleMatchFlip } from './phases/match'
 import { renderEnd } from './phases/end'
 
-export class FlashcardGame implements GameAPI {
+export class FlashcardGame implements GameAPI, MultiplayerGame {
   private root: HTMLElement
   private bridge: GameBridge
   private state: GameState
@@ -93,32 +93,6 @@ export class FlashcardGame implements GameAPI {
           this.sync()
         }
       },
-      _setRole: () => {
-        s.isFollower = !!params.isFollower
-        if (s.isFollower) {
-          this.clearTimers()
-        }
-      },
-      _sync: () => {
-        const incoming = params.state as Partial<GameState>
-        // Preserve local role, timers, and per-player HUD assets.
-        const { speedTimerId, advanceTimer, isFollower, score, streak, bestStreak, totalCorrect, totalAnswered, ...rest } = incoming as GameState
-        void speedTimerId
-        void advanceTimer
-        void isFollower
-        Object.assign(this.state, rest)
-        this.state.isFollower = s.isFollower
-        this.state.score = s.score
-        this.state.streak = s.streak
-        this.state.bestStreak = s.bestStreak
-        this.state.totalCorrect = s.totalCorrect
-        this.state.totalAnswered = s.totalAnswered
-        this.render()
-        // Followers don't sync back to avoid loops
-      },
-      _getFullState: () => {
-        this.bridge.emitEvent('_fullState', { state: this.getFullState() })
-      },
     }
     actions[name]?.()
   }
@@ -146,6 +120,44 @@ export class FlashcardGame implements GameAPI {
   destroy() {
     this.clearTimers()
     this.root.innerHTML = ''
+  }
+
+  setRole(isFollower: boolean) {
+    this.state.isFollower = isFollower
+    if (isFollower) {
+      this.clearTimers()
+    }
+  }
+
+  applyFullState(state: unknown) {
+    const incoming = state as Partial<GameState>
+    const localRole = this.state.isFollower
+    const localScore = this.state.score
+    const localStreak = this.state.streak
+    const localBestStreak = this.state.bestStreak
+    const localTotalCorrect = this.state.totalCorrect
+    const localTotalAnswered = this.state.totalAnswered
+    const localSpeedTimerId = this.state.speedTimerId
+    const localAdvanceTimer = this.state.advanceTimer
+    const { speedTimerId, advanceTimer, isFollower, score, streak, bestStreak, totalCorrect, totalAnswered, ...rest } = incoming as GameState
+    void speedTimerId
+    void advanceTimer
+    void isFollower
+    void score
+    void streak
+    void bestStreak
+    void totalCorrect
+    void totalAnswered
+    Object.assign(this.state, rest)
+    this.state.isFollower = localRole
+    this.state.score = localScore
+    this.state.streak = localStreak
+    this.state.bestStreak = localBestStreak
+    this.state.totalCorrect = localTotalCorrect
+    this.state.totalAnswered = localTotalAnswered
+    this.state.speedTimerId = localSpeedTimerId
+    this.state.advanceTimer = localAdvanceTimer
+    this.render()
   }
 
   // --- Private ---
@@ -184,7 +196,7 @@ export class FlashcardGame implements GameAPI {
     if (s.answered || !value.trim()) return false
     if (s.phase !== 'quiz' && s.phase !== 'speed') return false
     if (s.isFollower) {
-      this.bridge.emitEvent('_relay', { name: 'submit', params: { value } })
+      this.bridge.relayAction('submit', { value })
       return false
     }
 
@@ -236,14 +248,13 @@ export class FlashcardGame implements GameAPI {
   }
 
   private sync() {
-    this.bridge.updateState(this.getState())
-    this.bridge.emitEvent('_fullState', { state: this.getFullState() })
+    this.bridge.syncState(this.getState(), this.getFullState())
   }
 
   private advanceInPhase() {
     const s = this.state
     if (s.isFollower) {
-      this.bridge.emitEvent('_relay', { name: 'next', params: {} })
+      this.bridge.relayAction('next')
       return
     }
     clearTimeout(s.advanceTimer)

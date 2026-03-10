@@ -53,7 +53,7 @@ export function renderPlay(ctx: GameCtx) {
 export function handlePick(ctx: GameCtx, fruitName: string, card: HTMLElement) {
   const { root, s, bridge } = ctx
   if (s.isFollower) {
-    bridge.emitEvent('_relay', { name: 'submit', params: { value: fruitName } })
+    bridge.relayAction('submit', { value: fruitName })
     return
   }
   if (s.answered) return

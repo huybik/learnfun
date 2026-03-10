@@ -63,7 +63,7 @@ export function renderShop(ctx: GameCtx) {
 export function handleBuy(ctx: GameCtx, item: ShopItem) {
   const { s, bridge } = ctx
   if (s.isFollower) {
-    bridge.emitEvent('_relay', { name: 'buy', params: { fruit: item.fruit } })
+    bridge.relayAction('buy', { fruit: item.fruit })
     return
   }
   if (s.shopBasket.includes(item.fruit) || s.coins < item.price || s.shopBasket.length >= WAVE_SIZE) return
