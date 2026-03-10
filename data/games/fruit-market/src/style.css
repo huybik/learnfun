@@ -697,6 +697,12 @@ body {
   animation: none;
 }
 
+/* Suppress entrance animations on re-renders within the same phase */
+.phase-active .fruit-card,
+.phase-active .pattern-item { animation: none; }
+.phase-active .challenge-hint,
+.phase-active .juice-card { animation: none; }
+
 /* ============ Odd One Out ============ */
 
 .odd-explanation {

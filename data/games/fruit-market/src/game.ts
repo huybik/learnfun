@@ -142,7 +142,6 @@ export class FruitMarketGame implements GameAPI {
   private dragFruit: string | null = null
   private dragOffsetX = 0
   private dragOffsetY = 0
-  private rerender = false
 
   // Memory
   private memoryRounds: MemoryRound[] = []
@@ -566,10 +565,9 @@ export class FruitMarketGame implements GameAPI {
     this.root.appendChild(hud)
   }
 
-  private makeFruitCard(fruit: string, i: number, extraClass = '', noAnim = false): HTMLElement {
+  private makeFruitCard(fruit: string, i: number, extraClass = ''): HTMLElement {
     const card = el('div', 'fruit-card' + (extraClass ? ' ' + extraClass : ''))
-    if (noAnim) card.style.animation = 'none'
-    else card.style.animationDelay = `${i * 0.07}s`
+    card.style.animationDelay = `${i * 0.07}s`
     const inner = el('div', 'fruit-inner')
     const svgWrap = el('div', 'fruit-svg')
     svgWrap.innerHTML = getFruitSvg(fruit)
@@ -599,6 +597,8 @@ export class FruitMarketGame implements GameAPI {
   // ===================== Rendering =====================
 
   private render() {
+    // Allow entrance animations on phase transition, suppress on re-renders
+    this.root.classList.remove('phase-active')
     switch (this.phase) {
       case 'learn': this.renderIntro(); break
       case 'play': this.renderChallenge(); break
@@ -609,6 +609,7 @@ export class FruitMarketGame implements GameAPI {
       case 'shop': this.renderShop(); break
       case 'juice': this.renderJuice(); break
     }
+    setTimeout(() => this.root.classList.add('phase-active'), 600)
   }
 
   private renderIntro() {
@@ -813,7 +814,6 @@ export class FruitMarketGame implements GameAPI {
     hint.textContent = this.sortSelected
       ? `Where does the ${this.sortSelected} go?`
       : 'Tap a fruit, then pick its bin — or drag!'
-    if (this.rerender) hint.style.animation = 'none'
     this.root.appendChild(hint)
 
     // Category bins
@@ -849,7 +849,7 @@ export class FruitMarketGame implements GameAPI {
 
       this.sortRemaining.forEach((fruitName, i) => {
         const extra = fruitName === this.sortSelected ? 'is-selected' : ''
-        const card = this.makeFruitCard(fruitName, i, extra, this.rerender)
+        const card = this.makeFruitCard(fruitName, i, extra)
         card.addEventListener('pointerenter', () => sfxPop())
         card.addEventListener('click', () => {
           this.root.querySelectorAll('.fruit-card.is-selected').forEach(c => c.classList.remove('is-selected'))
@@ -1136,7 +1136,7 @@ export class FruitMarketGame implements GameAPI {
         this.bridge.emitEvent('sortRoundComplete', { round: this.sortIdx, score: this.score })
         this.advanceTimer = window.setTimeout(() => this.advance(), 1500)
       }
-      setTimeout(() => { this.rerender = true; this.renderSort(); this.rerender = false }, 450)
+      setTimeout(() => this.renderSort(), 450)
     } else {
       sfxWrong()
       const bins = this.root.querySelectorAll('.sort-bin')
@@ -1162,7 +1162,7 @@ export class FruitMarketGame implements GameAPI {
 
     sfxWhoosh()
     this.sortSelected = fruit
-    this.rerender = true; this.renderSort(); this.rerender = false
+    this.renderSort()
 
     const bins = this.root.querySelectorAll('.sort-bin')
     const catIdx = round.categories.indexOf(cat)
