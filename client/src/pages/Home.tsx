@@ -39,6 +39,8 @@ export default function HomePage() {
         "learnfun-session",
         JSON.stringify({
           userName: user.displayName,
+          userId: session.userId,
+          hostId: session.hostId,
           voicePreference: voice,
           languageCode: language,
           sessionId: session.sessionId,

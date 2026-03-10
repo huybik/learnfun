@@ -141,6 +141,7 @@ async def create_session(
         "sessionId": session_id,
         "roomId": room_id,
         "userId": user_id,
+        "hostId": user_id,
         "token": token,
         "livekitToken": livekit_token,
         "livekitUrl": settings.LIVEKIT_URL,
@@ -194,6 +195,8 @@ async def join_session(session_id: str, user_name: str) -> dict:
 
     return {
         "roomId": session.room_id,
+        "userId": user_id,
+        "hostId": session.host_id,
         "token": token,
         "livekitToken": livekit_token,
         "livekitUrl": settings.LIVEKIT_URL,

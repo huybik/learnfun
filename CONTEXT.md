@@ -99,10 +99,10 @@ Interactive learning platform: AI teacher + teaching assistant guide students th
 - DB: `users.username` + `users.password_hash` columns (migration 002_auth.sql)
 
 ## Multiplayer Game Sync (Leader-Follower)
-- Room creator = leader (first to set `syncedGame.leader` in Yjs)
+- Room creator = leader (stable `hostId` from session metadata; Yjs leader is seeded from hostId, not whoever activates content first)
 - Game activation is stored in Yjs (`active`, `type`, `initData`) so late joiners can mount the current game without replaying SSE `content_ready`
 - Leader's game iframe runs authoritatively, emits `_fullState` event → written to Yjs
-- Followers skip game init, receive `_setRole` + `_sync`, and request `_getFullState` on iframe ready if the snapshot is missing
+- Followers still receive `init` for local asset/render bootstrap, but `_setRole` keeps them read-only; `_sync` then aligns them with leader state and they request `_getFullState` on iframe ready if the snapshot is missing
 - Player actions relayed: games emit `_relay` intents → follower enqueues action in Yjs array `game_actions` → leader dequeues and forwards to iframe
 - Per-player scores: individual `score_<userId>` Yjs keys (no read-modify-write race)
 - Leader attributes score deltas from authoritative game state to the acting player; followers inject their Yjs score back into their local HUD via `set(score, ...)`

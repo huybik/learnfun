@@ -89,6 +89,7 @@ export default function RoomPage() {
 
   // --- Custom hooks ---
   const sessionData = useSessionData();
+  const [resolvedHostId, setResolvedHostId] = useState<string | null>(sessionData?.hostId ?? null);
   const { transcript, addTranscript, transcriptEndRef } = useRoomTranscript();
 
   // --- LiveKit room connection ---
@@ -146,7 +147,42 @@ export default function RoomPage() {
     };
   }, [room.connectionState, addTranscript]);
 
+  useEffect(() => {
+    setResolvedHostId(sessionData?.hostId ?? null);
+  }, [sessionData?.hostId]);
+
+  useEffect(() => {
+    if (resolvedHostId || !roomId) return;
+    const ac = new AbortController();
+    fetch(`/api/room/${roomId}/meta`, { signal: ac.signal })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`Failed to load room meta (${res.status})`);
+        return res.json() as Promise<{ hostId?: string }>;
+      })
+      .then((data) => {
+        if (!data.hostId) return;
+        setResolvedHostId(data.hostId);
+        try {
+          const raw = localStorage.getItem("learnfun-session");
+          if (!raw) return;
+          const parsed = JSON.parse(raw) as Record<string, unknown>;
+          if (parsed.hostId === data.hostId) return;
+          parsed.hostId = data.hostId;
+          localStorage.setItem("learnfun-session", JSON.stringify(parsed));
+        } catch {
+          // Ignore local session cache update failures.
+        }
+      })
+      .catch((err) => {
+        if (!ac.signal.aborted) {
+          console.error("[RoomPage] Failed to resolve room host", err);
+        }
+      });
+    return () => ac.abort();
+  }, [resolvedHostId, roomId]);
+
   const userName = sessionData?.userName ?? "Student";
+  const roomHostId = resolvedHostId ?? null;
 
   const { participants: roomParticipants, localUserId } = useRoomParticipants(
     room.participants,
@@ -155,8 +191,14 @@ export default function RoomPage() {
   );
 
   // --- Leader / Follower ---
-  const isLeader = !!(localUserId && syncedGame.leader === localUserId);
-  const isFollower = !!(localUserId && syncedGame.leader && syncedGame.leader !== localUserId);
+  const authoritativeLeaderId = roomHostId ?? syncedGame.leader ?? null;
+  const isLeader = !!(localUserId && authoritativeLeaderId === localUserId);
+  const isFollower = !!(localUserId && authoritativeLeaderId && authoritativeLeaderId !== localUserId);
+
+  useEffect(() => {
+    if (!roomHostId || syncedGame.active || syncedGame.leader === roomHostId) return;
+    updateGameState({ leader: roomHostId });
+  }, [roomHostId, syncedGame.active, syncedGame.leader, updateGameState]);
 
   useEffect(() => {
     if (syncedGame.active && syncedGame.type && syncedGame.initData) {
@@ -260,8 +302,7 @@ export default function RoomPage() {
       clearPendingActions();
       clearPlayerState();
       addTranscript("system", "Content loaded!");
-      // First player to activate claims leader (host connects first)
-      const leader = syncedGame.leader || localUserId || null;
+      const leader = roomHostId || syncedGame.leader || localUserId || null;
       updateGameState({
         active: true,
         type: bundle.templateId.toLowerCase(),
@@ -272,7 +313,7 @@ export default function RoomPage() {
         turnOrder: [],
       });
     },
-    [addTranscript, clearPendingActions, clearPlayerState, updateGameState, syncedGame.leader, localUserId],
+    [addTranscript, clearPendingActions, clearPlayerState, updateGameState, roomHostId, syncedGame.leader, localUserId],
   );
 
   // --- Pause / Resume (used by both ControlBar and light_control) ---

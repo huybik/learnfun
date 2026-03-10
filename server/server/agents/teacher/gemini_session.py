@@ -158,7 +158,12 @@ class GeminiSession:
             log.warning("Already connected")
             return
 
-        log.info("Connecting to Gemini Live API", model=self._model)
+        log.info(
+            "Connecting to Gemini Live API",
+            model=self._model,
+            affective_dialog=self._affective_dialog,
+            proactive_audio=self._proactive_audio,
+        )
 
         config = self._build_config()
 

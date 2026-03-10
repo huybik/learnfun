@@ -1,4 +1,4 @@
-"""POST /api/session — create a new learning session."""
+"""Session APIs — create a session and inspect room metadata."""
 
 import asyncio
 
@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from server.agents.teacher.manager import spawn_teacher
 from server.logging import get_logger
 
-from .room_manager import create_session
+from .room_manager import create_session, get_session_by_room
 from .tokens import generate_livekit_token
 
 log = get_logger("api:session")
@@ -67,3 +67,16 @@ async def post_session(body: CreateSessionRequest, request: Request):
     except Exception as exc:
         log.error("Failed to create session", error=str(exc))
         raise HTTPException(status_code=500, detail="Failed to create session")
+
+
+@router.get("/room/{room_id}/meta")
+async def get_room_meta(room_id: str):
+    session = get_session_by_room(room_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    return {
+        "roomId": room_id,
+        "sessionId": session.session_id,
+        "hostId": session.host_id,
+    }

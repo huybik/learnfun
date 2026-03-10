@@ -3,6 +3,8 @@ import type { VoiceName, LanguageCode } from "@/config/constants";
 
 export interface SessionData {
   userName: string;
+  userId?: string;
+  hostId?: string;
   voicePreference: VoiceName;
   languageCode: LanguageCode;
   sessionId: string;

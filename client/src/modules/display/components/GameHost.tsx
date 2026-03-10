@@ -23,7 +23,7 @@ interface GameHostProps {
   initData: Record<string, unknown>;
   /** Peer players for multiplayer (sent as _peers action). */
   peers?: { id: string; name: string; score: number; phase: string | null }[];
-  /** If true, skip sending init data — follower waits for _sync from leader. */
+  /** If true, keep the game in read-only follower mode. */
   isFollower?: boolean;
   /** Called when the game sends a state update. */
   onStateUpdate?: (state: Record<string, unknown>) => void;
@@ -97,10 +97,8 @@ export const GameHost = forwardRef<GameHostHandle, GameHostProps>(
           case "ready":
             readyRef.current = true;
             syncRole();
-            // Game loaded — send init data (leader only; follower waits for _sync)
-            if (!isFollower) {
-              postToGame({ type: "init", data: initDataRef.current });
-            }
+            // Always init so followers can render base assets immediately.
+            postToGame({ type: "init", data: initDataRef.current });
             syncPeers(peersRef.current);
             onReady?.();
             break;
@@ -115,7 +113,7 @@ export const GameHost = forwardRef<GameHostHandle, GameHostProps>(
             break;
         }
       },
-      [isFollower, onEnd, onEvent, onReady, onStateUpdate, postToGame, syncPeers, syncRole],
+      [onEnd, onEvent, onReady, onStateUpdate, postToGame, syncPeers, syncRole],
     );
 
     useEffect(() => {

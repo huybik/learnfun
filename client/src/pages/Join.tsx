@@ -28,6 +28,8 @@ export default function JoinPage() {
         "learnfun-session",
         JSON.stringify({
           userName: user.displayName,
+          userId: session.userId,
+          hostId: session.hostId,
           sessionId,
           livekitToken: session.livekitToken,
           livekitUrl: session.livekitUrl,

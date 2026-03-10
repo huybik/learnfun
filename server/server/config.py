@@ -8,8 +8,8 @@ _ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 class Settings(BaseSettings):
     GEMINI_API_KEY: str
     GEMINI_LIVE_MODEL: str = "gemini-2.5-flash-native-audio-preview-12-2025"
-    GEMINI_AFFECTIVE_DIALOG: bool = True
-    GEMINI_PROACTIVE_AUDIO: bool = True
+    GEMINI_AFFECTIVE_DIALOG: bool = False
+    GEMINI_PROACTIVE_AUDIO: bool = False
     DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/learnfun"
     REDIS_URL: str = "redis://localhost:6379"
     LIVEKIT_URL: str = "ws://localhost:7880"
