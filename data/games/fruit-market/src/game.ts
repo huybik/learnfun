@@ -694,16 +694,12 @@ export class FruitMarketGame implements GameAPI {
       const isFlipped = this.memoryFlipped.includes(card.id) || this.memoryMatched.has(card.id)
       const isMatched = this.memoryMatched.has(card.id)
       const cardEl = el('div', 'fruit-card memory-card' + (isFlipped ? ' is-flipped' : '') + (isMatched ? ' is-matched' : ''))
+      cardEl.dataset.cardId = String(card.id)
       cardEl.style.animationDelay = `${i * 0.04}s`
       const inner = el('div', 'fruit-inner memory-inner')
 
       if (isFlipped) {
-        const svgWrap = el('div', 'fruit-svg')
-        svgWrap.innerHTML = getFruitSvg(card.fruit)
-        inner.appendChild(svgWrap)
-        const label = el('span', 'fruit-label')
-        label.textContent = card.fruit
-        inner.appendChild(label)
+        this.fillMemoryFront(inner, card.fruit)
       } else {
         const back = el('div', 'memory-back')
         back.textContent = '?'
@@ -1192,7 +1188,7 @@ export class FruitMarketGame implements GameAPI {
     if (this.memoryLocked || this.memoryFlipped.includes(cardId) || this.memoryMatched.has(cardId)) return
     this.memoryFlipped.push(cardId)
     sfxPop()
-    this.renderMemory()
+    this.flipMemoryCardDom(cardId)
 
     if (this.memoryFlipped.length === 2) {
       this.memoryLocked = true
@@ -1207,21 +1203,81 @@ export class FruitMarketGame implements GameAPI {
         this.memoryLocked = false
         this.awardPoints(10)
         this.bridge.emitEvent('memoryMatch', { fruit: c1.fruit, matched: this.memoryMatched.size / 2, total: this.memoryCards.length / 2, score: this.score })
+        this.matchMemoryCardDom(id1)
+        this.matchMemoryCardDom(id2)
+        this.updateMemoryHUD()
 
         if (this.memoryMatched.size === this.memoryCards.length) {
           this.bridge.emitEvent('memoryRoundComplete', { round: this.memoryIdx, score: this.score })
           this.advanceTimer = window.setTimeout(() => this.advance(), 1200)
         }
-        this.renderMemory()
         this.sync()
       } else {
         sfxWrong()
         this.bridge.emitEvent('memoryMiss', { fruit1: c1.fruit, fruit2: c2.fruit })
         setTimeout(() => {
+          this.unflipMemoryCardDom(id1)
+          this.unflipMemoryCardDom(id2)
           this.memoryFlipped = []
           this.memoryLocked = false
-          this.renderMemory()
         }, 1000)
+      }
+    }
+  }
+
+  private fillMemoryFront(inner: Element, fruit: string) {
+    inner.innerHTML = ''
+    const svgWrap = el('div', 'fruit-svg')
+    svgWrap.innerHTML = getFruitSvg(fruit)
+    inner.appendChild(svgWrap)
+    const label = el('span', 'fruit-label')
+    label.textContent = fruit
+    inner.appendChild(label)
+  }
+
+  private getMemoryCardEl(cardId: number): HTMLElement | null {
+    return this.root.querySelector(`[data-card-id="${cardId}"]`)
+  }
+
+  private flipMemoryCardDom(cardId: number) {
+    const cardEl = this.getMemoryCardEl(cardId)
+    if (!cardEl) return
+    cardEl.classList.add('is-flipped')
+    const inner = cardEl.querySelector('.memory-inner')!
+    const card = this.memoryCards.find(c => c.id === cardId)!
+    this.fillMemoryFront(inner, card.fruit)
+  }
+
+  private unflipMemoryCardDom(cardId: number) {
+    const cardEl = this.getMemoryCardEl(cardId)
+    if (!cardEl) return
+    cardEl.classList.remove('is-flipped')
+    const inner = cardEl.querySelector('.memory-inner')!
+    inner.innerHTML = ''
+    const back = el('div', 'memory-back')
+    back.textContent = '?'
+    inner.appendChild(back)
+    cardEl.addEventListener('pointerenter', () => sfxPop(), { once: true })
+    cardEl.addEventListener('click', () => this.handleMemoryFlip(cardId), { once: true })
+  }
+
+  private matchMemoryCardDom(cardId: number) {
+    const cardEl = this.getMemoryCardEl(cardId)
+    if (!cardEl) return
+    cardEl.classList.add('is-matched')
+  }
+
+  private updateMemoryHUD() {
+    const hudText = this.root.querySelector('.hud-center')
+    if (hudText) hudText.textContent = `Memory! ${this.memoryMatched.size / 2} / ${this.memoryCards.length / 2}`
+    const hudScore = this.root.querySelector('.hud-score-val')
+    if (hudScore) hudScore.textContent = String(this.coins)
+    const dots = this.root.querySelector('.progress-dots')
+    if (dots) {
+      dots.innerHTML = ''
+      const total = this.memoryCards.length / 2
+      for (let i = 0; i < total; i++) {
+        dots.appendChild(el('div', i < this.memoryMatched.size / 2 ? 'dot done' : i === this.memoryMatched.size / 2 ? 'dot active' : 'dot'))
       }
     }
   }
@@ -1301,26 +1357,39 @@ export class FruitMarketGame implements GameAPI {
     if (!this.juiceRecipe || this.juiceBasket.includes(fruit)) return
     const isCorrect = this.juiceRecipe.fruits.includes(fruit)
 
+    const cards = this.root.querySelectorAll<HTMLElement>('.fruit-card')
+    const pool = [...this.root.querySelectorAll('.fruit-label')].map(l => l.textContent?.toLowerCase())
+    const idx = pool.indexOf(fruit.toLowerCase())
+    const cardEl = idx >= 0 ? cards[idx] : undefined
+
     if (isCorrect) {
       this.juiceBasket.push(fruit)
-      const cards = this.root.querySelectorAll<HTMLElement>('.fruit-card')
-      const pool = [...this.root.querySelectorAll('.fruit-label')].map(l => l.textContent?.toLowerCase())
-      const idx = pool.indexOf(fruit.toLowerCase())
-      this.awardPoints(10, idx >= 0 ? cards[idx] : undefined)
+      this.awardPoints(10, cardEl)
       this.bridge.emitEvent('juiceCorrect', { fruit, recipe: this.juiceRecipe.name, score: this.score })
+      if (cardEl) { cardEl.classList.add('is-bought'); cardEl.style.pointerEvents = 'none' }
+      // Update recipe ingredient indicator
+      const ings = this.root.querySelectorAll<HTMLElement>('.recipe-ing')
+      this.juiceRecipe.fruits.forEach((f, i) => {
+        if (f === fruit && ings[i]) ings[i].classList.add('recipe-ing-done')
+      })
+      // Update HUD score
+      const hudScore = this.root.querySelector('.hud-score-val')
+      if (hudScore) hudScore.textContent = String(this.coins)
+
+      const allDone = this.juiceRecipe.fruits.every(f => this.juiceBasket.includes(f))
+      if (allDone) {
+        const hint = this.root.querySelector('.challenge-hint')
+        if (hint) hint.textContent = 'Delicious! 🎉'
+        this.advanceTimer = window.setTimeout(() => this.advance(), 2000)
+      }
     } else {
       sfxWrong()
       this.bridge.emitEvent('juiceWrong', { fruit, recipe: this.juiceRecipe.name })
-
-      const cards = this.root.querySelectorAll<HTMLElement>('.fruit-card')
-      const pool = [...this.root.querySelectorAll('.fruit-label')].map(l => l.textContent?.toLowerCase())
-      const idx = pool.indexOf(fruit.toLowerCase())
-      if (idx >= 0 && cards[idx]) {
-        cards[idx].classList.add('is-wrong')
-        setTimeout(() => cards[idx].classList.remove('is-wrong'), 500)
+      if (cardEl) {
+        cardEl.classList.add('is-wrong')
+        setTimeout(() => cardEl.classList.remove('is-wrong'), 500)
       }
     }
-    this.renderJuice()
     this.sync()
   }
 
