@@ -1,8 +1,8 @@
 import type { GameCtx, OddOneOutRound } from '../types'
 import { FRUIT_COLORS, COLOR_NAMES } from '../constants'
 import { el, shuffle } from '../utils'
-import { renderHUD, renderDots, makeFruitCard, streakHtml, awardPoints } from '../ui'
-import { sfxPop, sfxWrong, sfxWhoosh } from '../audio'
+import { renderHUD, renderDots, makeFruitCard, streakHtml, handleQuizPick, doQuizReveal } from '../ui'
+import { sfxPop } from '../audio'
 
 export function generateOddRounds(fruits: string[]): OddOneOutRound[] {
   if (fruits.length < 4) return []
@@ -65,33 +65,19 @@ export function renderOddOneOut(ctx: GameCtx) {
 }
 
 export function handleOddPick(ctx: GameCtx, fruit: string) {
-  const { root, s, bridge } = ctx
+  const { s } = ctx
   if (s.oddAnswered) return
   const round = s.oddRounds[s.oddIdx]
   if (!round) return
-
   s.oddAnswered = true
-  const isCorrect = fruit.toLowerCase() === round.odd.toLowerCase()
-
-  if (isCorrect) {
-    s.streak++
-    const cards = root.querySelectorAll<HTMLElement>('.fruit-card')
-    const idx = round.fruits.findIndex(f => f.toLowerCase() === fruit.toLowerCase())
-    awardPoints(ctx, 10, idx >= 0 ? cards[idx] : undefined)
-    bridge.emitEvent('oddCorrect', { round: s.oddIdx, odd: round.odd, score: s.score })
-  } else {
-    s.streak = 0; sfxWrong()
-    bridge.emitEvent('oddWrong', { round: s.oddIdx, picked: fruit, odd: round.odd })
-  }
-  renderOddOneOut(ctx)
-  ctx.sync()
-  s.advanceTimer = window.setTimeout(() => ctx.advance(), 2000)
+  handleQuizPick(ctx, fruit, round.odd, round.fruits, renderOddOneOut,
+    ['oddCorrect', { round: s.oddIdx, odd: round.odd, score: s.score }],
+    ['oddWrong', { round: s.oddIdx, picked: fruit, odd: round.odd }],
+  )
 }
 
 export function doOddReveal(ctx: GameCtx) {
-  const { s } = ctx
-  if (s.oddAnswered) return
-  s.oddAnswered = true; sfxWhoosh()
-  renderOddOneOut(ctx); ctx.sync()
-  s.advanceTimer = window.setTimeout(() => ctx.advance(), 2200)
+  if (ctx.s.oddAnswered) return
+  ctx.s.oddAnswered = true
+  doQuizReveal(ctx, renderOddOneOut)
 }

@@ -1,8 +1,8 @@
 import type { GameCtx, PatternRound } from '../types'
 import { getFruitSvg } from '../fruits'
 import { el, shuffle } from '../utils'
-import { renderHUD, renderDots, makeFruitCard, streakHtml, awardPoints } from '../ui'
-import { sfxPop, sfxWrong, sfxWhoosh } from '../audio'
+import { renderHUD, renderDots, makeFruitCard, streakHtml, handleQuizPick, doQuizReveal } from '../ui'
+import { sfxPop } from '../audio'
 
 export function generatePatternRounds(fruits: string[]): PatternRound[] {
   if (fruits.length < 2) return []
@@ -62,33 +62,19 @@ export function renderPattern(ctx: GameCtx) {
 }
 
 export function handlePatternPick(ctx: GameCtx, fruit: string) {
-  const { root, s, bridge } = ctx
+  const { s } = ctx
   if (s.patternAnswered) return
   const round = s.patternRounds[s.patternIdx]
   if (!round) return
-
   s.patternAnswered = true
-  const isCorrect = fruit.toLowerCase() === round.answer.toLowerCase()
-
-  if (isCorrect) {
-    s.streak++
-    const cards = root.querySelectorAll<HTMLElement>('.fruit-card')
-    const idx = round.options.findIndex(f => f.toLowerCase() === fruit.toLowerCase())
-    awardPoints(ctx, 10, idx >= 0 ? cards[idx] : undefined)
-    bridge.emitEvent('patternCorrect', { round: s.patternIdx, answer: round.answer, score: s.score })
-  } else {
-    s.streak = 0; sfxWrong()
-    bridge.emitEvent('patternWrong', { round: s.patternIdx, picked: fruit, answer: round.answer })
-  }
-  renderPattern(ctx)
-  ctx.sync()
-  s.advanceTimer = window.setTimeout(() => ctx.advance(), 2000)
+  handleQuizPick(ctx, fruit, round.answer, round.options, renderPattern,
+    ['patternCorrect', { round: s.patternIdx, answer: round.answer, score: s.score }],
+    ['patternWrong', { round: s.patternIdx, picked: fruit, answer: round.answer }],
+  )
 }
 
 export function doPatternReveal(ctx: GameCtx) {
-  const { s } = ctx
-  if (s.patternAnswered) return
-  s.patternAnswered = true; sfxWhoosh()
-  renderPattern(ctx); ctx.sync()
-  s.advanceTimer = window.setTimeout(() => ctx.advance(), 2200)
+  if (ctx.s.patternAnswered) return
+  ctx.s.patternAnswered = true
+  doQuizReveal(ctx, renderPattern)
 }

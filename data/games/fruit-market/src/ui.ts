@@ -1,6 +1,6 @@
 import type { GameCtx } from './types'
 import { getFruitSvg } from './fruits'
-import { sfxCorrect, sfxCoin } from './audio'
+import { sfxCorrect, sfxCoin, sfxWrong, sfxWhoosh } from './audio'
 import { el } from './utils'
 
 export function renderHUD(root: HTMLElement, coins: number, center: string, right = '') {
@@ -91,4 +91,35 @@ export function floatScore(card: HTMLElement, text: string) {
   f.style.top = `${rect.top}px`
   document.body.appendChild(f)
   f.addEventListener('animationend', () => f.remove())
+}
+
+/** Shared pick handler for single-answer quiz phases (oddoneout, pattern). */
+export function handleQuizPick(
+  ctx: GameCtx, picked: string, correct: string, pool: string[],
+  renderFn: (ctx: GameCtx) => void,
+  correctEvent: [string, Record<string, unknown>],
+  wrongEvent: [string, Record<string, unknown>],
+) {
+  const { root, s, bridge } = ctx
+  const isCorrect = picked.toLowerCase() === correct.toLowerCase()
+  if (isCorrect) {
+    s.streak++
+    const cards = root.querySelectorAll<HTMLElement>('.fruit-card')
+    const idx = pool.findIndex(f => f.toLowerCase() === picked.toLowerCase())
+    awardPoints(ctx, 10, idx >= 0 ? cards[idx] : undefined)
+    bridge.emitEvent(correctEvent[0], correctEvent[1])
+  } else {
+    s.streak = 0; sfxWrong()
+    bridge.emitEvent(wrongEvent[0], wrongEvent[1])
+  }
+  renderFn(ctx)
+  ctx.sync()
+  s.advanceTimer = window.setTimeout(() => ctx.advance(), 2000)
+}
+
+/** Shared reveal handler for single-answer quiz phases. */
+export function doQuizReveal(ctx: GameCtx, renderFn: (ctx: GameCtx) => void) {
+  sfxWhoosh()
+  renderFn(ctx); ctx.sync()
+  ctx.s.advanceTimer = window.setTimeout(() => ctx.advance(), 2200)
 }
