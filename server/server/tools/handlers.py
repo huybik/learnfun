@@ -288,14 +288,18 @@ async def handle_game_action(params: dict, ctx: ToolHandlerContext) -> ToolRespo
     # e.g. game_action(action="submitAnswer", answer="cat") instead of
     #      game_action(action="submitAnswer", params={answer: "cat"})
     for key, val in params.items():
-        if key not in ("action", "params"):
+        if key not in ("action", "params", "target_player"):
             action_params.setdefault(key, val)
+
+    payload = {"action": action, "params": action_params}
+    if params.get("target_player"):
+        payload["target_player"] = params["target_player"]
 
     channel = room_subject(SUBJECTS["GAME_ACTION"], room_id)
     await publish_event(
         channel=channel,
         event_type="game_action",
-        payload={"action": action, "params": action_params},
+        payload=payload,
         source_id=ctx.caller.id,
     )
 

@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING
 
+from pycrdt import Map
 from pycrdt.websocket import ASGIServer, WebsocketServer
 
 from server.logging import get_logger
@@ -78,6 +79,18 @@ async def stop_yjs(task: asyncio.Task) -> None:
     except asyncio.CancelledError:
         pass
     log.info("yjs_server_stopped")
+
+
+async def get_game_scores(room_id: str) -> dict[str, int]:
+    """Read per-player scores from the room's Yjs game map."""
+    if room_id not in yjs_server.rooms:
+        return {}
+    room = yjs_server.rooms[room_id]
+    game_map = room.ydoc.get("game", type=Map)
+    scores = game_map.get("scores")
+    if isinstance(scores, dict):
+        return scores
+    return {}
 
 
 def mount_yjs(app: FastAPI) -> None:

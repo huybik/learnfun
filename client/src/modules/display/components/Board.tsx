@@ -34,6 +34,8 @@ interface BoardProps {
   onGameEnd?: (results: Record<string, unknown>) => void;
   /** Called when the user's cursor moves over the board. */
   onCursorMove?: (position: { x: number; y: number }) => void;
+  /** Peer players for multiplayer scoreboard inside game. */
+  peers?: { id: string; name: string; score: number; phase: string | null }[];
   /** Ref to control the game iframe (e.g. send teacher actions). */
   gameHostRef?: React.Ref<GameHostHandle>;
 }
@@ -61,6 +63,7 @@ export const Board: React.FC<BoardProps> = ({
   onGameEvent,
   onGameEnd,
   onCursorMove,
+  peers,
   gameHostRef,
 }) => {
   const boardRef = useRef<HTMLDivElement>(null);
@@ -91,6 +94,7 @@ export const Board: React.FC<BoardProps> = ({
             ref={gameHostRef}
             gameId={gameId}
             initData={gameInitData}
+            peers={peers}
             onStateUpdate={onGameStateUpdate}
             onEvent={onGameEvent}
             onEnd={onGameEnd}

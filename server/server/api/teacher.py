@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from server.agents.teacher.manager import get_teacher, spawn_teacher
 from server.logging import get_logger
+from server.sync.yjs_server import get_game_scores
 
 from .tokens import generate_livekit_token
 
@@ -33,7 +34,15 @@ async def post_teacher_message(body: TeacherMessageBody):
         log.warning("No teacher active for room", room_id=body.roomId)
         raise HTTPException(status_code=404, detail="No teacher active for this room")
 
-    sent = await agent.send_text(body.text)
+    text = body.text
+    # Enrich game state updates with all players' scores from Yjs
+    if "[game_state_update]" in text:
+        scores = await get_game_scores(body.roomId)
+        if len(scores) > 1:
+            score_summary = " | ".join(f"{pid}: {s}" for pid, s in scores.items())
+            text += f" [all_scores: {score_summary}]"
+
+    sent = await agent.send_text(text)
     if not sent:
         log.warning("Teacher unavailable for message", room_id=body.roomId)
         raise HTTPException(status_code=503, detail="Teacher is temporarily unavailable")

@@ -37,6 +37,7 @@ export interface UIControlPayload {
 export interface GameActionPayload {
   action: string;
   params: Record<string, unknown>;
+  target_player?: string;
 }
 
 export interface ServerEventHandlers {

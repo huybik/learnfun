@@ -99,6 +99,10 @@ export class FruitMarketGame implements GameAPI, GameCtx {
         else if (this.s.phase === 'pattern') { this.s.patternIdx = clamp(to, 0, this.s.patternRounds.length - 1); this.s.patternAnswered = false }
         this.render()
       },
+      _peers: () => {
+        this.s.peers = (params.players as typeof this.s.peers) || []
+        this.renderPeers()
+      },
       end: () => this.finish(),
       set: () => {
         const field = String(params.field)
@@ -255,9 +259,29 @@ export class FruitMarketGame implements GameAPI, GameCtx {
 
   finish() { renderEnd(this) }
 
-  sync() { this.bridge.updateState(this.getState()) }
+  sync() { this.bridge.updateState(this.getState()); this.renderPeers() }
 
   // ---- Internal ----
+
+  private renderPeers() {
+    let bar = this.root.querySelector('#peers-bar') as HTMLElement
+    if (this.s.peers.length <= 1) {
+      bar?.remove()
+      return
+    }
+    if (!bar) {
+      bar = document.createElement('div')
+      bar.id = 'peers-bar'
+      bar.style.cssText = 'position:fixed;top:8px;right:8px;background:rgba(0,0,0,0.7);color:#fff;padding:8px 12px;border-radius:8px;font-size:12px;z-index:9999;font-family:system-ui;min-width:120px;'
+      this.root.appendChild(bar)
+    }
+    const sorted = [...this.s.peers].sort((a, b) => b.score - a.score)
+    bar.innerHTML = '<div style="font-weight:600;margin-bottom:4px;font-size:11px;text-transform:uppercase;opacity:0.7">Players</div>' +
+      sorted.map(p =>
+        `<div style="display:flex;justify-content:space-between;gap:12px;padding:2px 0;${p.score === this.s.score ? 'color:#fbbf24;font-weight:600' : ''}">` +
+        `<span>${p.name}</span><span>${p.score}</span></div>`
+      ).join('')
+  }
 
   private transitionToMiniGame(game: MiniGame) {
     const s = this.s
@@ -369,5 +393,6 @@ function createInitialState(): GameState {
     oddRounds: [], oddIdx: 0, oddAnswered: false,
     patternRounds: [], patternIdx: 0, patternAnswered: false,
     juiceRecipe: null, juiceBasket: [],
+    peers: [],
   }
 }

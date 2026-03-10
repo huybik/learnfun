@@ -21,6 +21,8 @@ interface GameHostProps {
   gameId: string;
   /** Initial data parsed from the filled bundle. */
   initData: Record<string, unknown>;
+  /** Peer players for multiplayer (sent as _peers action). */
+  peers?: { id: string; name: string; score: number; phase: string | null }[];
   /** Called when the game sends a state update. */
   onStateUpdate?: (state: Record<string, unknown>) => void;
   /** Called when the game emits a named event. */
@@ -30,10 +32,11 @@ interface GameHostProps {
 }
 
 export const GameHost = forwardRef<GameHostHandle, GameHostProps>(
-  ({ gameId, initData, onStateUpdate, onEvent, onEnd }, ref) => {
+  ({ gameId, initData, peers, onStateUpdate, onEvent, onEnd }, ref) => {
     const iframeRef = useRef<HTMLIFrameElement>(null);
     const initDataRef = useRef(initData);
     initDataRef.current = initData;
+    const prevPeersRef = useRef('');
 
     // Expose sendAction + captureScreenshot to parent via ref
     useImperativeHandle(ref, () => ({
@@ -93,6 +96,18 @@ export const GameHost = forwardRef<GameHostHandle, GameHostProps>(
       window.addEventListener("message", onMessage);
       return () => window.removeEventListener("message", onMessage);
     }, [onMessage]);
+
+    // Send peers to iframe when they change (JSON dedup)
+    useEffect(() => {
+      if (!peers) return;
+      const json = JSON.stringify(peers);
+      if (json === prevPeersRef.current) return;
+      prevPeersRef.current = json;
+      iframeRef.current?.contentWindow?.postMessage(
+        { type: "action", name: "_peers", params: { players: peers } },
+        window.location.origin,
+      );
+    }, [peers]);
 
     return (
       <iframe

@@ -65,6 +65,8 @@ export interface GameState {
   // juice
   juiceRecipe: DrinkRecipe | null
   juiceBasket: string[]
+  // multiplayer
+  peers: { id: string; name: string; score: number; phase: string | null }[]
 }
 
 export interface GameCtx {

@@ -5,9 +5,11 @@ import type { GameHostHandle } from "@/modules/display/components/GameHost";
 import { ControlBar } from "@/modules/display/components/ui/ControlBar";
 import { ParticipantList } from "@/modules/display/components/ui/ParticipantList";
 import { ScoreBoard } from "@/modules/display/components/ui/ScoreBoard";
+import { MultiplayerScoreboard } from "@/modules/display/components/ui/MultiplayerScoreboard";
 import { LoadingOverlay } from "@/modules/display/components/ui/LoadingOverlay";
 import { ChatInput } from "@/modules/display/components/ui/ChatInput";
 import { useRoom } from "@/modules/realtime/hooks/useRoom";
+import { useSync } from "@/modules/realtime/hooks/useSync";
 import { useVoice } from "@/modules/realtime/hooks/useVoice";
 import { useServerEvents, type ContentReadyPayload, type UIControlPayload, type GameActionPayload } from "@/modules/realtime/hooks/useServerEvents";
 import { useSessionData } from "@/modules/realtime/hooks/useSessionData";
@@ -90,11 +92,12 @@ export default function RoomPage() {
   const room = useRoom({
     livekitUrl,
     token: livekitToken,
-    yjsWsUrl: "", // Yjs not wired yet
+    yjsWsUrl: `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/yjs`,
     roomId,
     autoConnect: hasLiveKit,
   });
 
+  const { gameState: syncedGame, updateGameState } = useSync(room.syncStore);
   const voice = useVoice(room.livekitConnection);
 
   // Transcript via LiveKit data channel (lower latency than SSE)
@@ -128,6 +131,27 @@ export default function RoomPage() {
     room.localParticipant,
     sessionData?.userName ?? "You",
   );
+
+  // Set Yjs awareness (presence)
+  useEffect(() => {
+    const awareness = room.yjsProvider?.awareness;
+    if (!awareness || !localUserId) return;
+    awareness.setLocalStateField("user", {
+      id: localUserId,
+      name: sessionData?.userName ?? "Student",
+    });
+  }, [room.yjsProvider, localUserId, sessionData?.userName]);
+
+  // Keep awareness in sync with game phase
+  useEffect(() => {
+    const awareness = room.yjsProvider?.awareness;
+    if (!awareness || !localUserId) return;
+    awareness.setLocalStateField("game", {
+      phase: syncedGame.data?.[`${localUserId}_phase`] ?? null,
+      score: score,
+      active: isGameActive,
+    });
+  }, [room.yjsProvider, localUserId, syncedGame.data, score, isGameActive]);
 
   // Mark loading done once LiveKit connects (or immediately if no LiveKit)
   // Auto-enable mic so the teacher can hear the user
@@ -171,8 +195,9 @@ export default function RoomPage() {
       setFeedback(null);
       setHasOwnHUD(false);
       addTranscript("system", "Content loaded!");
+      updateGameState({ active: true, type: bundle.templateId.toLowerCase(), scores: {}, data: {}, turnOrder: [] });
     },
-    [addTranscript],
+    [addTranscript, updateGameState],
   );
 
   // --- Pause / Resume (used by both ControlBar and light_control) ---
@@ -234,10 +259,12 @@ export default function RoomPage() {
   // Teacher sends a game_action → forward to iframe
   const handleGameAction = useCallback(
     (data: GameActionPayload) => {
+      // If targeted to a specific player, only forward if it's us
+      if (data.target_player && data.target_player !== localUserId) return;
       console.log("[RoomPage] SSE game_action", data);
       gameHostRef.current?.sendAction(data.action, data.params);
     },
-    [],
+    [localUserId],
   );
 
   const sse = useServerEvents(roomId || null, {
@@ -263,8 +290,15 @@ export default function RoomPage() {
       if (typeof state.score === "number") setScore(state.score);
       if (state.hasOwnHUD) setHasOwnHUD(true);
       sendToTeacher(`[game_state_update] ${JSON.stringify(state)}`);
+      // Sync score to Yjs for multiplayer scoreboard
+      if (typeof state.score === "number" && localUserId) {
+        updateGameState({
+          scores: { ...syncedGame.scores, [localUserId]: state.score },
+          data: { ...syncedGame.data, [`${localUserId}_phase`]: state.phase ?? null },
+        });
+      }
     },
-    [sendToTeacher],
+    [sendToTeacher, localUserId, updateGameState, syncedGame.scores, syncedGame.data],
   );
 
   const handleGameEvent = useCallback(
@@ -304,8 +338,9 @@ export default function RoomPage() {
       if (results) {
         sendToTeacher(`[game_event:gameEnd] ${JSON.stringify(results)}`);
       }
+      updateGameState({ active: false });
     },
-    [sendToTeacher],
+    [sendToTeacher, updateGameState],
   );
 
   const handleEndGame = useCallback(() => {
@@ -317,7 +352,8 @@ export default function RoomPage() {
     setIsGameActive(false);
     setGameId(undefined);
     setGameInitData(undefined);
-  }, [sendToTeacher]);
+    updateGameState({ active: false });
+  }, [sendToTeacher, updateGameState]);
 
   // --- Text chat: send to AI teacher ---
   const handleSendText = useCallback(
@@ -327,6 +363,19 @@ export default function RoomPage() {
     },
     [addTranscript, sendToTeacher],
   );
+
+  // Peers for in-game multiplayer scoreboard
+  const gamePeers = useMemo(() => {
+    if (!syncedGame.active || Object.keys(syncedGame.scores).length < 2) return undefined;
+    return roomParticipants
+      .filter(p => p.id in syncedGame.scores)
+      .map(p => ({
+        id: p.id,
+        name: p.name,
+        score: syncedGame.scores[p.id] ?? 0,
+        phase: (syncedGame.data?.[`${p.id}_phase`] as string) ?? null,
+      }));
+  }, [syncedGame, roomParticipants]);
 
   // Connection state for ControlBar
   const controlBarConnectionState = useMemo(() => {
@@ -361,6 +410,9 @@ export default function RoomPage() {
         </span>
         <span className={cn("rounded-full px-1.5 py-0.5", room.connectionState === "connected" ? "bg-emerald-900/40 text-emerald-400" : "bg-neutral-800/40 text-neutral-500")}>
           {room.connectionState === "connected" ? "LK" : "LK off"}
+        </span>
+        <span className={cn("rounded-full px-1.5 py-0.5", room.syncStore ? "bg-emerald-900/40 text-emerald-400" : "bg-neutral-800/40 text-neutral-500")}>
+          {room.syncStore ? "Yjs" : "Yjs off"}
         </span>
       </div>
       <div className="relative">
@@ -408,6 +460,7 @@ export default function RoomPage() {
               gameInitData={gameInitData}
               gameHostRef={gameHostRef}
               localUserId={localUserId}
+              peers={gamePeers}
               onGameStateUpdate={handleGameStateUpdate}
               onGameEvent={handleGameEvent}
               onGameEnd={handleGameEnd}
@@ -481,6 +534,13 @@ export default function RoomPage() {
       overlay={
         <>
           {!hasOwnHUD && statusBadges("top")}
+          {syncedGame.active && Object.keys(syncedGame.scores).length > 1 && (
+            <MultiplayerScoreboard
+              scores={syncedGame.scores}
+              participants={roomParticipants}
+              localUserId={localUserId}
+            />
+          )}
         </>
       }
       loadingOverlay={<LoadingOverlay visible={loading} message={loadingMsg} />}
