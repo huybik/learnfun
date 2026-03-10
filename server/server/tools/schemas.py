@@ -69,8 +69,17 @@ class ExecuteFilledBundleParams(BaseModel):
 
 
 class LightControlParams(BaseModel):
-    action: Literal["highlight", "pause", "resume", "emote", "focus"]
-    params: dict[str, Any] = Field(default_factory=dict)
+    action: Literal["highlight", "focus", "emote", "pause", "resume"] = Field(
+        description=(
+            "highlight/focus: draw attention to a screen region (requires x, y). "
+            "emote: show an emoji animation (requires emoji). "
+            "pause: pause the lesson (mute mic+speaker). "
+            "resume: resume the lesson (unmute mic+speaker)."
+        )
+    )
+    x: Optional[float] = Field(default=None, description="Horizontal position 0-1, required for highlight/focus")
+    y: Optional[float] = Field(default=None, description="Vertical position 0-1, required for highlight/focus")
+    emoji: Optional[str] = Field(default=None, description="Emoji character, required for emote")
 
 
 class SignalFeedbackParams(BaseModel):
@@ -179,8 +188,10 @@ TOOL_DEFINITIONS: list[ToolRegistration] = [
     ToolRegistration(
         name="light_control",
         description=(
-            "Manipulate the classroom UI: highlight elements, pause/resume "
-            "activity, trigger avatar emotes, or focus on a region."
+            "Control the classroom UI. Actions: "
+            "highlight/focus (point at screen region), "
+            "emote (show emoji animation), "
+            "pause/resume (mute/unmute the lesson)."
         ),
         schema_cls=LightControlParams,
         allowed_callers=["teacher"],

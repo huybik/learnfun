@@ -129,10 +129,13 @@ async def handle_light_control(params: dict, ctx: ToolHandlerContext) -> ToolRes
     room_id = ctx.caller.session_id
     channel = room_subject(SUBJECTS["UI_CONTROL"], room_id)
 
+    # Rebuild nested params from flattened schema for client compatibility
+    inner = {k: v for k, v in params.items() if k != "action" and v is not None}
+
     await publish_event(
         channel=channel,
         event_type="light_control",
-        payload={"action": params["action"], "params": params.get("params", {})},
+        payload={"action": params["action"], "params": inner},
         source_id=ctx.caller.id,
     )
 

@@ -148,6 +148,19 @@ export default function RoomPage() {
     [addTranscript],
   );
 
+  // --- Pause / Resume (used by both ControlBar and light_control) ---
+  const handlePause = useCallback(() => {
+    setIsPaused(true);
+    voice.setMicEnabled(false);
+    if (voice.isSpeakerEnabled) voice.toggleSpeaker();
+  }, [voice]);
+
+  const handleResume = useCallback(() => {
+    setIsPaused(false);
+    voice.setMicEnabled(true);
+    if (!voice.isSpeakerEnabled) voice.toggleSpeaker();
+  }, [voice]);
+
   // --- SSE event handlers ---
   const handleContentReady = useCallback(
     (event: ContentReadyPayload) => {
@@ -176,6 +189,10 @@ export default function RoomPage() {
           setFocusPoint({ x: p.x as number, y: p.y as number });
         } else if (action === "emote") {
           setEmoteTrigger({ emoji: (p.emoji as string) ?? "✨", key: Date.now() });
+        } else if (action === "pause") {
+          handlePause();
+        } else if (action === "resume") {
+          handleResume();
         }
       } else if (type === "signal_feedback") {
         const ft = payload.feedbackType as string;
@@ -191,7 +208,7 @@ export default function RoomPage() {
         }
       }
     },
-    [addTranscript],
+    [addTranscript, handlePause, handleResume],
   );
 
   // Teacher sends a game_action → forward to iframe
@@ -299,18 +316,6 @@ export default function RoomPage() {
     }
     return "disconnected" as const;
   }, [sse.connected, room.connectionState, hasLiveKit, isPaused]);
-
-  const handlePause = useCallback(() => {
-    setIsPaused(true);
-    voice.setMicEnabled(false);
-    if (voice.isSpeakerEnabled) voice.toggleSpeaker();
-  }, [voice]);
-
-  const handleResume = useCallback(() => {
-    setIsPaused(false);
-    voice.setMicEnabled(true);
-    if (!voice.isSpeakerEnabled) voice.toggleSpeaker();
-  }, [voice]);
 
   // --- Error / no-token screens ---
   if (!token) {
