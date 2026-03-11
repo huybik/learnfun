@@ -64,11 +64,12 @@ def validate_session_token(token: str) -> dict | None:
 # ---------------------------------------------------------------------------
 
 
-def generate_livekit_token(room_id: str, user_id: str, role: str) -> str:
+def generate_livekit_token(room_id: str, user_id: str, role: str, name: str = "") -> str:
     """Generate a LiveKit-compatible access token."""
     now = datetime.now(timezone.utc)
     payload = {
         "sub": user_id,
+        "name": name or user_id,
         "iss": settings.LIVEKIT_API_KEY,
         "iat": now,
         "exp": now + timedelta(hours=LIVEKIT_TOKEN_EXPIRY_HOURS),

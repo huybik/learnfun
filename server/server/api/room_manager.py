@@ -107,7 +107,7 @@ async def create_session(
         role="host",
         session_id=session_id,
     )
-    livekit_token = generate_livekit_token(room_id, user_id, "host")
+    livekit_token = generate_livekit_token(room_id, user_id, "host", name=user_name)
 
     # Publish room created event (non-critical)
     try:
@@ -177,7 +177,7 @@ async def join_session(session_id: str, user_name: str) -> dict:
         role="student",
         session_id=session_id,
     )
-    livekit_token = generate_livekit_token(session.room_id, user_id, "student")
+    livekit_token = generate_livekit_token(session.room_id, user_id, "student", name=user_name)
 
     # Publish join event (non-critical)
     try:

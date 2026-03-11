@@ -49,7 +49,7 @@ async def post_session(body: CreateSessionRequest, request: Request):
                 "language": body.languageCode,
             },
         }
-        teacher_token = generate_livekit_token(room_id, "ai-teacher", "teacher")
+        teacher_token = generate_livekit_token(room_id, "ai-teacher", "teacher", name="AI Teacher")
 
         task = asyncio.create_task(
             spawn_teacher(

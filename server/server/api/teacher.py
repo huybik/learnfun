@@ -117,7 +117,7 @@ async def post_ensure_teacher(body: EnsureTeacherBody, request: Request):
     else:
         participants = [user_profile]
 
-    teacher_token = generate_livekit_token(room_id, "ai-teacher", "teacher")
+    teacher_token = generate_livekit_token(room_id, "ai-teacher", "teacher", name="AI Teacher")
 
     task = asyncio.create_task(
         spawn_teacher(
