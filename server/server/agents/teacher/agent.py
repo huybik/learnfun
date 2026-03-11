@@ -124,7 +124,7 @@ class TeacherAgent:
             p.get("id", ""): p.get("name", "Unknown")
             for p in self._participants if p.get("id")
         }
-        self._current_speaker: str | None = None
+        self._active_speakers: set[str] = set()
 
         self._gemini: Optional[GeminiSession] = None
         self._room: Optional[rtc.Room] = None
@@ -386,18 +386,24 @@ class TeacherAgent:
     # ------------------------------------------------------------------
 
     def _on_active_speakers_changed(self, speakers: list[rtc.Participant]) -> None:
-        """Send a text hint to Gemini when the active speaker changes."""
+        """Send a text hint to Gemini when active speakers change."""
         if len(self._participant_names) <= 1:
             return
-        human = [s for s in speakers if s.identity != "ai-teacher"]
-        new_speaker = human[0].identity if human else None
-        if new_speaker and new_speaker != self._current_speaker:
-            self._current_speaker = new_speaker
-            name = self._participant_names.get(new_speaker, new_speaker)
-            if self._gemini and self._gemini.connected:
-                self._track_task(asyncio.create_task(
-                    self._gemini.send_text(f"[now speaking: {name}]")
-                ))
+
+        new_active = {s.identity for s in speakers if s.identity != "ai-teacher"}
+        if new_active == self._active_speakers:
+            return
+
+        self._active_speakers = new_active
+
+        if not new_active:
+            msg = "[silence — no one is speaking]"
+        else:
+            names = [self._participant_names.get(sid, sid) for sid in new_active]
+            msg = f"[now speaking: {', '.join(names)}]"
+
+        if self._gemini and self._gemini.connected:
+            self._track_task(asyncio.create_task(self._gemini.send_text(msg)))
 
     async def notify_participant_joined(self, user_id: str, name: str) -> None:
         """Notify the teacher that a new participant joined the room."""
@@ -411,8 +417,7 @@ class TeacherAgent:
     async def notify_participant_left(self, user_id: str, name: str) -> None:
         """Notify the teacher that a participant left the room."""
         self._participant_names.pop(user_id, None)
-        if user_id == self._current_speaker:
-            self._current_speaker = None
+        self._active_speakers.discard(user_id)
         if self._gemini and self._gemini.connected:
             await self._gemini.send_text(f"[system: {name} has left the room]")
 
