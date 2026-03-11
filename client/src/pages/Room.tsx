@@ -1,7 +1,6 @@
 import { useParams, useSearchParams } from "react-router-dom";
 import { RoomLayout } from "@/modules/display/layout/RoomLayout";
 import { Board } from "@/modules/display/components/Board";
-import type { GameHostHandle } from "@/modules/display/components/GameHost";
 import { ControlBar } from "@/modules/display/components/ui/ControlBar";
 import { ParticipantList } from "@/modules/display/components/ui/ParticipantList";
 import { ScoreBoard } from "@/modules/display/components/ui/ScoreBoard";
@@ -9,18 +8,17 @@ import { MultiplayerScoreboard } from "@/modules/display/components/ui/Multiplay
 import { LoadingOverlay } from "@/modules/display/components/ui/LoadingOverlay";
 import { ChatInput } from "@/modules/display/components/ui/ChatInput";
 import { useRoom } from "@/modules/realtime/hooks/useRoom";
-import { useSync } from "@/modules/realtime/hooks/useSync";
 import { useVoice } from "@/modules/realtime/hooks/useVoice";
-import { useServerEvents, type ContentReadyPayload, type UIControlPayload, type GameActionPayload } from "@/modules/realtime/hooks/useServerEvents";
+import { useServerEvents, type UIControlPayload } from "@/modules/realtime/hooks/useServerEvents";
 import { useSessionData } from "@/modules/realtime/hooks/useSessionData";
 import { useRoomTranscript } from "@/modules/realtime/hooks/useRoomTranscript";
 import { useRoomParticipants } from "@/modules/realtime/hooks/useRoomParticipants";
+import { useGameSession } from "@/hooks/useGameSession";
 import { RoomEvent } from "livekit-client";
 import { MdGroup } from "react-icons/md";
 import { cn } from "@/lib/utils";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { FilledBundle } from "@/types/content";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 const MSG_FADE_MS = 5000; // messages fade after 5s
 const MSG_VISIBLE_MS = 800; // fade-out transition duration
@@ -28,24 +26,6 @@ const MSG_VISIBLE_MS = 800; // fade-out transition duration
 // ---------------------------------------------------------------------------
 // Room Page
 // ---------------------------------------------------------------------------
-
-/** Parse game init data from a filled bundle. */
-function parseInitData(bundle: FilledBundle): Record<string, unknown> {
-  const raw = bundle.filledSlots["game_data"];
-  if (!raw) return bundle.filledSlots;
-  try {
-    return typeof raw === "string" ? JSON.parse(raw) : raw;
-  } catch {
-    return bundle.filledSlots;
-  }
-}
-
-function createActionId(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
 
 export default function RoomPage() {
   const { roomId = "" } = useParams<{ roomId: string }>();
@@ -60,25 +40,10 @@ export default function RoomPage() {
   const [showParticipants, setShowParticipants] = useState(false);
   const [chatExpanded, setChatExpanded] = useState(false);
 
-  // --- Content state ---
-  const [gameId, setGameId] = useState<string | undefined>();
-  const [gameInitData, setGameInitData] = useState<Record<string, unknown> | undefined>();
-  const [isGameActive, setIsGameActive] = useState(false);
-
   // --- Screen effects state ---
   const [focusPoint, setFocusPoint] = useState<{ x: number; y: number } | null>(null);
   const [emoteTrigger, setEmoteTrigger] = useState<{ emoji: string; key: number } | null>(null);
   const [confetti, setConfetti] = useState(false);
-
-  // --- Score HUD state ---
-  const [score, setScore] = useState(0);
-  const [streak, setStreak] = useState(0);
-  const [feedback, setFeedback] = useState<{ type: "correct" | "incorrect"; key: number; points?: number } | null>(null);
-  const [hasOwnHUD, setHasOwnHUD] = useState(false);
-
-  // --- Game host ref (to send teacher actions to iframe) ---
-  const gameHostRef = useRef<GameHostHandle>(null);
-  const screenshotTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // --- Auto-fade timer: re-render every second to update message opacity ---
   const [, setTick] = useState(0);
@@ -87,7 +52,7 @@ export default function RoomPage() {
     return () => clearInterval(id);
   }, []);
 
-  // --- Custom hooks ---
+  // --- Session & host resolution ---
   const sessionData = useSessionData();
   const [resolvedHostId, setResolvedHostId] = useState<string | null>(sessionData?.hostId ?? null);
   const { transcript, addTranscript, transcriptEndRef } = useRoomTranscript();
@@ -105,21 +70,7 @@ export default function RoomPage() {
     autoConnect: hasLiveKit,
   });
 
-  const {
-    gameState: syncedGame,
-    updateGameState,
-    setPlayerScore,
-    setPlayerPhase,
-    enqueuePendingAction,
-    removePendingAction,
-    clearPendingActions,
-    clearPlayerState,
-  } = useSync(room.syncStore);
   const voice = useVoice(room.livekitConnection);
-  const pendingActionFromRef = useRef<string | null>(null);
-  const authoritativeScoreRef = useRef(0);
-  const lastFollowerScoreRef = useRef<number | null>(null);
-  const [gameReady, setGameReady] = useState(false);
 
   // Transcript via LiveKit data channel (lower latency than SSE)
   useEffect(() => {
@@ -190,49 +141,15 @@ export default function RoomPage() {
     sessionData?.userName ?? "You",
   );
 
-  // --- Leader / Follower ---
-  const authoritativeLeaderId = roomHostId ?? syncedGame.leader ?? null;
-  const isLeader = !!(localUserId && authoritativeLeaderId === localUserId);
-  const isFollower = !!(localUserId && authoritativeLeaderId && authoritativeLeaderId !== localUserId);
-
-  useEffect(() => {
-    if (!roomHostId || syncedGame.active || syncedGame.leader === roomHostId) return;
-    updateGameState({ leader: roomHostId });
-  }, [roomHostId, syncedGame.active, syncedGame.leader, updateGameState]);
-
-  useEffect(() => {
-    if (syncedGame.active && syncedGame.type && syncedGame.initData) {
-      setGameId(syncedGame.type);
-      setGameInitData(syncedGame.initData);
-      setIsGameActive(true);
-      setHasOwnHUD(syncedGame.type === "fruit-market");
-      return;
-    }
-    setGameId(undefined);
-    setGameInitData(undefined);
-    setIsGameActive(false);
-    setGameReady(false);
-    setHasOwnHUD(false);
-  }, [syncedGame.active, syncedGame.type, syncedGame.initData]);
-
-  useEffect(() => {
-    setGameReady(false);
-    lastFollowerScoreRef.current = null;
-  }, [gameId]);
-
-  useEffect(() => {
-    if (!localUserId) return;
-    const nextScore = syncedGame.scores[localUserId] ?? 0;
-    setScore(nextScore);
-
-    if (!isFollower || !gameReady) {
-      lastFollowerScoreRef.current = null;
-      return;
-    }
-    if (lastFollowerScoreRef.current === nextScore) return;
-    lastFollowerScoreRef.current = nextScore;
-    gameHostRef.current?.sendAction("set", { field: "score", value: nextScore });
-  }, [localUserId, syncedGame.scores, isFollower, gameReady]);
+  // --- Game session (lifecycle, sync, scores, teacher comms) ---
+  const game = useGameSession({
+    syncStore: room.syncStore,
+    roomId,
+    localUserId,
+    roomHostId,
+    roomParticipants,
+    addTranscript,
+  });
 
   // Set Yjs awareness (presence)
   useEffect(() => {
@@ -249,11 +166,11 @@ export default function RoomPage() {
     const awareness = room.yjsProvider?.awareness;
     if (!awareness || !localUserId) return;
     awareness.setLocalStateField("game", {
-      phase: syncedGame.data?.[`${localUserId}_phase`] ?? null,
-      score: score,
-      active: isGameActive,
+      phase: game.localPhase,
+      score: game.score,
+      active: game.isGameActive,
     });
-  }, [room.yjsProvider, localUserId, syncedGame.data, score, isGameActive]);
+  }, [room.yjsProvider, localUserId, game.localPhase, game.score, game.isGameActive]);
 
   // Mark loading done once LiveKit connects (or immediately if no LiveKit)
   // Auto-enable mic so the teacher can hear the user
@@ -286,37 +203,7 @@ export default function RoomPage() {
     return () => ac.abort();
   }, [hasLiveKit, room.connectionState]);
 
-  // --- Content activation ---
-  const activateBundle = useCallback(
-    (bundle: FilledBundle) => {
-      const initData = parseInitData(bundle);
-      setGameId(bundle.templateId.toLowerCase());
-      setGameInitData(initData);
-      setIsGameActive(true);
-      setScore(0);
-      setStreak(0);
-      setFeedback(null);
-      setHasOwnHUD(bundle.templateId.toLowerCase() === "fruit-market");
-      authoritativeScoreRef.current = 0;
-      pendingActionFromRef.current = null;
-      clearPendingActions();
-      clearPlayerState();
-      addTranscript("system", "Content loaded!");
-      const leader = roomHostId || syncedGame.leader || localUserId || null;
-      updateGameState({
-        active: true,
-        type: bundle.templateId.toLowerCase(),
-        leader,
-        initData,
-        fullState: null,
-        data: {},
-        turnOrder: [],
-      });
-    },
-    [addTranscript, clearPendingActions, clearPlayerState, updateGameState, roomHostId, syncedGame.leader, localUserId],
-  );
-
-  // --- Pause / Resume (used by both ControlBar and light_control) ---
+  // --- Pause / Resume ---
   const handlePause = useCallback(() => {
     setIsPaused(true);
     voice.setMicEnabled(false);
@@ -329,31 +216,7 @@ export default function RoomPage() {
     if (!voice.isSpeakerEnabled) voice.toggleSpeaker();
   }, [voice]);
 
-  // --- Leader: watch queued actions → forward to game iframe ---
-  useEffect(() => {
-    if (!isLeader || !gameReady || syncedGame.pendingActions.length === 0) return;
-    const { id, from, name, params } = syncedGame.pendingActions[0];
-    pendingActionFromRef.current = name === "_getFullState" ? null : from;
-    gameHostRef.current?.sendAction(name, params);
-    removePendingAction(id);
-  }, [gameReady, isLeader, syncedGame.pendingActions, removePendingAction]);
-
-  // --- Follower: watch fullState → send _sync to game iframe ---
-  useEffect(() => {
-    if (!isFollower || !gameReady || !syncedGame.fullState) return;
-    gameHostRef.current?.sendAction("_sync", { state: syncedGame.fullState });
-  }, [gameReady, isFollower, syncedGame.fullState]);
-
-  // --- SSE event handlers ---
-  const handleContentReady = useCallback(
-    (event: ContentReadyPayload) => {
-      const { contentId, bundle } = event.payload;
-      console.log("[RoomPage] SSE content_ready", { contentId });
-      activateBundle(bundle as FilledBundle);
-    },
-    [activateBundle],
-  );
-
+  // --- SSE: UI control (screen effects, pause/resume, teacher feedback) ---
   const handleUIControl = useCallback(
     (data: UIControlPayload) => {
       const { type, payload } = data;
@@ -373,7 +236,7 @@ export default function RoomPage() {
       } else if (type === "signal_feedback") {
         const ft = payload.feedbackType as string;
         if (ft === "correct" || ft === "incorrect") {
-          setFeedback({ type: ft, key: Date.now(), points: payload.points as number | undefined });
+          game.triggerFeedback(ft, payload.points as number | undefined);
         }
         if (ft === "correct") {
           setConfetti(true);
@@ -384,230 +247,23 @@ export default function RoomPage() {
         }
       }
     },
-    [addTranscript, handlePause, handleResume],
+    [addTranscript, handlePause, handleResume, game.triggerFeedback],
   );
-
-  // Teacher sends a game_action → forward to iframe
-  const handleGameAction = useCallback(
-    (data: GameActionPayload) => {
-      // If targeted to a specific player, only forward if it's us
-      if (data.target_player && data.target_player !== localUserId) return;
-      console.log("[RoomPage] SSE game_action", data);
-      gameHostRef.current?.sendAction(data.action, data.params);
-    },
-    [localUserId],
-  );
-
-  const handleGameReady = useCallback(() => {
-    setGameReady(true);
-    if (!isFollower) return;
-    if (syncedGame.fullState) {
-      gameHostRef.current?.sendAction("_sync", { state: syncedGame.fullState });
-      return;
-    }
-    if (!localUserId) return;
-    enqueuePendingAction({
-      id: createActionId(),
-      from: localUserId,
-      name: "_getFullState",
-      params: {},
-      ts: Date.now(),
-    });
-  }, [enqueuePendingAction, isFollower, localUserId, syncedGame.fullState]);
 
   const sse = useServerEvents(roomId || null, {
-    onContentReady: handleContentReady,
+    onContentReady: game.handleContentReady,
     onUIControl: handleUIControl,
-    onGameAction: handleGameAction,
+    onGameAction: game.handleGameAction,
   });
-
-  // --- Game → Teacher: forward state updates and events ---
-  const sendToTeacher = useCallback(
-    (text: string) => {
-      fetch("/api/teacher/message", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roomId, text }),
-      }).catch((err) => console.error("[RoomPage] Teacher message error", err));
-    },
-    [roomId],
-  );
-
-  const handleGameStateUpdate = useCallback(
-    (state: Record<string, unknown>) => {
-      if (state.hasOwnHUD) setHasOwnHUD(true);
-      if (localUserId) {
-        setPlayerPhase(localUserId, (state.phase as string) ?? null);
-      }
-      if (isLeader && typeof state.score === "number") {
-        const scoreDelta = state.score - authoritativeScoreRef.current;
-        const actedBy = pendingActionFromRef.current || localUserId;
-        if (actedBy && scoreDelta !== 0) {
-          const nextScore = Math.max(0, (syncedGame.scores[actedBy] || 0) + scoreDelta);
-          setPlayerScore(actedBy, nextScore);
-        }
-        authoritativeScoreRef.current = state.score;
-      }
-      pendingActionFromRef.current = null;
-      // Only leader sends state updates to teacher
-      if (isLeader) {
-        sendToTeacher(`[game_state_update] ${JSON.stringify(state)}`);
-      }
-    },
-    [sendToTeacher, localUserId, setPlayerPhase, isLeader, setPlayerScore, syncedGame.scores],
-  );
-
-  const handleGameEvent = useCallback(
-    (name: string, data: Record<string, unknown>) => {
-      // --- Leader: handle _fullState from game → broadcast via Yjs ---
-      if (name === "_fullState") {
-        if (isLeader) {
-          updateGameState({ fullState: data.state as Record<string, unknown> });
-        }
-        return; // Internal event, don't send to teacher
-      }
-
-      // --- Follower: relay actions to leader via Yjs queue ---
-      if (name === "_relay" && isFollower && localUserId) {
-        enqueuePendingAction({
-          id: createActionId(),
-          from: localUserId,
-          name: data.name as string,
-          params: (data.params as Record<string, unknown>) ?? {},
-          ts: Date.now(),
-        });
-        return; // Internal event
-      }
-
-      // --- Local feedback for all players ---
-      if (name === "correctAnswer") {
-        setStreak((s) => s + 1);
-        setFeedback({ type: "correct", key: Date.now(), points: 10 });
-      } else if (name === "incorrectAnswer") {
-        setStreak(0);
-        setFeedback({ type: "incorrect", key: Date.now() });
-      }
-
-      // --- Leader only: send events to teacher + screenshot ---
-      if (isLeader) {
-        if (name === "gameStarted") {
-          if (screenshotTimerRef.current) clearTimeout(screenshotTimerRef.current);
-          screenshotTimerRef.current = setTimeout(async () => {
-            screenshotTimerRef.current = null;
-            const dataUrl = await gameHostRef.current?.captureScreenshot();
-            if (dataUrl) {
-              fetch("/api/teacher/image", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ roomId, imageBase64: dataUrl }),
-              }).catch((err) => console.error("[RoomPage] Screenshot send error", err));
-            }
-          }, 500);
-        }
-        sendToTeacher(`[game_event:${name}] ${JSON.stringify(data)}`);
-      }
-    },
-    [sendToTeacher, roomId, isLeader, isFollower, localUserId, updateGameState, enqueuePendingAction],
-  );
-
-  const handleGameEnd = useCallback(
-    (results?: Record<string, unknown>) => {
-      setIsGameActive(false);
-      if (isLeader) {
-        authoritativeScoreRef.current = 0;
-        pendingActionFromRef.current = null;
-        clearPendingActions();
-        clearPlayerState();
-        if (results) {
-          sendToTeacher(`[game_event:gameEnd] ${JSON.stringify(results)}`);
-        }
-        // Persist scores to DB
-        if (Object.keys(syncedGame.scores).length > 0) {
-          fetch("/api/game/end", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              roomId,
-              gameType: syncedGame.type ?? "unknown",
-              scores: syncedGame.scores,
-              details: results ?? {},
-            }),
-          }).catch((err) => console.error("[RoomPage] Score persist error", err));
-        }
-        updateGameState({
-          active: false,
-          type: null,
-          leader: null,
-          initData: null,
-          fullState: null,
-          data: {},
-          turnOrder: [],
-        });
-      }
-    },
-    [sendToTeacher, clearPendingActions, clearPlayerState, updateGameState, isLeader, roomId, syncedGame.scores, syncedGame.type],
-  );
-
-  const handleEndGame = useCallback(() => {
-    if (screenshotTimerRef.current) {
-      clearTimeout(screenshotTimerRef.current);
-      screenshotTimerRef.current = null;
-    }
-    if (!isLeader) {
-      return;
-    }
-    sendToTeacher(`[game_event:gameEnd] ${JSON.stringify({ outcome: "closed_by_user" })}`);
-    // Persist scores to DB
-    if (Object.keys(syncedGame.scores).length > 0) {
-      fetch("/api/game/end", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          roomId,
-          gameType: syncedGame.type ?? "unknown",
-          scores: syncedGame.scores,
-        }),
-      }).catch((err) => console.error("[RoomPage] Score persist error", err));
-    }
-    authoritativeScoreRef.current = 0;
-    pendingActionFromRef.current = null;
-    clearPendingActions();
-    clearPlayerState();
-    setIsGameActive(false);
-    setGameId(undefined);
-    setGameInitData(undefined);
-    updateGameState({
-      active: false,
-      type: null,
-      leader: null,
-      initData: null,
-      fullState: null,
-      data: {},
-      turnOrder: [],
-    });
-  }, [sendToTeacher, clearPendingActions, clearPlayerState, updateGameState, isLeader, roomId, syncedGame.scores, syncedGame.type]);
 
   // --- Text chat: send to AI teacher ---
   const handleSendText = useCallback(
     (text: string) => {
       addTranscript("user", text, true);
-      sendToTeacher(`[${userName}] ${text}`);
+      game.sendToTeacher(`[${userName}] ${text}`);
     },
-    [addTranscript, sendToTeacher, userName],
+    [addTranscript, game.sendToTeacher, userName],
   );
-
-  // Peers for in-game multiplayer scoreboard
-  const gamePeers = useMemo(() => {
-    if (!syncedGame.active || Object.keys(syncedGame.scores).length < 2) return undefined;
-    return roomParticipants
-      .filter(p => p.id in syncedGame.scores)
-      .map(p => ({
-        id: p.id,
-        name: p.name,
-        score: syncedGame.scores[p.id] ?? 0,
-        phase: (syncedGame.data?.[`${p.id}_phase`] as string) ?? null,
-      }));
-  }, [syncedGame, roomParticipants]);
 
   // Connection state for ControlBar
   const controlBarConnectionState = useMemo(() => {
@@ -686,7 +342,7 @@ export default function RoomPage() {
 
   return (
     <RoomLayout
-      hud={isGameActive && !hasOwnHUD ? <ScoreBoard score={score} streak={streak} feedback={feedback} /> : undefined}
+      hud={game.isGameActive && !game.hasOwnHUD ? <ScoreBoard score={game.score} streak={game.streak} feedback={game.feedback} /> : undefined}
       board={
         <div className="relative flex h-full flex-col">
           {/* Error banner */}
@@ -699,16 +355,16 @@ export default function RoomPage() {
           {/* Main content board */}
           <div className="flex-1 overflow-hidden">
             <Board
-              gameId={gameId}
-              gameInitData={gameInitData}
-              gameHostRef={gameHostRef}
+              gameId={game.gameId}
+              gameInitData={game.gameInitData}
+              gameHostRef={game.gameHostRef}
               localUserId={localUserId}
-              peers={gamePeers}
-              isFollower={isFollower}
-              onGameStateUpdate={handleGameStateUpdate}
-              onGameEvent={handleGameEvent}
-              onGameEnd={handleGameEnd}
-              onGameReady={handleGameReady}
+              peers={game.gamePeers}
+              isFollower={game.isFollower}
+              onGameStateUpdate={game.handleGameStateUpdate}
+              onGameEvent={game.handleGameEvent}
+              onGameEnd={game.handleGameEnd}
+              onGameReady={game.handleGameReady}
               focusPoint={focusPoint}
               emoteTrigger={emoteTrigger}
               confetti={confetti}
@@ -766,22 +422,22 @@ export default function RoomPage() {
           onMuteToggle={() => voice.toggleMic()}
           isCameraOn={isCameraOn}
           onCameraToggle={() => setIsCameraOn(!isCameraOn)}
-          isGameActive={isGameActive}
-          onEndGame={handleEndGame}
+          isGameActive={game.isGameActive}
+          onEndGame={game.endGame}
           connectionState={controlBarConnectionState}
           onConnect={() => room.connect()}
           onPause={handlePause}
           onResume={handleResume}
         >
-          {hasOwnHUD && statusBadges("bottom")}
+          {game.hasOwnHUD && statusBadges("bottom")}
         </ControlBar>
       }
       overlay={
         <>
-          {!hasOwnHUD && statusBadges("top")}
-          {syncedGame.active && Object.keys(syncedGame.scores).length > 1 && (
+          {!game.hasOwnHUD && statusBadges("top")}
+          {game.isGameActive && Object.keys(game.scores).length > 1 && (
             <MultiplayerScoreboard
-              scores={syncedGame.scores}
+              scores={game.scores}
               participants={roomParticipants}
               localUserId={localUserId}
             />
