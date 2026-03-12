@@ -40,10 +40,6 @@ export function renderJuice(ctx: GameCtx) {
   `
   root.appendChild(drinkCard)
 
-  const hint = el('div', 'challenge-hint')
-  hint.textContent = allDone ? 'Delicious! \u{1F389}' : 'Pick the right fruits to make the drink!'
-  root.appendChild(hint)
-
   if (!allDone) {
     const pool = [...s.juiceRecipe.fruits]
     const distractors = shuffle(s.learnedFruits.filter(f => !pool.includes(f))).slice(0, 3)
@@ -100,8 +96,6 @@ export function handleJuicePick(ctx: GameCtx, fruit: string) {
 
     const allDone = s.juiceRecipe.fruits.every(f => s.juiceBasket.includes(f))
     if (allDone) {
-      const hint = root.querySelector('.challenge-hint')
-      if (hint) hint.textContent = 'Delicious! \u{1F389}'
       if (!s.isFollower) {
         s.advanceTimer = window.setTimeout(() => ctx.advance(), 2000)
       }
